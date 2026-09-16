@@ -44,7 +44,7 @@ The baseline protocol in [module-architecture.md](module-architecture.md) requir
 
 | Scenario | Required result |
 | --- | --- |
-| Two same-point APPENDs followed by ADVANCE | Both instructions retire into staging; one sealed group is admitted and both ports fire together. |
+| Two APPENDs planned for one logical TCU cycle, then ADVANCE | Both APPENDs retire after entering the same bounded open group; ADVANCE seals it, one complete group is admitted, and both ports fire on the planned TCU edge. |
 | Oversized staging group, excessive per-port firing width, or insufficient total destination capacity | Immediate typed fault, not a stall depending on a later instruction. |
 | START before the first real point is ready | The empty origin may be skipped; a future point succeeds only if admitted before its original due edge. |
 | Empty TCU stream during measurement feedback | Timer continues; a timely later point succeeds and an expired one fails without rebasing. |

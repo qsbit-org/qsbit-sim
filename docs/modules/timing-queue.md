@@ -19,16 +19,16 @@ flowchart LR
     U["Atomic TimingPoint admission"] --> P["FIFO head inspection"]
     S[("interval; label; manifest")] <--> P
     P --> D["due label and capacity"]
-    K["Activation: scheduled edge or event"] -.-> P
+    K["Activation: Called within TCU edge"] -.-> P
 ```
 
-The dashed activation edge is a scheduling or call relationship. The solid arrows carry records or results. The state shape identifies the only owner of the mutable state; it is not an additional SystemC process.
+The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
 
 ## Behavior
 
 **Activation:** Admission appends on a TCU edge; the timer inspects and removes a due old head in that same owner transition.
 
-**Transition:** Preserve ordered intervals and labels. Derive every due cycle from the cumulative producer cursor, including periods when the FIFO is empty. An empty manifest is a valid wait-only point; absence of a queue entry is not itself a fault.
+**Transition:** Keep admitted timing points in producer order. Each entry carries an interval, label and expected-member list. Add its interval to the prior logical due cycle; do not restart timing from the admission tick, even if the queue was empty meanwhile. An empty member list is an intentional wait-only point; an empty FIFO alone is not a fault.
 
 **Time and visibility:** Only the old head may fire on the current edge. New entries cannot be inspected as due until a later edge. Empty queue does not pause T_D or rebase a later entry.
 
@@ -36,4 +36,4 @@ The dashed activation edge is a scheduling or call relationship. The solid arrow
 
 **Focused verification:** Test first point at logical cycle zero, wait-only labels, feedback-driven empty gap, late entry, FIFO full and manifest mismatch.
 
-The module uses the baseline [producer and edge-order rules](../module-architecture.md#4-baseline-protocol-and-event-ordering). Any future timing profile that changes these rules must document its own behavior and tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.

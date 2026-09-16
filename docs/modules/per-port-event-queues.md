@@ -19,16 +19,16 @@ flowchart LR
     U["TCU atomic event admission"] --> P["manifest match by label"]
     S[("per-port FIFO bank")] <--> P
     P --> D["complete due candidate batch"]
-    K["Activation: scheduled edge or event"] -.-> P
+    K["Activation: Called within TCU edge"] -.-> P
 ```
 
-The dashed activation edge is a scheduling or call relationship. The solid arrows carry records or results. The state shape identifies the only owner of the mutable state; it is not an additional SystemC process.
+The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
 
 ## Behavior
 
 **Activation:** Admission appends on a TCU edge; label broadcast reads old heads in that owner transition.
 
-**Transition:** For due label L, compare exactly the manifest’s IDs and counts with each port head. Fire all matching members as one candidate batch. Leave ports absent from the manifest idle; leave future-label entries queued. Do not drain more than configured port width using zero-time loops.
+**Transition:** When the timer reaches label L, compare the timing point’s expected IDs and per-port counts with the previously committed queue heads. Only a complete match becomes one candidate launch batch; remove those members once. Ports absent from the list stay idle and future-label entries remain queued. The configured per-port width cannot be bypassed with zero-time loops.
 
 **Time and visibility:** Logical matching and launch preflight share a TCU edge; separate C++ helper calls do not add clock cycles.
 
@@ -36,4 +36,4 @@ The dashed activation edge is a scheduling or call relationship. The solid arrow
 
 **Focused verification:** Test two simultaneous ports, idle unmentioned port, extra and missing entry, per-port width and queue-full backpressure.
 
-The module uses the baseline [producer and edge-order rules](../module-architecture.md#4-baseline-protocol-and-event-ordering). Any future timing profile that changes these rules must document its own behavior and tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.

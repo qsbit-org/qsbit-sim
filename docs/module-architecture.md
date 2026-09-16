@@ -62,7 +62,7 @@ The solid path carries modeled hardware requests, events, and results. The dashe
 
 - `IsaDecoder` and `IsaSemantics`: pure C++ functions, independent of SystemC.
 - `CpuCycleModel`: `step(CpuCycleInput) -> CpuCycleOutput`, with a replaceable implementation and an explicit timing-profile identifier.
-- `TimelineProducer`: owns bounded open-group staging, producer cursor, and at most one frozen submission; it produces `TimingPoint` and `ReservedEvent` records without advancing the TCU clock.
+- `TimelineProducer`: holds the bounded group being planned at the producer cursor and at most one sealed group awaiting TCU admission; it produces `TimingPoint` and `ReservedEvent` records without advancing the TCU clock.
 - `TcuCycleModel`: `step(TcuCycleInput) -> TcuCycleOutput`, containing the timing queue, event queues, timer, and dispatch state.
 - `DeviceRuntime`: owns physical resource reservations and the sole caller of `IQuantumBackend`; batches all actions at a physical timestamp before evolving shared quantum state. The backend cannot advance the SystemC clock.
 - Small SystemC wrappers: call these models on the appropriate edges, own the ports and events, and apply the same-time publication rule.
@@ -70,6 +70,16 @@ The solid path carries modeled hardware requests, events, and results. The dashe
 These are logical module boundaries, not one SystemC process per box. A CPU-domain owner contains the pipeline, producer, and measurement scoreboard; a TCU-domain owner contains admission, queue state, timer, and launch preflight. Pure helper calls within either owner do not add a cycle. DeviceRuntime owns timed physical events and quantum state access. Communication between owners uses committed channels as defined in Section 4.
 
 The public records use fixed-width integers and a versioned serialization. At minimum, `TimingPoint` has an epoch, monotone label, interval in TCU cycles, and an expected-event manifest; `ReservedEvent` has that epoch and label, stable event and instruction IDs, port, codeword, a resolved immutable action descriptor, and optional condition and measurement tokens; `TraceEvent` has global integer tick, clock domain and local cycle, event kind, identity, and status. Group descriptors also carry a configuration hash and per-port event counts. `EndOfStream` carries the epoch, stream ID and last admitted label (absent for an empty stream); the receiver checks that ordering before closing input. It has no hardware timing label of its own. Replies distinguish `ProducerAccepted`, `GroupAdmitted`, `CpuResultVisible`, and typed rejection. An optional derived global fire tick is valid only while the future TCU run state is known; it does not replace the timing queue and label-matched event queues. A deferred synchronization extension must invalidate predictions beyond an unresolved pause.
+
+### Timing terms used below
+
+- **Simulation tick:** one unit on the global SystemC time grid. CPU and TCU edges occur at configured ticks. It is not host execution time.
+- **Producer cursor:** the TCU *logical cycle being planned* by the CPU-side producer. It is not the current CPU cycle, current TCU timer value, or current simulation tick.
+- **Open group (staging):** a capacity-limited list of operations planned for one producer-cursor position. Successive `APPEND` operations may add members to it. The group is not yet in a TCU queue.
+- **Sealed group (frozen submission):** an open group whose label, interval and member list are fixed. The producer may have at most one such group awaiting a matching TCU admission reply in the baseline.
+- **Admission versus firing:** `GroupAdmitted` means the entire sealed group entered the timing queue and the required per-port queues. Firing occurs later, when the TCU timer reaches its due logical cycle. `ProducerAccepted` is earlier still: it only confirms bounded CPU-side staging.
+
+For example, with producer cursor 4, `APPEND(A)` and `APPEND(B)` place two operations in the open group for logical TCU cycle 4. `ADVANCE(3)` seals that group, waits for `GroupAdmitted`, then moves the cursor to 7. Neither `APPEND` nor `ADVANCE` directly advances SystemC time or the TCU timer; the TCU fires the group at cycle 4 only if it was admitted before that cycle's due edge.
 
 ## 3. Module map
 
@@ -86,30 +96,32 @@ The [module contract index](modules/README.md) links to one behavior description
 
 ## 4. Baseline protocol and event ordering
 
+This section specifies the handoffs between modules: when an operation counts as accepted, which receiver edge can observe a message, what the TCU may fire on one edge, and when a result or stop becomes visible. These rules make timing independent of SystemC process registration and incidental delta-cycle order. Module-local behavior belongs in [the individual contracts](modules/README.md).
+
 ### 4.1 Producer operations and progress
 
-These semantic operations are the proposed instruction-adapter contract; final encodings remain open. The producer starts at logical cycle zero with an implicit empty origin. APPEND creates a real point there. FLUSH on the still-empty initial origin closes it locally without a queue entry; positive ADVANCE may leave it locally without submission. All subsequent open points, even empty ones, are real timing points. It never has more than one sealed submission in flight.
+These are proposed semantic operations, not final instruction encodings. The producer starts with its cursor at logical TCU cycle zero and no real group yet. The first `APPEND` opens a group at cycle zero. `FLUSH` on the still-empty origin closes it locally; positive `ADVANCE` can also move past it without sending an empty entry. Once the producer has opened a real point, even a point with no events is submitted when sealed: it can represent an intentional wait. At most one sealed group awaits admission at a time.
 
 | Operation | Acceptance and completion | Effect |
 | --- | --- | --- |
-| APPEND(event) | Returns `ProducerAccepted` after bounded staging and any measurement slot have been reserved. | Adds an immutable event to the current open point. The CPU may retire this instruction and issue the next APPEND. |
+| APPEND(event) | Returns `ProducerAccepted` after the event has a place in bounded staging and any measurement slot is reserved. | Adds the event to the open group at the producer cursor. The CPU may retire this instruction and issue another APPEND for the same planned TCU cycle. |
 | ADVANCE(0) | Completes locally. | Does not seal, add a label, or reopen a flushed point. |
-| ADVANCE(d), d > 0 | Seals the current point if still open, waits for its `GroupAdmitted` reply, then completes. If already flushed or still at the initial empty origin, it completes locally. | Opens a new point at `cursor+d`; overflow faults. An open empty point is submitted with an empty manifest, preserving wait-only timing. |
-| FLUSH | Seals a real open point and waits for group admission. The initial empty origin closes locally; already flushed is idempotent. | Leaves the cursor at the sealed point; later APPEND at that cursor is invalid until positive ADVANCE. |
+| ADVANCE(d), d > 0 | If a real group is open, seals it and waits for its `GroupAdmitted` reply. If it was already flushed or the producer is still at the initial empty origin, no group is sent. | Moves the producer cursor to `cursor+d` after any required reply; overflow faults. A real open group with no events is submitted with an empty manifest as a wait-only point. |
+| FLUSH | Seals a real open group and waits for `GroupAdmitted`. The initial empty origin closes locally; repeating FLUSH has no further effect. | Keeps the cursor at that logical cycle. A later APPEND there is invalid until positive ADVANCE opens a new cycle. |
 | READ_RESULT(token) | Performs FLUSH if needed, then waits for that token's CPU-visible result; consumes the slot. | Cannot wait forever for a measurement left in an unsubmitted open group. |
 | END | Performs FLUSH, then publishes ordered end-of-stream metadata after FLUSH completion, including any required group reply. | Closes production. Simulator success requires the drain rule below, not just CPU retirement of END. |
 
-The active instruction drives a small explicit state machine, such as `NeedSeal -> AwaitGroupAck -> AdvanceCursor`, without reissuing side effects while stalled. Before APPEND succeeds, the producer checks open-group storage, per-port firing width, total queue capacity, and reserved measurement slots. An impossible group faults immediately; occupancy backpressure is allowed only when another owner can free the resource. This prevents both self-dependent staging stalls and a request permanently larger than its destination. The start event is configured outside the instruction stream, so CPU prefill backpressure cannot prevent the timer from starting.
+A blocking instruction keeps explicit progress state, such as `NeedSeal -> AwaitGroupAck -> AdvanceCursor`. A retry after a stall resumes from that state; it must not submit the same group twice. Before APPEND succeeds, the producer checks open-group storage, per-port firing width, total queue capacity, and reserved measurement slots. An impossible group faults immediately; occupancy backpressure is allowed only when another owner can free the resource. This prevents both self-dependent staging stalls and a request permanently larger than its destination. The start event is configured outside the instruction stream, so CPU prefill backpressure cannot prevent the timer from starting.
 
 ### 4.2 Crossing and TCU edge order
 
-For a message published at global tick p, let r0 be the first receiver active edge **strictly after p**. A configured crossing latency of N receiver edges, N >= 1, makes it eligible at `r0 + (N-1)*receiver_period`. N is a protocol latency, not a claim about an RTL synchronizer's flop count. Apply this rule separately to group requests, group replies and measurement feedback. A held group that becomes eligible remains eligible while capacity is unavailable. Epoch and ID matching prevent repeated acceptance.
+A sender's message cannot be consumed on a receiver edge at the same simulation tick as publication. For a message published at global tick p, let r0 be the first receiver active edge **strictly after p**. A configured crossing latency of N receiver edges, N >= 1, makes it eligible at `r0 + (N-1)*receiver_period`. For example, with N=1 and receiver edges at ticks 20 and 40, a request published at tick 20 is first eligible at tick 40. N is a protocol latency, not a claim about an RTL synchronizer's flop count. Apply this rule separately to group requests, group replies and measurement feedback. After a held group becomes eligible, it remains pending if the TCU queues lack temporary free space; the request is not lost or resent. Epoch and ID matching prevent repeated acceptance.
 
 At each TCU edge, the one TCU owner performs this transition:
 
 1. Sample prior committed state and eligible messages. If reset applies, perform only reset.
 2. Set the current `T_D` according to start and run state. Determine any due old queue head, validate its full manifest and condition snapshot, and preflight its physical resource intervals.
-3. Evaluate candidate admission using **old** queue occupancy. A slot freed by firing this edge is available at the next edge. Require the new group's cumulative due cycle to be strictly greater than current `T_D`; before start, require its due tick to be no earlier than start and its admission strictly before that tick.
+3. Evaluate candidate admission using **old** queue occupancy. A slot freed by firing on this edge cannot be used for a new admission until the next TCU edge. Require the new group's cumulative due cycle to be strictly greater than current `T_D`; before start, require its due tick to be no earlier than start and its admission strictly before that tick.
 4. If validation detects a fatal error, stop with a typed fault before publishing any launch or successful admission from this transition. Otherwise commit the due group's removal, launch batch, accepted group's insertion, and corresponding replies once.
 5. Commit newly eligible fast-history updates for use at the next TCU edge.
 
@@ -117,7 +129,7 @@ No newly admitted group fires on its own admission edge. Timer, queue matching a
 
 ### 4.3 Empty queues, start and end
 
-There is no automatic timer pause on queue emptiness. Remember the last admitted cursor and derive the next due cycle by adding its interval, even if arrival is much later. A future group arriving before its original deadline can resume an empty stream. A group arriving on or after its due edge faults, with no rebasing onto its arrival time. A missing manifested member is an internal invariant violation; an unmentioned idle port is valid. Optional expected-point watchdogs need explicit contracts and do not follow merely from an empty queue.
+An empty timing queue means that no point is currently ready to fire; it does not pause the TCU timer. Remember the last admitted cursor and derive the next due cycle by adding its interval, even if the next group arrives much later. A future group arriving before its original deadline can continue the stream. A group arriving on or after its due edge faults: admission never moves its planned time to the arrival tick. A missing manifested member is an internal invariant violation; an unmentioned idle port is valid. Optional expected-point watchdogs need explicit contracts and do not follow merely from an empty queue.
 
 A start with an empty queue is observable but not immediately fatal: the producer may still submit a point whose due cycle is in the future. A point at cycle zero must have been admitted before start. END permits a successful stop only after its closure marker is visible, all timing and event queues have drained, every scheduled physical event has completed, every pending measurement has reached its reserved CPU-visible slot, and all enabled feedback crossings have delivered their messages and released their delivery credits. An unconsumed visible CPU result slot is retained as final state and is not a pending delivery credit. Unconsumed visible results can be reported in the final state. Watchdog expiry reports an incomplete run; it cannot invent a successful end of stream.
 

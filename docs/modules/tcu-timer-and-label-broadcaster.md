@@ -19,16 +19,16 @@ flowchart LR
     U["TCU clock and timing head"] --> P["single edge timer step"]
     S[("T_D; start; interval")] <--> P
     P --> D["label broadcast and trace"]
-    K["Activation: scheduled edge or event"] -.-> P
+    K["Activation: TCU rising edge"] -.-> P
 ```
 
-The dashed activation edge is a scheduling or call relationship. The solid arrows carry records or results. The state shape identifies the only owner of the mutable state; it is not an additional SystemC process.
+The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
 
 ## Behavior
 
 **Activation:** Wake on TCU rising edge; an external configured start enables it independently of CPU progress.
 
-**Transition:** At start edge S set T_D=0. At edge S+nP use T_D=n and fire an old head due at n. Broadcast one label to every queue and check the entire manifested group. Continue counting during empty-stream gaps. A future sync profile may pause T_D while global simulation time continues.
+**Transition:** On configured start edge S, set `T_D=0`. With TCU period P, edge `S+nP` has `T_D=n`. If a previously admitted timing-queue head is due at n, broadcast its label and check the whole expected event group before firing. Continue incrementing `T_D` through empty-queue gaps; a future synchronization profile may pause this local counter while global simulation time continues.
 
 **Time and visibility:** No label is fired merely because an sc_event occurs; only the defined TCU edge controls this timer. A new group admitted on the same edge cannot fire.
 
@@ -36,4 +36,4 @@ The dashed activation edge is a scheduling or call relationship. The solid arrow
 
 **Focused verification:** Test S+nP arithmetic, cycle-zero prefill, empty queue, zero waits, future point after feedback and reset on a due edge.
 
-The module uses the baseline [producer and edge-order rules](../module-architecture.md#4-baseline-protocol-and-event-ordering). Any future timing profile that changes these rules must document its own behavior and tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
