@@ -10,7 +10,7 @@ Pure C++ library called by the CPU owner. It does not own the PC, GPRs or a Syst
 | --- | --- |
 | Upstream inputs | Fetched 32-bit word, PC, operand values, ISA extension profile and privilege assumptions. |
 | Downstream outputs | Typed decoded operation, architectural effect description or typed fault; control operations go to the quantum instruction adapter. |
-| State owner and retained state | No mutable architectural state. Tables of encoding masks and semantics are immutable for one run. |
+| State owner and retained state | No mutable architectural state. Tables of encoding masks and semantics are immutable for the simulation session. |
 
 ## Module diagram
 

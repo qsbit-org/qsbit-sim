@@ -8,7 +8,7 @@ One CPU-domain owner, normally wrapped by a clock-sensitive `SC_METHOD`; its pip
 
 | Direction | Contract |
 | --- | --- |
-| Upstream inputs | Prior committed memory response, producer-operation reply, visible measurement token, reset epoch and CPU edge. |
+| Upstream inputs | Prior committed memory response, producer-operation reply, CPU-visible measurement result with its token, reset epoch and CPU edge. |
 | Downstream outputs | Stable memory and control requests, retirement record, PC and GPR state, stall reason and trace records. |
 | State owner and retained state | PC, GPRs, pipeline latches, unresolved branch and fault state, held request ID and retirement sequence. |
 
@@ -30,7 +30,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Transition:** Read prior committed inputs; resolve older branch and fault outcomes; advance the chosen pipeline; publish an irreversible store or control operation only from the oldest authorized non-speculative instruction. Hold its ID and operands unchanged during backpressure. Retire APPEND on ProducerAccepted; other operations use their barriers.
 
-**Time and visibility:** An acknowledgment published on a CPU edge is visible only on a later receiver edge under the crossing rule. No incidental delta cycle completes a pipeline stage.
+**Time and visibility:** A cross-owner reply such as `GroupAdmitted` follows the strict receiver-edge rule. `ProducerAccepted` is a local return inside the CPU-domain transition and adds no crossing latency. The selected CPU timing profile determines retirement; delta cycles never complete an extra pipeline stage.
 
 **Reset and errors:** Reset clears pipeline and register state and restores loaded entry PC. A later protocol failure terminates the run as a simulator fault; it cannot retroactively turn a retired operation into a precise CPU trap.
 

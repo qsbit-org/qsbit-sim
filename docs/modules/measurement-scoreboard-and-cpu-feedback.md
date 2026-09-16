@@ -10,7 +10,7 @@ Token and slot state belongs to the CPU-domain producer and scoreboard; a separa
 | --- | --- |
 | Upstream inputs | Authorized acquisition APPEND, tagged discrimination completion, READ_RESULT request and CPU edge. |
 | Downstream outputs | ProducerAccepted with token; CPU-visible result or a typed token fault. |
-| State owner and retained state | Bounded `(epoch, measurement_id, slot, generation)` records in Free, Pending or Visible state, plus CPU-delivery credits. |
+| State owner and retained state | Bounded `(epoch, measurement_id, result_slot, slot_generation)` records in Free, Pending or Visible state, plus CPU-delivery credits. |
 
 ## Module diagram
 
@@ -28,9 +28,9 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Activation:** Allocate at producer acceptance; crossing completion becomes eligible on a later CPU edge; READ_RESULT acts through CPU commit path.
 
-**Transition:** Reserve CPU completion capacity before accepting acquisition, mark the slot Pending immediately, and return its token. The discriminator refers to this token without another allocation. Deliver its exact generation after crossing latency. READ_RESULT first flushes its producer point, waits for Visible, consumes that token and frees its CPU slot.
+**Transition:** Reserve CPU completion capacity before accepting acquisition, mark the slot Pending immediately, and return its token. The discriminator refers to this token without another allocation. Match both epoch and slot_generation when delivering the result after crossing latency. READ_RESULT first seals any open group through FLUSH, waits for Visible, consumes that token and frees its CPU slot.
 
-**Time and visibility:** Device completion, discrimination completion, CPU crossing arrival and architectural use are separate ticks. Distinct tokens may complete out of order. Fast-path credits are independent of CPU slot consumption.
+**Time and visibility:** Acquisition end, result-ready, CPU-visible, and result-consumption are separate milestones. Some may share a global tick when the profile permits it; result-ready to CPU-visible always obeys the strict crossing rule. Distinct tokens may complete out of order. Fast-path credits are independent of CPU slot consumption.
 
 **Reset and errors:** Unknown, consumed, wrong-generation or wrong-epoch reads fault. Old-epoch completion cannot refill a reused slot. Session reset invalidates all generations.
 

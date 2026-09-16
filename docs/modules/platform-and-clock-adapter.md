@@ -9,7 +9,7 @@ Platform setup owns the immutable timing profile; a session coordinator owns res
 | Direction | Contract |
 | --- | --- |
 | Upstream inputs | CLI configuration, the device profile, selected ISA profile, and a requested session start or reset tick. |
-| Downstream outputs | CPU and TCU clocks, bounded channel parameters, DeviceRuntime timing, epoch and trace metadata. |
+| Downstream outputs | CPU and TCU clocks, cross-domain mailbox capacities and latencies, DeviceRuntime timing, epoch and trace metadata. |
 | State owner and retained state | Validated integer tick resolution, clock periods and phases, start tick, current session epoch, and immutable configuration hash. |
 
 ## Module diagram
@@ -32,7 +32,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Time and visibility:** Global simulation time never rewinds. At a coincident reset and clock edge, reset dominates and suppresses that edge’s ordinary state transition. Ordinary clocks still create every modeled edge.
 
-**Reset and errors:** Reject unrepresentable or inconsistent parameters before sc_start. Session reset increments the epoch, invalidates old callbacks and initializes the backend; a future controller-only reset needs a different contract.
+**Reset and errors:** Reject unrepresentable or inconsistent parameters before sc_start. Session reset preserves the immutable timing profile, increments the epoch, invalidates old callbacks and initializes the backend; a future controller-only reset needs a different contract.
 
 **Focused verification:** Change CPU and TCU phases and confirm predicted edge sequences; reset exactly on a due edge and verify no old-epoch launch survives.
 

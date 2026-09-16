@@ -9,8 +9,8 @@ One TCU rising-edge process owns deterministic time and invokes queue matching a
 | Direction | Contract |
 | --- | --- |
 | Upstream inputs | TCU clock, configured start tick, old timing-queue head, optional future pause port. |
-| Downstream outputs | Reached label to every event queue, T_D and dispatch trace; future sync event output. |
-| State owner and retained state | T_D, run or stopped state, last fired cursor and pending interval. |
+| Downstream outputs | Reached label to every event queue, T_D and label-firing trace; future sync event output. |
+| State owner and retained state | T_D, run or stopped state, last fired due cycle and pending interval. |
 
 ## Module diagram
 

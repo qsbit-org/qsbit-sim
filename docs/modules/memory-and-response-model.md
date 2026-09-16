@@ -8,7 +8,7 @@ Clocked memory owner for runtime requests. ELF loading initializes its storage b
 
 | Direction | Contract |
 | --- | --- |
-| Upstream inputs | Load-plan bytes, one stable CPU request with ID, and CPU clock edge. |
+| Upstream inputs | Load-plan bytes, one stable CPU request with ID, and configured memory clock edge (initially the CPU clock). |
 | Downstream outputs | Bounded response mailbox with ID, value or access fault; M0 MMIO may feed the same producer protocol. |
 | State owner and retained state | Byte storage, pending request slots, configured latency counters and response state. |
 

@@ -32,7 +32,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Time and visibility:** A backend call returning early on the host does not publish the result. Even L=0 still obeys the later receiver-edge crossing rule.
 
-**Reset and errors:** Missing or duplicate arm, unknown token, unsupported raw-waveform discrimination or old-epoch callback faults or is discarded according to the epoch rule.
+**Reset and errors:** Missing or duplicate arm, unknown token, and unsupported raw-waveform discrimination are faults. An old-epoch callback is discarded and traced.
 
 **Focused verification:** Test late arm, L=0, paired triggers, repeated measurement and reset exactly at completion.
 

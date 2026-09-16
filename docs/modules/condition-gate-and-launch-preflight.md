@@ -8,7 +8,7 @@ Pure substage within the TCU edge transition. Producer-side device distribution 
 
 | Direction | Contract |
 | --- | --- |
-| Upstream inputs | Due manifested event batch, committed fast-flag snapshot and committed DeviceRuntime resource calendar. |
+| Upstream inputs | Due manifested event batch, committed fast-condition snapshot and committed DeviceRuntime resource calendar. |
 | Downstream outputs | One accepted immutable launch batch, explicit cancellations or whole-batch fault. |
 | State owner and retained state | No independent persistent state; it reads immutable snapshots from TCU and device owners. |
 
@@ -32,7 +32,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Time and visibility:** The check is part of the firing edge and cannot reschedule an action to a later tick. Fast flags that become visible on this edge apply only to later TCU edges.
 
-**Reset and errors:** Missing required history or conflict yields a typed whole-batch fault. Baseline predicated measurement is unsupported unless a future cancellation rule frees its pending token.
+**Reset and errors:** Missing required history or conflict yields a typed whole-batch fault. Conditional measurement is unsupported in the baseline. Supporting it would require a future profile to define cancellation and release of every reserved delivery credit.
 
 **Focused verification:** Test false and unavailable predicates, simultaneous independent ports, future interval collision, instantaneous exclusive writes and no partial launch.
 

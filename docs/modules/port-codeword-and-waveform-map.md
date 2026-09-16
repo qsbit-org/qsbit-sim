@@ -8,7 +8,7 @@ Pure immutable lookup used during APPEND and group sealing, before TCU admission
 
 | Direction | Contract |
 | --- | --- |
-| Upstream inputs | Port, codeword, target, epoch configuration hash and declared backend capabilities. |
+| Upstream inputs | Port, codeword, target, immutable configuration hash and declared backend capabilities. |
 | Downstream outputs | Action descriptor containing kind, resource IDs, fixed trigger delay, duration and readout association. |
 | State owner and retained state | Versioned mapping table, resource declarations and calibration identifiers; no mutable pulse state. |
 
@@ -30,9 +30,9 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Transition:** Decode a digital codeword for its configured port. Permit mapped waveform, oscillator setting, readout or discriminator action kinds. Declare exclusive physical resources separately from intentionally additive pulse drives. Keep source port and codeword in the descriptor.
 
-**Time and visibility:** Primitive pulse output starts after a fixed configured trigger-to-output delay. Trigger, physical start and physical end have distinct trace ticks.
+**Time and visibility:** Primitive pulse output starts after a fixed configured trigger-to-output delay. Codeword trigger, physical start and physical end are separate trace milestones. Zero trigger-to-output delay allows trigger and start to share a tick; positive pulse duration separates start and end.
 
-**Reset and errors:** Unknown codeword, wrong port, unrepresentable delay or unsupported backend capability faults before producer acceptance. Config remains frozen for the epoch.
+**Reset and errors:** Unknown codeword, wrong port, unrepresentable delay or unsupported backend capability faults before producer acceptance. Configuration is immutable for the simulation session, including across session resets.
 
 **Focused verification:** Test configuration version, wrong port, action kind, additive versus exclusive resource declarations and fixed delay.
 

@@ -2,9 +2,15 @@
 
 This glossary explains the terms used in the [high-level design](high-level-design.md), [architecture and shared timing protocol](module-architecture.md), and [module contracts](modules/README.md). It describes the proposed qsbit-sim baseline. Exact instruction encodings and numerical timing-profile values have not yet been selected.
 
+## Terminology conventions
+
+Use **open group** while the producer can append events and **sealed group** after its contents are fixed. A sealed submission is the request carrying that group. Use **producer cursor** only for the CPU-side planned cycle, **due cycle** for a timing point, **label** for its identity, and **`T_D`** for the live TCU timer. Use **producer acceptance**, **group admission**, **label firing**, **codeword trigger**, **physical start/end**, **result-ready**, and **CPU-visible** for the respective milestones. Their identities remain distinct even when permitted to share a timestamp. Specify **SystemC channel** or **device output channel** when the meaning would otherwise be ambiguous.
+
+**Committed state** means an owner's published state; **instruction retirement** means CPU architectural completion. **Pipeline flush** discards younger instructions; producer **FLUSH** seals an open group. A **member manifest** lists group events; an ELF **extension manifest** declares ISA compatibility. **Per-port firing width** is the number of events a port can trigger at one due edge; **queue capacity** is how many events it can retain across points. In the papers' **nondeterministic preparation domain**, preparation latency can vary; the term does not require random simulation results.
+
 ## Start with one example
 
-Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` and `APPEND(B)` put two operations into an **open group** for that cycle. `ADVANCE(3)` **seals** the group and waits until the TCU **admits** all of its entries; it then moves the producer cursor to cycle 7. The TCU **fires** the group when its own timer reaches cycle 4, provided admission happened before that cycle's due edge. These are different milestones: staging, admission, and firing do not occur simply because the producer cursor changes.
+Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` and `APPEND(B)` put two operations into an **open group** for that cycle. `ADVANCE(3)` **seals** the group and waits for the `GroupAdmitted` reply confirming that the TCU **admitted** all of its entries; it then moves the producer cursor to cycle 7. The TCU **fires** the group when its own timer reaches cycle 4, provided admission happened before that cycle's due edge. These are different milestones: staging, admission, and firing do not occur simply because the producer cursor changes.
 
 ## Time and SystemC
 
@@ -14,9 +20,9 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | **Simulation time / global tick** | The kernel's modeled time, represented on one configured integer grid. A tick is the grid unit; a timestamp is a position on that grid. CPU edges, TCU edges, and physical boundaries have global ticks. |
 | **Clock domain** | A set of state transitions driven by one modeled clock. The CPU and TCU may have different periods and phases. |
 | **CPU cycle** | One step of the selected CPU pipeline timing model. It is not necessarily one TCU cycle. |
-| **TCU logical cycle / `T_D`** | The deterministic-domain timer's current cycle count. With start tick `S` and period `P`, running cycle `n` occurs at global tick `S+nP`. `T_D` is live TCU state, unlike the producer cursor. |
+| **TCU logical cycle and timer `T_D`** | The deterministic-domain timer's current cycle count. With start tick `S` and period `P`, running cycle `n` occurs at global tick `S+nP`. `T_D` is live TCU state, unlike the producer cursor. |
 | **Edge / due edge** | A configured clock transition at which an owner steps. A point's due edge is the TCU edge on which its planned logical cycle is reached. |
-| **Timing profile** | The validated configuration of modeled periods, phases, crossing latencies, capacities, port widths, output delays, acquisition timing, and backend capabilities. It is immutable within a simulation session; live counters and queue contents still change. A new profile requires a separately identified session. |
+| **Timing profile** | The validated configuration of modeled periods, phases, crossing latencies, capacities, per-port firing widths, output delays, acquisition timing, and backend capabilities. It is immutable within a simulation session, including across session resets; live counters and queue contents still change. A different profile requires a new configured session. |
 | **SystemC process** | A kernel-scheduled `SC_METHOD`, `SC_THREAD`, or `SC_CTHREAD`. It executes when its sensitivity or wait condition is met. A logical module in these documents need not be its own process. |
 | **`SC_METHOD` / `SC_THREAD`** | A method runs to return without `wait()`; a thread can suspend at `wait()` and later resume. Neither is automatically a separate operating-system thread. |
 | **SystemC event / notification** | A wakeup mechanism for waiting processes. An event is not itself a command payload; our cross-domain mailboxes retain payloads and identities separately. |
@@ -41,14 +47,14 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | Term | Meaning in this design |
 | --- | --- |
 | **Producer** | The CPU-side timeline manager that prepares ordered timing points and port events before TCU admission. Preparation may have variable latency. |
-| **Producer cursor** | The TCU logical cycle currently being *planned* by the producer. It is neither the current CPU cycle nor the TCU timer's live `T_D`. After a successful `ADVANCE(3)` from cursor 4, it becomes 7. |
+| **Producer cursor** | The TCU logical cycle currently being *planned* by the producer. Reserve the word cursor for this CPU-side state; the TCU instead retains a last admitted due cycle and a last fired due cycle. It is neither the current CPU cycle nor the TCU timer's live `T_D`. After a successful `ADVANCE(3)` from cursor 4, it becomes 7. |
 | **Open group / staging** | A bounded CPU-side collection of operations planned for one producer-cursor position. Multiple `APPEND` operations may join it. It has not entered TCU queues. |
-| **Seal / sealed group / frozen submission** | To fix the open group's label, interval, member list, and action descriptors for submission. The group cannot change while crossing or waiting for admission. The baseline permits at most one sealed submission awaiting a reply. |
-| **Timing point / label** | A scheduled position in the producer's logical timeline and its identity tag. A label lets the timing queue and each relevant per-port queue refer to the same group; it is not itself an absolute SystemC timestamp. |
-| **Interval** | The number of TCU logical cycles from the preceding sealed point to the next one. A cumulative interval determines a due cycle; admission time does not shift that due cycle. |
+| **Seal / sealed group / sealed submission** | To fix the open group's label, interval, member list, and action descriptors for submission. The group cannot change while crossing or waiting for admission. The baseline permits at most one sealed submission awaiting a reply. |
+| **Timing point / label** | A scheduled position in the producer's logical timeline and its identity tag. A label identifies the group independently of its due cycle. The timing queue and per-port event queues match by label; the label is neither a cycle count nor a SystemC timestamp. |
+| **Interval** | The number of TCU logical cycles from the preceding sealed point to the next one, using logical origin zero for the first point. A cumulative interval determines a due cycle; admission time does not shift that due cycle. |
 | **Member manifest** | The timing point's exact list of expected event IDs and per-port counts. It lets the TCU check that all members are present before any member fires. An empty manifest is a valid wait-only point. |
 | **`ProducerAccepted`** | Acknowledgment that an `APPEND` event and any required measurement slot have entered bounded CPU-side staging. It does not mean that the TCU has accepted or fired the group. |
-| **`GroupAdmitted` / atomic admission** | Acknowledgment that one sealed timing entry and all its required per-port event entries were inserted together. If any required check fails, none is inserted. Admission is earlier than firing. |
+| **Atomic admission / `GroupAdmitted`** | Atomic admission inserts one sealed timing entry and all its required per-port event entries together, or none. `GroupAdmitted` is the reply generated after that insertion. Firing is later than insertion, but may precede the reply reaching the CPU if the return crossing is slow. |
 | **Crossing / receiver-edge latency** | Transfer between clock-domain owners through a committed mailbox. A message published at tick `p` is first eligible on a receiver edge strictly after `p`; configured latency `N >= 1` counts receiver edges from there. It does not rely on incidental delta-cycle order. |
 | **Backpressure** | A request remains pending because a bounded resource is temporarily full. An intrinsically oversized group instead produces a typed error; waiting cannot make it fit. |
 | **Timing queue** | Bounded TCU FIFO of ordered intervals, labels, and manifests. It preserves planned logical timing rather than rescheduling a point from its arrival tick. |
@@ -72,7 +78,7 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | **CPU feedback crossing / `CpuResultVisible`** | The discriminator's tagged completion reaches the CPU only after its configured receiver-edge latency. `READ_RESULT(token)` first flushes its open group, then waits for and consumes that token's visible result. |
 | **Fast-condition history** | An optional, separate TCU-side result path for conditional output. It can have different latency from CPU feedback; a due action reads the previously committed condition snapshot. |
 | **`END` / drain** | Closes producer input after any required seal and admission. Successful simulation completion waits for queued points, physical actions, and all enabled feedback deliveries to finish; CPU halt alone is insufficient. |
-| **Session reset / epoch** | A global simulation-session boundary. Reset clears controller and backend state, increments an identity generation, and discards old-epoch callbacks without rewinding SystemC time. It is not a modeled physical controller-only reset. |
+| **Session reset / epoch** | Session reset starts a new epoch of mutable model state under the existing immutable configuration. It clears controller and backend state and discards old-epoch callbacks without rewinding SystemC time or reloading memory. The epoch identifies this reset generation; `slot_generation` separately identifies reuse of one result slot. It is not a physical controller-only reset. |
 | **Trace / boundary event** | A versioned observation of acceptance, admission, firing, physical action, result visibility, or fault with identity and tick. Trace collection cannot change hardware timing. |
 
 ## Project scope and comparison
@@ -81,7 +87,7 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | --- | --- |
 | **QuMA-style TCU** | The queue-based separation of variable-latency preparation from deterministic label-triggered output. This project keeps that timing principle without adopting eQASM binary encodings. |
 | **Distributed-HISQ inspiration** | Motivation for RV32I control extensions, port/codeword operations, and a future synchronization boundary. Binary compatibility and multi-node synchronization are not Phase 1 claims. |
-| **CACTUS differential gate** | An external validation project runs equivalent workloads independently on CACTUS and qsbit-sim and compares normalized quantum-control boundary events at zero common-grid-tick tolerance. Its comparison code is outside this repository. |
+| **CACTUS differential gate** | An external validation project runs equivalent workloads independently on CACTUS and qsbit-sim and compares normalized quantum-control boundary events at zero common-grid-tick tolerance. Its comparison code is outside this repository. The comparison must name corresponding milestones; producer acceptance cannot substitute for group admission. |
 | **Quantum backend capability** | A declared behavior such as ideal-gate stepping, mid-circuit collapse, or joint pulse evolution. A workload requiring an unsupported capability fails explicitly. |
 | **TQEC integration** | A later Phase 2 adapter from TQEC workloads to the simulator's program, measurement, and trace contracts; it does not define Phase 1 timing. |
 

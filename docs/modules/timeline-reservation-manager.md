@@ -19,7 +19,7 @@ flowchart LR
     U["Ordered producer operations"] --> P["staging and seal state machine"]
     S[("cursor; open group; sealed group")] <--> P
     P --> D["GroupRequest and producer reply"]
-    K["Activation: CPU edge or group reply"] -.-> P
+    K["Activation: Called within CPU edge"] -.-> P
 ```
 
 The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
@@ -30,9 +30,9 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Transition:** APPEND places an event in the open group at the producer cursor and retires on `ProducerAccepted`; a second APPEND may join the same group. ADVANCE(0) changes nothing. Positive ADVANCE freezes a real open group, waits for its matching `GroupAdmitted` reply, then moves the cursor by the requested number of logical TCU cycles. An untouched initial origin needs no submission. FLUSH seals without moving the cursor, so APPEND there remains invalid until a positive ADVANCE. READ_RESULT flushes before waiting; END flushes before closing production.
 
-**Time and visibility:** The group interval is measured between producer-cursor positions, not from the CPU execution tick or host runtime. A sealed group remains immutable while its crossing request is held. Admission confirms queue insertion, not physical firing.
+**Time and visibility:** The group interval is the current producer cursor minus the preceding sealed point’s due cycle, using logical origin zero for the first point; it is not measured from CPU execution or host time. A sealed group remains immutable while its crossing request is held. Admission confirms queue insertion, not physical firing.
 
-**Reset and errors:** Impossible staging or per-port total capacity faults immediately. Reset discards the open and frozen group and returns to the implicit origin with a new epoch.
+**Reset and errors:** Impossible staging or per-port total capacity faults immediately. Reset discards the open and sealed group and returns to the implicit origin with a new epoch.
 
 **Focused verification:** Test same-point APPEND progress, zero wait, initial empty start, wait-only point, append after flush, final-group sealing and oversized-group rejection.
 

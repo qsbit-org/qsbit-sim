@@ -8,9 +8,9 @@ Pure producer-side group resolver. Mandatory port action resolution is present e
 
 | Direction | Contract |
 | --- | --- |
-| Upstream inputs | Open same-time group, versioned codeword map, target map and profile hash. |
+| Upstream inputs | Open group for one producer-cursor position, versioned codeword map, target map and profile hash. |
 | Downstream outputs | Immutable per-port event group with resolved resources, delays, durations and measurement associations. |
-| State owner and retained state | Configuration tables are read-only per epoch; transient grouping and duplicate checks occur within the producer owner. |
+| State owner and retained state | Configuration tables are read-only for the simulation session; transient grouping and duplicate checks occur within the producer owner. |
 
 ## Module diagram
 
@@ -32,7 +32,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Time and visibility:** Pure lookup itself adds no modeled latency. Any future microcode pipeline with finite issue bandwidth must declare its stage timing and queue demand.
 
-**Reset and errors:** Missing mapping, incompatible port or impossible group width fails before admission. Configuration does not change during an epoch.
+**Reset and errors:** Missing mapping, incompatible port or impossible group width fails before admission. Session reset does not change the immutable configuration.
 
 **Focused verification:** Check two same-label ports, duplicate physical target, invalid codeword, profile hash mismatch and an expansion that would reorder timeline points.
 

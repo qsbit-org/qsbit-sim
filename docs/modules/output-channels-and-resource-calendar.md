@@ -9,7 +9,7 @@ DeviceRuntime is the sole owner of physical channel occupancy and future interva
 | Direction | Contract |
 | --- | --- |
 | Upstream inputs | TCU launch batch, resolved action intervals and previously scheduled physical boundaries. |
-| Downstream outputs | Physical trigger, output start and end, active drive set and event batches to quantum service and readout. |
+| Downstream outputs | Codeword-trigger, physical-start and physical-end records, active drive set and event batches to quantum service and readout. |
 | State owner and retained state | Resource interval calendar, pending boundaries, active channels, processed batch IDs and session epoch. |
 
 ## Module diagram

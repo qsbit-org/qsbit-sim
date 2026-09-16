@@ -10,7 +10,7 @@ Bounded FIFO substate of one TCU cycle model. It has no separate `SC_METHOD` or 
 | --- | --- |
 | Upstream inputs | Atomically admitted TimingPoint records with interval, label and exact member manifest. |
 | Downstream outputs | Head point and cumulative due cycle to the TCU timer; occupancy to admission. |
-| State owner and retained state | FIFO entries, last admitted logical cursor and head manifest. |
+| State owner and retained state | FIFO entries, last admitted due cycle and head manifest. |
 
 ## Module diagram
 

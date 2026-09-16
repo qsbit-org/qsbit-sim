@@ -28,7 +28,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Activation:** Call only for the oldest non-speculative instruction when the CPU cycle model authorizes external publication.
 
-**Transition:** Map codeword instructions to APPEND(port, codeword), waits to ADVANCE(interval), explicit barriers to FLUSH and result reads to READ_RESULT(token). Treat these names as semantic operations, not finalized opcodes. Use the configured port action map without assuming a codeword names a gate.
+**Transition:** Map codeword instructions to APPEND(port, codeword), waits to ADVANCE(interval), explicit sealing to FLUSH, result reads to READ_RESULT(token), and producer closure to END. Treat these names as semantic operations, not finalized opcodes. Use the configured port action map without assuming a codeword names a gate.
 
 **Time and visibility:** Producer acceptance and TCU admission are distinct; the adapter returns whichever completion the semantic operation requires. It never advances T_D by sleeping a host process.
 

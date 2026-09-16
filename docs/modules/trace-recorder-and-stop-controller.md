@@ -28,7 +28,7 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Activation:** Trace callbacks observe committed transitions. Stop checks after all owners have published effects for the tick.
 
-**Transition:** Record proposal, producer acceptance, group admission, firing, trigger, physical start/end, result-ready and CPU-visible ticks distinctly. Stable IDs serialize independent same-tick records without imposing hardware order. END succeeds only after timing and event queues, physical boundaries and all enabled feedback deliveries drain.
+**Transition:** Record proposal, producer acceptance, group admission, firing, trigger, physical start/end, result-ready and CPU-visible ticks distinctly. Stable IDs serialize independent same-tick records without imposing hardware order. END closes producer input after its required admission reply; successful simulation completion additionally waits for timing and event queues, physical actions and all enabled feedback deliveries to drain.
 
 **Time and visibility:** Trace writing cannot schedule hardware or consume time. CPU halt is not the same as global simulation completion. Watchdog expiry reports incomplete progress.
 
