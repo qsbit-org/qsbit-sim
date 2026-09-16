@@ -1,6 +1,6 @@
 # Platform Configuration and Clock Adapter
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
 
 ## Responsibility and neighbors
 
@@ -37,3 +37,11 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 **Focused verification:** Change CPU and TCU phases and confirm predicted edge sequences; reset exactly on a due edge and verify no old-epoch launch survives.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+
+## Implementation and verification
+
+Simulator owns immutable configuration, three clock-edge methods, timed wakeups and the explicit device barrier.
+
+- Implementation: [simulator.cpp](../../src/simulator.cpp) and [simulator.hpp](../../include/qsbit/simulator.hpp).
+- Focused verification: [use_cases.py](../../tests/use_cases.py); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+- Numerical profile and supported scope: [Executable implementation](../implementation.md).

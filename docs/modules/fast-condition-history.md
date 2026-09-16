@@ -1,6 +1,6 @@
 # Fast-Condition History
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
 
 ## Responsibility and neighbors
 
@@ -37,3 +37,11 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 **Focused verification:** Test same-edge result versus condition, later pending result, CPU path slower or faster, missing history and canceled control output.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+
+## Implementation and verification
+
+FastHistory retains exact-token results per target. TcuCycleModel commits arriving results after that edge's firing decision.
+
+- Implementation: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
+- Focused verification: [control_tests.cpp](../../tests/control_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+- Numerical profile and supported scope: [Executable implementation](../implementation.md).

@@ -1,0 +1,61 @@
+name: Build and verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build_type: Debug
+            sanitizers: 'OFF'
+            python_backends: 'ON'
+          - build_type: Release
+            sanitizers: 'OFF'
+            python_backends: 'ON'
+          - build_type: Debug
+            sanitizers: 'ON'
+            python_backends: 'OFF'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Install assembler
+        run: sudo apt-get update && sudo apt-get install -y binutils-riscv64-unknown-elf
+      - name: Provision pinned libraries
+        run: |
+          python -m venv tmp/venv
+          tmp/venv/bin/python tools/bootstrap.py --architecture-tests
+      - name: Check formatting
+        run: tmp/venv/bin/python tools/check_format.py --formatter tmp/venv/bin/clang-format
+      - name: Configure
+        run: |
+          tmp/venv/bin/cmake -S . -B build \
+            -DCMAKE_PREFIX_PATH="$PWD/tmp/deps/systemc-install" \
+            -DPython3_EXECUTABLE="$PWD/tmp/venv/bin/python" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DQSBIT_SANITIZERS=${{ matrix.sanitizers }} \
+            -DQSBIT_PYTHON_BACKENDS=${{ matrix.python_backends }} \
+            -DQSBIT_ISA_REFERENCES=ON \
+            -DQSBIT_ARCH_TEST_SOURCE="$PWD/tmp/deps/riscv-arch-test"
+      - name: Build
+        run: tmp/venv/bin/cmake --build build -j 2
+      - name: Test
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: tmp/venv/bin/ctest --test-dir build --output-on-failure
+      - name: Preserve diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: traces-${{ matrix.build_type }}-sanitizers-${{ matrix.sanitizers }}
+          path: |
+            build/Testing/Temporary/
+            build/*.jsonl
+            build/use-cases/
+            build/random-isa/report.json
+            build/architecture-isa/report.json

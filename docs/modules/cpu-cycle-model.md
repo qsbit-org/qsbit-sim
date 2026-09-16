@@ -1,6 +1,6 @@
 # CPU Cycle Model
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
 
 ## Responsibility and neighbors
 
@@ -37,3 +37,11 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 **Focused verification:** Test branch flush, older memory fault, forwarding, stalls, duplicate acknowledgment, two APPENDs followed by ADVANCE, and registration-order invariance.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+
+## Implementation and verification
+
+CpuCycleModel implements the three-stage pipeline; Simulator accepts an ICpuCycleModel factory for replacement. adapter_tests.cpp exercises this injection and reset.
+
+- Implementation: [cpu.cpp](../../src/cpu.cpp) and [cpu.hpp](../../include/qsbit/cpu.hpp).
+- Focused verification: [random_isa.py](../../tests/random_isa.py); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+- Numerical profile and supported scope: [Executable implementation](../implementation.md).

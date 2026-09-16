@@ -1,6 +1,6 @@
 # Port Codeword and Waveform Map
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
 
 ## Responsibility and neighbors
 
@@ -37,3 +37,11 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 **Focused verification:** Test configuration version, wrong port, action kind, additive versus exclusive resource declarations and fixed delay.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+
+## Implementation and verification
+
+Profile holds immutable gate, constant-drive pulse, acquisition and arm descriptors. Arbitrary sampled waveform storage is outside v1.
+
+- Implementation: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
+- Focused verification: [control_tests.cpp](../../tests/control_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+- Numerical profile and supported scope: [Executable implementation](../implementation.md).

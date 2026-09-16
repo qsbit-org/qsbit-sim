@@ -1,6 +1,6 @@
 # Timeline Reservation Manager
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
 
 ## Responsibility and neighbors
 
@@ -37,3 +37,11 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 **Focused verification:** Test same-point APPEND progress, zero wait, initial empty start, wait-only point, append after flush, final-group sealing and oversized-group rejection.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+
+## Implementation and verification
+
+TimelineProducer owns cursor, bounded open events, one sealed group and held operation identity.
+
+- Implementation: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
+- Focused verification: [protocol_tests.cpp](../../tests/protocol_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+- Numerical profile and supported scope: [Executable implementation](../implementation.md).

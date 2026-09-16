@@ -1,6 +1,6 @@
 # Glossary
 
-This glossary explains the terms used in the [high-level design](high-level-design.md), [architecture and shared timing protocol](module-architecture.md), and [module contracts](modules/README.md). It describes the proposed qsbit-sim baseline. Exact instruction encodings and numerical timing-profile values have not yet been selected.
+This glossary explains the terms used in the [high-level design](high-level-design.md), [architecture and shared timing protocol](module-architecture.md), and [module contracts](modules/README.md). It describes the implemented v0.1.0 baseline. [ADR 0001](decisions/0001-initial-implementation.md) fixes instruction encodings and numerical defaults; [implementation.md](implementation.md) describes executable ownership.
 
 ## Terminology conventions
 
@@ -40,7 +40,7 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | **Microarchitecture / CPU cycle model** | The implementation timing model for fetch, hazards, stalls, memory responses, and retirement. Another CPU backend may replace it if it satisfies the same boundary contract and timing tests. |
 | **ELF / program image** | The linked RV32 machine-code file and its loadable segments and entry address. qsbit-sim loads machine code; a separate assembler or linker handles assembly text. |
 | **Retirement / commit** | The point at which an instruction's architectural effect becomes final. Only an authorized, oldest non-speculative instruction may publish an irreversible external control action. |
-| **Quantum-instruction adapter** | Converts an authorized extension instruction into a producer operation such as `APPEND`, `ADVANCE`, or `READ_RESULT`. These names specify behavior; their binary encodings remain open. |
+| **Quantum-instruction adapter** | Converts an authorized extension instruction into a producer operation such as `APPEND`, `ADVANCE`, or `READ_RESULT`. These semantic names map to the versioned custom-0 encodings in ADR 0001. |
 
 ## Producer and TCU
 

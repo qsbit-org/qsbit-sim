@@ -1,0 +1,50 @@
+{
+  "mappings": [
+    {
+      "port": 0,
+      "codeword": 5,
+      "actions": [
+        {
+          "kind": "pulse",
+          "port": 0,
+          "operation": "drive_x",
+          "targets": [
+            0
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": false
+            }
+          ],
+          "duration": 20,
+          "amplitude": 0.11107207345395914,
+          "axis": "x"
+        }
+      ]
+    },
+    {
+      "port": 1,
+      "codeword": 5,
+      "actions": [
+        {
+          "kind": "pulse",
+          "port": 1,
+          "operation": "drive_z",
+          "targets": [
+            0
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": false
+            }
+          ],
+          "duration": 20,
+          "amplitude": 0.11107207345395914,
+          "axis": "z"
+        }
+      ]
+    }
+  ]
+}

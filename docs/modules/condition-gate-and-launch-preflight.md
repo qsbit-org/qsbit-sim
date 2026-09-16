@@ -1,6 +1,6 @@
 # Condition Gate and Launch Preflight
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
 
 ## Responsibility and neighbors
 
@@ -37,3 +37,11 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 **Focused verification:** Test false and unavailable predicates, simultaneous independent ports, future interval collision, instantaneous exclusive writes and no partial launch.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+
+## Implementation and verification
+
+TcuCycleModel evaluates old fast history; DeviceRuntime preflights the complete launch before queue consumption or device reservation.
+
+- Implementation: [tcu.cpp](../../src/tcu.cpp) and [device.hpp](../../include/qsbit/device.hpp).
+- Focused verification: [protocol_tests.cpp](../../tests/protocol_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+- Numerical profile and supported scope: [Executable implementation](../implementation.md).

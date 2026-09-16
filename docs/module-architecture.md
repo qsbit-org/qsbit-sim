@@ -1,6 +1,6 @@
 # Module Architecture and QuMA-Style Timing Control
 
-**Status:** Phase 1 baseline proposal, 2026-09-16. Protocol rules below are concrete project choices, distinguished from paper mechanisms in Section 5. Instruction encodings and numerical timing-profile values remain open. Every implementation must select and record a complete profile; this document does not claim CACTUS equivalence has already been demonstrated.
+**Status:** implemented v0.1.0 baseline, 2026-09-17. [ADR 0001](decisions/0001-initial-implementation.md) selects instruction encodings and numerical defaults. [Executable implementation](implementation.md) maps the contracts to code; [ADR 0002](decisions/0002-reference-comparison-scope.md) defines the reference comparison scope.
 
 ## 1. Architectural rule
 
@@ -102,7 +102,7 @@ This section specifies the handoffs between modules: when an operation counts as
 
 ### 4.1 Producer operations and progress
 
-These are proposed semantic operations, not final instruction encodings. The producer starts with its cursor at logical TCU cycle zero and no real group yet. If no positive ADVANCE or FLUSH has occurred, the first `APPEND` opens a group at cycle zero. `FLUSH` on the still-empty origin closes it locally; positive `ADVANCE` can also move past it without sending an empty entry. Once the producer has opened a real point, even a point with no events is submitted when sealed: it can represent an intentional wait. At most one sealed group awaits admission at a time.
+These semantic operations are encoded by the v1 custom-0 instructions in [ADR 0001](decisions/0001-initial-implementation.md). The producer starts with its cursor at logical TCU cycle zero and no real group yet. If no positive ADVANCE or FLUSH has occurred, the first `APPEND` opens a group at cycle zero. `FLUSH` on the still-empty origin closes it locally; positive `ADVANCE` can also move past it without sending an empty entry. Once the producer has opened a real point, even a point with no events is submitted when sealed: it can represent an intentional wait. At most one sealed group awaits admission at a time.
 
 | Operation | Acceptance and completion | Effect |
 | --- | --- | --- |
@@ -146,7 +146,7 @@ A DeviceRuntime wrapper collects all architectural events assigned to tick t, in
 
 Exclusive instantaneous control writes are also checked for same-tick conflicts; a zero-duration action cannot evade checks by having an empty interval. Resource conflicts are checked before state mutation; backend failure terminates the run as invalid and does not require rollback. Control metadata can arrive at the same tick as a physical boundary, but CPU and TCU clocked consumers read their prior committed inputs. They do not see a newly completed measurement on that edge.
 
-The baseline reset operation is explicitly a **simulator session reset**, not a physical controller-reset signal. It is a global epoch boundary processed before other work at that tick. It invalidates pending messages and scheduled physical callbacks, clears CPU and producer state, queue banks, timer, resource calendar, measurement slots and fast-condition history, and initializes the backend to the declared initial state. Active actions receive reset-abort records. A future controller-only reset must separately specify pulse abort and preserve or evolve quantum state; it may not reuse session reset to prepare qubits implicitly. CPU PC returns to the loaded entry. Baseline reset preserves loaded memory; reloading is a separate cold-start action. Old-epoch callbacks are ignored and traced, even if already queued in the kernel. Reset does not rewind `sc_time_stamp()` or permit ID reuse within an epoch. Label, cycle and ID overflow faults rather than wrapping silently.
+The baseline reset operation is explicitly a **simulator session reset**, not a physical controller-reset signal. It is a global epoch boundary processed before other work at that tick. It invalidates pending messages and scheduled physical callbacks, clears CPU and producer state, queue banks, timer, resource calendar, measurement slots and fast-condition history, and initializes the backend to the declared initial state. Active actions receive reset-abort records. A future controller-only reset must separately specify pulse abort and preserve or evolve quantum state; it may not reuse session reset to prepare qubits implicitly. CPU PC returns to the loaded entry. The new TCU cycle-zero tick is the first TCU edge at or after reset tick plus the immutable `start` offset. Baseline reset preserves loaded memory; reloading is a separate cold-start action. Old-epoch callbacks are ignored and traced, even if already queued in the kernel. Reset does not rewind `sc_time_stamp()` or permit ID reuse within an epoch. Label, cycle and ID overflow faults rather than wrapping silently.
 
 ### 4.5 Worked counterexamples and expected outcomes
 

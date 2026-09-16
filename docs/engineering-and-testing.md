@@ -1,6 +1,6 @@
 # Engineering and Verification Plan
 
-**Status:** Phase 1 verification requirements agreed; fixtures and selected backend versions remain to be pinned, 2026-09-16.
+**Status:** executable verification suite, 2026-09-17. Dependency versions are pinned; [implementation.md](implementation.md) describes the implemented profile. [ADR 0002](decisions/0002-reference-comparison-scope.md) records reference limitations.
 
 ## Coding and SystemC rules
 
@@ -31,7 +31,7 @@ The initial pipeline belongs to qsbit-sim. Borrowing source requires license, ma
 | CPU adapter component | Oldest non-speculative publication, producer acceptance versus group admission, held request and one-time retirement, result-read flush, and memory response. | No instruction discarded by a pipeline flush emits a control event; two scalar APPENDs can complete one group without deadlock; retirement follows each operation's completion rule. |
 | TCU and device component | Intervals and member manifests, label broadcast, zero-wait coalescing, atomic admission, empty-stream recovery, late admission, old-state queue credits, per-port firing width, fixed output latency, conflicts and drain. | Exact trigger and physical-output ticks; idle unmentioned ports remain valid; faults cause no partial batch; empty queues never shift the logical timeline. |
 | End-to-end scripted use case | RV32I-extension ELF issues controls, waits, measures and branches for both deterministic outcomes. | Full boundary trace, final memory signature and stop reason match the fixture. |
-| External CACTUS differential gate | One ISA-neutral workload produces independent CACTUS eQASM and qsbit-sim RV32I-extension binaries; run matched configuration with scripted measurement streams. | Event count, operation, target, order, correlation and absolute time are identical with zero common-grid-tick tolerance at every required probe. Missing probes and unsupported mappings fail explicitly. |
+| External CACTUS differential gate | One ISA-neutral workload produces independent CACTUS eQASM and qsbit-sim RV32I-extension binaries; run matched configuration with deterministic scripted streams or deterministic live basis-state measurements. | Event count, operation, target, order, correlation and absolute time are identical with zero common-grid-tick tolerance at every required probe. Missing probes and unsupported mappings fail explicitly. |
 | Device adapter contract | Run a circuit-level live-measurement prototype and a small pulse-level prototype; exercise unsupported capabilities, reset, qubit ordering, overlapping drives, and host-time isolation. | Each adapter passes its declared capability tests, including one chronological backend owner and joint same-time batching; unsupported operations reject clearly. Backend compute duration never changes simulated event time. |
 | Architecture conformance | Applicable RV32I cases from the [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) through a target adapter. | Applicable tests pass; unsupported privilege or platform requirements are identified, not silently skipped. |
 | Differential and randomized | Compare retired state with Spike or another independent ISA reference using seeded programs. | No architectural mismatches; retain seed, program, configuration and first differing retirement. |
@@ -70,3 +70,20 @@ The initial CI gate builds Debug and Release, checks formatting, treats warnings
 - [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) provide an ISA conformance source for declared target configurations.
 - [RISC-V assembly manual](https://github.com/riscv-non-isa/riscv-asm-manual/blob/main/src/asm-manual.adoc) and [GNU `.insn` formats](https://sourceware.org/binutils/docs/as/RISC_002dV_002dFormats.html) document existing custom-instruction assembly support.
 - [CMake CTest documentation](https://cmake.org/cmake/help/latest/manual/ctest.1.html) defines test registration and execution. The fresh-process convention is a qsbit-sim decision based on the SystemC kernel lifecycle.
+
+## Executable test entry points
+
+- `core.*`: RV32I arithmetic and control, encoding validation, ELF and raw memory, strict-edge mailboxes and memory service.
+- `control.*`: atomic manifests and queue credits, empty-stream deadlines, scoreboard and fast predicates.
+- `protocol.*`: held producer operations, staging and slot limits, resource conflicts, delayed discriminator arm, overflow rollback, reset and exact-token history.
+- `systemc.*`: ELF use cases, registration-order invariance and 51 fresh-process pipeline, reset, clock, feedback and CLI scenarios.
+- `adapter.*`: CPU factory injection through ICpuCycleModel, including session reset.
+- `numerical.*`: real Aer Bell-state correlation and feedback, pulse inversion, full-device simultaneous drives, analytic simultaneous noncommuting drives and unsupported-capability rejection.
+- `reference.rv32_random`: 32 deterministic seeds; compare every retired register state and PC plus final memory against Unicorn 2.1.4.
+- `reference.rv32_architecture`: 38 pinned RV32I architecture-test bodies; compare retirements and memory signatures against Unicorn. One privileged-trap alignment case is explicitly excluded; native tests check the typed alignment fault. This is not an official certification result.
+
+The architecture-test adapter replaces platform entry and exit, and uses RV32I NOP padding in the upstream address-load helper. It does not modify generated instruction-test bodies. The source revision is pinned in the runner. Artifacts stay in the build tree.
+
+Run Debug and Release suites with Python backends, plus a Python-free ASan/UBSan build. Leak detection is disabled for the SystemC process lifecycle; address and undefined-behavior errors remain fatal. The CI workflow preserves failure traces. No CACTUS tooling is part of this workflow.
+
+For focused line and branch evidence, configure a separate build with `-DQSBIT_COVERAGE=ON`, run its CTest suite, then run `python tools/coverage.py --build BUILD_DIRECTORY`. The generated gcov JSON and summary remain in that build directory. Coverage reports complement architectural assertions; no line-coverage percentage proves timing correctness.

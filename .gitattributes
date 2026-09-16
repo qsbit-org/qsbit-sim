@@ -1,0 +1,2 @@
+# Preserve upstream vendored files byte-for-byte, including license whitespace.
+third_party/nlohmann_json/** whitespace=-blank-at-eol
