@@ -2,6 +2,8 @@
 
 **Status:** Phase 1 requirements agreed; reviewed protocol baseline proposed in [module-architecture.md](module-architecture.md). ISA encoding and numerical timing profiles remain open, 2026-09-16.
 
+The [glossary](glossary.md) defines the timing and control terms used below.
+
 ## 1. Goal and phase boundaries
 
 qsbit-sim is an event-driven, cycle-level architecture simulator for a programmable quantum control processor. It is implemented in C++20 and SystemC, not as an RTL simulator. The processor executes RV32I machine code plus versioned quantum-control extensions inspired by Distributed-HISQ. A QuMA-style timing control unit (TCU) uses a timing queue, label-tagged event queues, and a deterministic-domain timer to decouple command preparation from precisely timed device output. The architecture must permit replacement of the instruction extensions, CPU microarchitecture, and quantum device backend without changing the other two domains.

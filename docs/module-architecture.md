@@ -73,6 +73,8 @@ The public records use fixed-width integers and a versioned serialization. At mi
 
 ### Timing terms used below
 
+The [glossary](glossary.md) explains these and other SystemC, TCU, device, and feedback terms in more detail.
+
 - **Simulation tick:** one unit on the global SystemC time grid. CPU and TCU edges occur at configured ticks. It is not host execution time.
 - **Producer cursor:** the TCU *logical cycle being planned* by the CPU-side producer. It is not the current CPU cycle, current TCU timer value, or current simulation tick.
 - **Open group (staging):** a capacity-limited list of operations planned for one producer-cursor position. Successive `APPEND` operations may add members to it. The group is not yet in a TCU queue.
