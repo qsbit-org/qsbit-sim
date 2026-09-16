@@ -73,6 +73,8 @@ The public records use fixed-width integers and a versioned serialization. At mi
 
 ## 3. Module contracts
 
+The [module contract index](modules/README.md) provides a separate behavior description and diagram for each logical module below. The protocols in this document remain the integrated baseline contract.
+
 ### 3.1 Platform configuration and clock adapter
 
 **Upstream:** command-line configuration and validated device profile. **Downstream:** SystemC clocks, CPU, memory, crossing channels, TCU, channel models, and trace metadata.
