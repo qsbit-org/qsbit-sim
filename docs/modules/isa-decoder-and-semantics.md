@@ -1,6 +1,6 @@
 # ISA Decoder and Semantics
 
-**Architecture position:** [Integrated contract, Section 3.3](../module-architecture.md#33-isa-decoder-and-semantics-library). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

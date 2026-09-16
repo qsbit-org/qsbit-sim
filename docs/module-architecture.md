@@ -4,7 +4,7 @@
 
 ## 1. Architectural rule
 
-SystemC is the discrete-event scheduler. It wakes processes at clock edges, timed notifications, and channel updates. It does not define the latency of an RV32I instruction, the capacity of a quantum command queue, or the instant at which a pulse starts. Those are explicit C++ model rules. The CPU, the timing control unit (TCU), the channel devices, and readout may use different clocks. Each stateful module has one owner, reads previously committed inputs at its active edge, computes next state, and publishes outputs according to a specified edge and update rule. A delta cycle is never counted as a hardware cycle. This follows the [Accellera SystemC scheduling implementation](https://github.com/accellera-official/systemc/blob/main/src/sysc/kernel/sc_simcontext.cpp); the particular hardware contracts below are qsbit-sim design choices.
+SystemC is the discrete-event scheduler. It schedules processes in response to clock events, timed event notifications, and events emitted by channels after their updates. It does not define the latency of an RV32I instruction, the capacity of a quantum command queue, or the instant at which a pulse starts. Those are explicit C++ model rules. The CPU, the timing control unit (TCU), the channel devices, and readout may use different clocks. Each stateful module has one owner, reads previously committed inputs at its active edge, computes next state, and publishes outputs according to a specified edge and update rule. A delta cycle is never counted as a hardware cycle. This follows the [Accellera SystemC scheduling implementation](https://github.com/accellera-official/systemc/blob/main/src/sysc/kernel/sc_simcontext.cpp); the particular hardware contracts below are qsbit-sim design choices.
 
 The TCU **must preserve QuMA's core mechanism**: a producer reserves ordered timing points and puts events into bounded event queues in a nondeterministic preparation domain; a timing queue, per-port event queues, and a deterministic-domain timer cause all events tagged for a reached timing point to fire together. Instructions may take variable time to reach the queues without changing the already reserved output schedule, provided the queues are filled before their deadlines. QuMA describes these parts in [Section 5.2](https://arxiv.org/abs/1708.07677). eQASM calls the two stages reservation and triggering in [Section 3.1](https://arxiv.org/abs/1808.02449). Distributed-HISQ retains queue-based TCU control, while expressing effects as codewords sent to ports and adding pause and resume for synchronization in [Sections 3.1 and 3.2](https://arxiv.org/abs/2509.04798).
 
@@ -71,161 +71,18 @@ These are logical module boundaries, not one SystemC process per box. A CPU-doma
 
 The public records use fixed-width integers and a versioned serialization. At minimum, `TimingPoint` has an epoch, monotone label, interval in TCU cycles, and an expected-event manifest; `ReservedEvent` has that epoch and label, stable event and instruction IDs, port, codeword, a resolved immutable action descriptor, and optional condition and measurement tokens; `TraceEvent` has global integer tick, clock domain and local cycle, event kind, identity, and status. Group descriptors also carry a configuration hash and per-port event counts. `EndOfStream` carries the epoch, stream ID and last admitted label (absent for an empty stream); the receiver checks that ordering before closing input. It has no hardware timing label of its own. Replies distinguish `ProducerAccepted`, `GroupAdmitted`, `CpuResultVisible`, and typed rejection. An optional derived global fire tick is valid only while the future TCU run state is known; it does not replace the timing queue and label-matched event queues. A deferred synchronization extension must invalidate predictions beyond an unresolved pause.
 
-## 3. Module contracts
-
-The [module contract index](modules/README.md) provides a separate behavior description and diagram for each logical module below. The protocols in this document remain the integrated baseline contract.
-
-### 3.1 Platform configuration and clock adapter
-
-**Upstream:** command-line configuration and validated device profile. **Downstream:** SystemC clocks, CPU, memory, crossing channels, TCU, channel models, and trace metadata.
-
-It chooses one integer global tick resolution before SystemC elaboration; rejects periods, phases, or latencies that cannot be represented exactly; creates CPU and TCU clocks with explicit phases; and establishes reset release and stop rules. It owns configuration, not hardware state. The SystemC adapter converts the kernel's events to edge calls on plain C++ cycle models. Periodic `sc_clock` still creates every modeled edge: event-driven scheduling does not imply that idle clock cycles are skipped. Later optimization may skip a provably quiescent component only if it preserves timeout, arbitration, and externally visible cycle behavior.
-
-### 3.2 ELF loader and program image
-
-**Upstream:** RV32 ELF produced by a separately managed assembler and linker, or raw binary for focused tests. **Downstream:** memory model and initial CPU PC.
-
-It validates ELF class, RISC-V machine type, endianness, loadable segments, overlaps, memory bounds, and entry point before simulation starts. It does not parse assembly or own a runtime instruction pipeline. Extension compatibility may be checked from an optional versioned manifest, but an ordinary ELF can omit it; decoder-time illegal-instruction checks remain mandatory. Program loading has no simulated latency unless a platform profile explicitly models a boot sequence.
-
-### 3.3 ISA decoder and semantics library
-
-**Upstream:** 32-bit fetched word, architectural register values, and enabled extension profile. **Downstream:** CPU cycle model and quantum-instruction adapter.
-
-It decodes RV32I and versioned custom instructions, computes operand and immediate interpretation, declares architectural register and control effects, and returns typed illegal-instruction or alignment faults. It does not mutate the PC, register file, TCU queues, or simulated time. A custom control instruction declares whether it produces a time reservation, a port-codeword event, a result read, or a future synchronization action. The actual encoding is a separate decision and is not claimed to match Distributed-HISQ's bits. The toolchain and simulator must test the same encoding specification.
-
-### 3.4 CPU cycle model
-
-**Upstream:** memory responses, producer-operation acknowledgments, CPU-visible measurement tokens, reset and CPU edge. **Downstream:** memory and producer requests, retirement trace and architectural observers.
-
-The CPU uniquely owns PC, GPRs, pipeline latches, exceptions and retirement. Only the oldest instruction with all older branch and fault outcomes resolved may publish an irreversible store or control operation. Younger speculative instructions cannot reach producer staging. APPEND retires on `ProducerAccepted`, which means its event is stored durably in bounded producer state; it does not wait for TCU group admission. ADVANCE, FLUSH, result reads and END follow the barrier rules in Section 4.1. A held request retains its ID and operands until the corresponding acknowledgment; one acknowledgment causes at most one retirement. Faults discovered after producer acceptance are asynchronous simulator faults, not retroactive precise CPU traps. A future external CPU must implement this commit authorization and the named timing profile; ISA-state equivalence alone is insufficient.
-
-### 3.5 Memory and response model
-
-**Upstream:** ELF loader at initialization and CPU read or write requests at runtime. **Downstream:** CPU memory responses and optional M0 control-register adapter.
-
-It owns byte-addressable storage, request occupancy, alignment and access errors, configurable response latency, and one-time store effects. Requests and responses have stable identities so a stalled CPU cannot duplicate a store. Device-facing MMIO is only an M0 smoke-test input to the same control protocol; the Phase 1 software interface uses extension instructions.
-
-### 3.6 Quantum-instruction adapter
-
-**Upstream:** an authorized extension instruction and operand snapshot. **Downstream:** timeline producer or measurement scoreboard; typed completion to CPU.
-
-The adapter maps machine instructions to the semantic operations APPEND, ADVANCE, FLUSH, READ_RESULT and END defined in Section 4.1. These names define behavior, not final opcodes or assembly mnemonics. A wait advances the producer timeline; it does not suspend the host or advance the TCU clock. A codeword specifies a port and configured action, not a hard-coded gate. This preserves the abstraction in [Distributed-HISQ Section 3.1.2](https://arxiv.org/abs/2509.04798). Result reads execute a defined flush barrier before waiting for a measurement token. Unsupported operations fail before acceptance; an adapter cannot silently approximate them.
-
-### 3.7 Optional lowerer, device-event distributor and configuration store
-
-**Upstream:** the complete open group, its logical time, versioned target and operation maps. **Downstream:** an immutable resolved per-port group for admission.
-
-The baseline APPEND path already supplies port-codeword events. APPEND first invokes the pure codeword lookup to reject unsupported actions before acceptance; sealing then validates the complete group. The lookup resolves each codeword to action kind, physical resources, trigger delay, duration and measurement association. Same-time combination, duplicate detection and device distribution happen **before event queues**, as in [eQASM Section 4.3](https://arxiv.org/abs/1808.02449). Configuration is frozen for an epoch and every group records its hash.
-
-Optional high-level lowering may generate multiple timing points. Its expansion order, bounded staging, shared resource checks, and instruction completion must be declared by that extension; the baseline does not accept an unspecified multi-point expansion. QuMA [Section 5.3](https://arxiv.org/abs/1708.07677) also includes a post-trigger micro-operation sequencer. Pre-expanding such a sequence is a project choice with different queue occupancy and preparation cost, not a claim to reproduce that sequencer's cycles. In either case runtime work has configured finite latency and throughput; pure mapping never consumes simulated time merely because C++ took longer to execute.
-
-### 3.8 Timeline reservation manager
-
-**Upstream:** ordered semantic operations accepted at the CPU commit boundary. **Downstream:** sealed groups to the crossing; producer acknowledgments and measurement-token allocation.
-
-The producer owns a logical cycle cursor, an open group, and at most one frozen submission. APPEND records events at the current cursor. ADVANCE(0) leaves the point unchanged; it creates no second label and provides no extra dispatch capacity. Positive ADVANCE seals the current unsubmitted point and, after its group acknowledgment, opens a point at `cursor + d`. FLUSH seals without advancing. The initial empty cycle-zero origin is an implicit anchor and need not be submitted; an event at cycle zero creates a real point. A flushed point cannot be reopened by APPEND; positive ADVANCE is required. READ_RESULT and END seal the last point, so a final group cannot remain stranded.
-
-The full rules, including empty wait points, are in Section 4.1. Labels identify sealed points; intervals are calculated relative to the preceding sealed cursor. Staging limits are checked before APPEND acceptance. An operation that would make a group larger than staging or total per-port queue capacity is rejected, not left waiting for a later instruction to close that same group. Interval construction follows [eQASM Section 3.1](https://arxiv.org/abs/1808.02449); producer retirement and sealing rules are explicit qsbit-sim choices.
-
-### 3.9 Command crossing and atomic admission
-
-**Upstream:** one immutable sealed group. **Downstream:** TCU queue bank; a matching group reply to the producer.
-
-The crossing owns its held request and reply mailbox, with at most one outstanding group in the baseline. It never owns or independently mutates the TCU queues. The TCU-domain owner validates the complete descriptor and atomically appends one timing entry plus every expected event only when all capacities, manifest checks and deadline checks pass. Unaffected ports need no entry. Failure writes none of the group. Impossible group sizes fault immediately; temporary occupancy causes backpressure. An old-epoch, duplicate or malformed request never repeats a queue write. Acknowledgment identifies the epoch and group and returns through the specified crossing latency. The CPU's earlier APPEND retirements remain distinct from this group admission. Section 4.2 fixes simultaneous-edge visibility and conservative capacity accounting.
-
-### 3.10 Timing queue
-
-**Upstream:** TCU atomic admission. **Downstream:** timer and label broadcaster, within the same TCU owner.
-
-The bounded FIFO stores `(epoch, interval_cycles, label, member_manifest)` in producer order. The manifest lists expected event IDs and per-port counts; an empty manifest represents an intentional wait-only point. The TCU accumulates intervals from logical origin zero, including across periods when the queue is empty. Only the head can fire. Its due cycle is derived from this cumulative position, never from its arrival time. The timer and queues are coherent substates of one owner, not independently clocked stages.
-
-An empty queue is normal before start, between streamed points, or after the final point. While running, it produces an observable empty state and `T_D` keeps advancing. It does not by itself prove underflow or completion. A later point already due at its admission edge faults as `LatePoint`; an admitted point missing a manifested event faults as `ManifestMismatch`. END and drain rules determine completion. This is a chosen streaming policy; [QuMA Section 5.2](https://arxiv.org/abs/1708.07677) establishes queue-based timing but does not specify this simulator's empty-queue policy.
-
-### 3.11 Per-port event queues
-
-**Upstream:** atomic queue-bank admission. **Downstream:** same-edge deterministic launch preflight when the head timing label fires.
-
-Each bounded FIFO holds resolved events in label order. At firing, the timing entry's manifest determines precisely which port heads are required. A port absent from the manifest remains idle. A missing, stale, mismatched or extra same-label member is a fault, detected for the entire group before any output is emitted. A future head remains queued. Per-port firing width is finite and specified in the profile; excess same-time demand is rejected during producer validation rather than drained through unlimited zero-time iterations. The queue bank removes the entire firing group exactly once.
-
-QuMA [Section 5.2](https://arxiv.org/abs/1708.07677) separates pulse and measurement event streams; Distributed-HISQ [Section 3.2](https://arxiv.org/abs/2509.04798) describes per-port queues. The selected physical partition and widths are profile parameters. Neither a label nor a C++ loop supplies unlimited output bandwidth.
-
-### 3.12 TCU timer and timing-label broadcaster
-
-**Upstream:** TCU edges, admitted timing entries, a configured start event, and a future explicit pause port. Baseline execution rejects pause, resume and sync requests as unsupported. **Downstream:** all event queues and dispatch trace.
-
-The timer owns `T_D`, the last fired logical cursor and run state. Baseline start occurs at configured global tick `S`, aligned to a TCU edge and independent of CPU progress; `T_D=0` on that edge. With period `P`, edge `S+nP` has `T_D=n`. A label at logical cycle 4 therefore fires at `S+4P`. The current point at cycle zero can fire on start only if admitted before `S`. Reset leaves the timer stopped until a new explicit start. Global simulation time never resets.
-
-Zero waits are coalesced by the producer, so distinct admitted labels have strictly increasing due cycles. All members of the one due label fire at that edge; logical queue matching and launch preflight do not add a hidden clock cycle. The timer continues through empty queues. It cannot silently pause to rescue late producers or unavailable output resources.
-
-A future Distributed-HISQ-style synchronization adapter may freeze `T_D` while global simulation time and already active device operations continue. A sync event travels from TCU to the adapter; pause and resume travel back. Deadlines beyond an unresolved pause cannot be treated as known global ticks. The exact pause/resume edge rules and BISP protocol remain outside the baseline; see [Distributed-HISQ Sections 3.2 and 4](https://arxiv.org/abs/2509.04798).
-
-### 3.13 Deterministic condition gate and launch preflight
-
-**Upstream:** the due manifest and resolved events, previously committed fast flags, and a committed device-resource calendar snapshot. **Downstream:** one launch batch to DeviceRuntime and trace.
-
-This block is pure logic inside the TCU edge transition. It checks the full manifest, evaluates every predicate against the same flag snapshot, and preflights every surviving action. It does not lower operations or choose a new schedule. Missing predicate history faults; false predicates produce explicit cancellation records. Unsupported predicated measurements are rejected before admission in the baseline, so cancellation cannot leave a measurement token pending forever.
-
-All physical intervals in the batch are checked both against one another and against existing reservations. A collision, unsupported action or invariant violation rejects the entire due batch before physical side effects. The baseline stops with a typed fault; it never serializes a conflict into a later success. Successful preflight publishes one immutable launch batch. Optional future arbitration policies must be separate named profiles. Producer-side device distribution and post-trigger fast gating correspond to distinct stages in [eQASM Section 4.3](https://arxiv.org/abs/1808.02449).
-
-### 3.14 Port codeword and waveform map
-
-**Upstream:** producer-side port and codeword, frozen device profile. **Downstream:** resolved action descriptors used by staging, admission, launch and DeviceRuntime.
-
-This pure lookup resolves an action before queue admission: kind, resource IDs, output delay, duration, backend capability, and measurement associations. Descriptors retain the original port and codeword plus configuration hash for tracing. Missing or incompatible entries fail before producer acceptance. The profile declares exclusive resources separately from intentionally additive drives; two actions touching one qubit are not automatically a hardware conflict.
-
-For primitive pulse generation the configured trigger-to-output latency is fixed, preserving [QuMA Section 5.1](https://arxiv.org/abs/1708.07677). The recorded label-fire tick, codeword-trigger tick and physical start tick remain distinct. Baseline label matching issues codewords on the same edge; the mapped channel delay begins there. Later micro-operation sequencers need an explicit latency model.
-
-### 3.15 Output channels and device-resource calendar
-
-**Upstream:** accepted same-tick launch batches and existing physical events. **Downstream:** the single quantum-state service, acquisition state machine and boundary trace.
-
-DeviceRuntime is the sole owner of physical interval reservations and active channels. Resource intervals are half-open `[start,end)`, so an exclusive lane ending at tick t can begin another pulse at t. Reservations include fixed future start delays, not just currently active channels. The TCU reads the prior committed calendar and checks its own batch internally; DeviceRuntime installs that batch once. The baseline has one TCU launch producer. Multiple TCUs require a same-time batch coordinator before they can share a device calendar.
-
-A digital trigger, physical pulse, acquisition window and discrimination task are distinct actions, with explicit IDs and profiles. Channel clocks or quantization rules, if any, are specified in the descriptor; the baseline rejects unrepresentable times instead of rounding silently. Reset invalidates scheduled starts, ends and results by epoch. Device processing and backend actions at one tick follow the ordering in Section 4.4.
-
-### 3.16 Single quantum-state service and backend adapters
-
-**Upstream:** DeviceRuntime's time-ordered physical-event batches. **Downstream:** physical measurement outcomes to readout, capability status and errors.
-
-Exactly one service owns backend calls and `last_evolved_tick` for a shared quantum state. Individual ports must not call `advance_to()` independently. At tick t it evolves the previous active drives over `[last_evolved_tick,t)` once, then applies the complete same-time boundary batch in the order in Section 4.4. It never evolves to a pulse's future end immediately at launch; another overlapping pulse or measurement can intervene. Advancement to the current backend tick is a no-op, permitting a first batch at initialization time. Decreasing time or replay of a processed batch identity is rejected.
-
-An ideal gate adapter applies gates instantaneously at physical output start while the channel remains occupied for its configured duration. A pulse adapter receives the joint active drives and evolves them together. Simultaneous state actions on disjoint targets commute; same-target instantaneous gate or measurement conflicts are rejected unless a future profile defines them. Scripted measurement values are keyed by measurement token, independent of port iteration order. Capabilities are negotiated before execution, and unsupported requested behavior fails explicitly. A backend computation may take host time, but cannot advance SystemC time or expose feedback early.
-
-### 3.17 Acquisition and discrimination model
-
-**Upstream:** readout-pulse and discriminator triggers, preallocated measurement tokens and backend outcomes. **Downstream:** independent CPU-feedback and fast-condition crossing requests.
-
-For each token it tracks acquisition start/end, the configured quantum sampling or collapse tick, discriminator latency, result-ready tick, and status. Baseline abstract readout samples at acquisition end. With discriminator arm tick a and processing delay L, the result-ready tick is `max(acquisition_end,a)+L`; a result cannot precede its arm trigger. A different physical model must declare its sampling rule before execution; a raw-waveform discriminator requires a matching backend capability. A compound measurement action arms its discriminator at acquisition start. When pulse and discriminator are separate actions, baseline group validation requires exactly one of each in the same sealed point, referencing one token; mapped physical delays can give them different start ticks. Missing or duplicate arms fault before admission. They form one measurement protocol, not two calls to measure. [QuMA Sections 5.1–5.2](https://arxiv.org/abs/1708.07677) distinguish these trigger paths.
-
-A backend bit does not make the CPU register valid immediately. When discrimination completes, the model sends the same tagged completion down two independently timed paths: CPU result delivery and, if enabled, deterministic-domain fast flags. CPU completion storage and any enabled fast-condition delivery storage each reserve a credit at measurement acceptance so neither path can drop a result. CPU consumption releases only the CPU slot; a fast-path credit is released only after its independent delivery completes. A duplicate or unknown token is a protocol error; an old-epoch completion is discarded and traced.
-
-### 3.18 Measurement scoreboard and CPU feedback crossing
-
-**Upstream:** producer-accepted measurements and crossing-delivered discrimination results. **Downstream:** CPU READ_RESULT requests, trace and result-slot credit.
-
-The CPU-domain producer and scoreboard allocate one `(epoch, measurement_id, result_slot, slot_generation)` token atomically when an acquisition APPEND is accepted. That token is returned in `ProducerAccepted`; a separate discriminator APPEND references it and allocates no second slot. A compound measurement APPEND allocates once. The slot becomes pending immediately, before TCU admission or physical triggering, and completion storage is reserved. Readout only propagates the token; it never allocates a second identity. A slot transitions `Free -> Pending -> Visible -> Free`; the last transition occurs when READ_RESULT consumes it. Token storage is bounded. Lack of free slots produces `MeasurementCapacityExceeded` in the baseline, rather than blocking an APPEND whose later read would be needed to free storage.
-
-READ_RESULT identifies one accepted token, flushes any open timeline point, then waits for that token's CPU-visible completion. Unknown, consumed or wrong-epoch tokens fault. Completion becomes visible after the CPU-crossing rule, and the CPU can use it only at that visibility edge or later according to the CPU step contract. Out-of-order completion of distinct tokens is allowed. This tagged, consuming read is a qsbit-sim proposal, not eQASM's `FMR`: [eQASM Sections 3.6 and 4.3](https://arxiv.org/abs/1808.02449) wait until all issued measurements for a qubit have completed before reading its latest result. The external equivalence suite must map these semantics explicitly. Admission and reset failures must release or invalidate every reserved token.
-
-### 3.19 Optional fast-condition history
-
-**Upstream:** discriminator completions through an independent deterministic-domain crossing. **Downstream:** condition snapshot sampled by TCU launch preflight.
-
-Fast flags update from completed measurements independently of CPU result-slot visibility, consumption, or the existence of later pending measurements. This preserves the separation described in [eQASM Section 4.3](https://arxiv.org/abs/1808.02449). An enabled profile defines the history depth, initial validity, predicate table and result ordering. The baseline extension requires measurement completions for each history target to preserve issue order; a target requiring reordering is unsupported until a bounded reorder policy is specified. Distinct targets may complete out of order.
-
-Unconditional events use an always-true selector and require no measurement history. At a TCU edge, conditional actions sample the previously committed flag snapshot. A fast-history update made visible on that same edge is committed for the following TCU edge; it cannot affect the firing batch. Missing required history faults, whereas a valid false predicate cancels the event with a trace record. Flags do not cause a quantum-state mutation themselves. This optional module is implemented only when a selected workload and its timing profile require it.
-
-### 3.20 Generic trace recorder and stop controller
-
-**Upstream:** CPU, crossing channels, timing queues, TCU, output channels, readout, backend status and errors. **Downstream:** public trace file, test assertions and external consumers.
-
-It records each observable transition with global integer tick, clock domain and cycle, stable operation or measurement ID, status and causal parent ID. It preserves the distinction between CPU command proposal, TCU admission, label firing, codeword trigger, physical output start and end, result completion, and CPU result visibility. A phase and causal-order field preserves the defined partial order at one tick. Independent same-tick actions are serialized by stable IDs for files, without making that serialization a hardware dependency. The stop controller reports halt, illegal instruction, missed deadline, manifest mismatch, unsupported capability, timeout or lack of progress with context. An empty event queue alone is not a fault. The simulation completes after producer closure, admitted-point drain, physical-action completion and completion of every enabled feedback delivery path; a CPU halt alone cannot discard queued outputs. The recorder and external consumers are observation-only. A separate stop-control owner decides draining and termination; sharing a utility package does not give the trace sink authority to stop or schedule hardware.
-
-### 3.21 Future synchronization adapter and multiple nodes
-
-**Upstream:** a sync instruction or TCU sync queue, peer or router messages, and explicit link latency. **Downstream:** TCU pause and resume port, communication trace.
-
-This is a later extension, not needed to prove a single-node QuMA-style TCU. Distributed-HISQ [Sections 3.2 and 4](https://arxiv.org/abs/2509.04798) adds a synchronization unit and message unit, and its BISP protocol may pause the TCU timer until a booking condition and remote signal condition are both met. A multi-node model must distinguish global simulation time from each node's pausable deterministic timeline; neither is host wall-clock time. The paper leaves message-unit implementation details out of scope, so this document does not invent a wire protocol or claim BISP support in Phase 1. The TCU reserves a control port for such an adapter.
+## 3. Module map
+
+The [module contract index](modules/README.md) links to one behavior description and diagram per logical module. These are logical responsibilities, not necessarily separate `sc_module` instances or extra clock stages. Each module page owns its local inputs, outputs, state, activation, errors and focused verification. Section 4 owns the cross-module timing and visibility protocol; if a module page and Section 4 disagree, resolve the discrepancy before implementation.
+
+| Implementation area | Logical modules |
+| --- | --- |
+| Platform and program setup | [Configuration and clocks](modules/platform-and-clock-adapter.md), [ELF loader](modules/elf-loader-and-program-image.md) |
+| CPU domain and producer | [ISA decode and semantics](modules/isa-decoder-and-semantics.md), [CPU cycle model](modules/cpu-cycle-model.md), [memory](modules/memory-and-response-model.md), [quantum instruction adapter](modules/quantum-instruction-adapter.md), [operation lowerer](modules/operation-lowerer-and-device-distributor.md), [timeline producer](modules/timeline-reservation-manager.md), [measurement scoreboard](modules/measurement-scoreboard-and-cpu-feedback.md) |
+| TCU domain | [Command crossing and admission](modules/command-crossing-and-admission.md), [timing queue](modules/timing-queue.md), [per-port queues](modules/per-port-event-queues.md), [timer and label broadcast](modules/tcu-timer-and-label-broadcaster.md), [condition and launch preflight](modules/condition-gate-and-launch-preflight.md), [fast-condition history](modules/fast-condition-history.md) |
+| Device runtime and backend | [Port and waveform map](modules/port-codeword-and-waveform-map.md), [output channels and calendar](modules/output-channels-and-resource-calendar.md), [quantum-state service](modules/quantum-state-service-and-backends.md), [acquisition and discrimination](modules/acquisition-and-discrimination.md) |
+| Observation and lifecycle | [Trace recorder and stop controller](modules/trace-recorder-and-stop-controller.md) |
+| Future extension | [Synchronization adapter](modules/future-synchronization-adapter.md) |
 
 ## 4. Baseline protocol and event ordering
 

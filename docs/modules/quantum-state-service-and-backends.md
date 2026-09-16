@@ -1,6 +1,6 @@
 # Quantum-State Service and Backends
 
-**Architecture position:** [Integrated contract, Section 3.16](../module-architecture.md#316-single-quantum-state-service-and-backend-adapters). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

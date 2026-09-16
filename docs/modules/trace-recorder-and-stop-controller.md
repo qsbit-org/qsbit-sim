@@ -1,6 +1,6 @@
 # Trace Recorder and Stop Controller
 
-**Architecture position:** [Integrated contract, Section 3.20](../module-architecture.md#320-generic-trace-recorder-and-stop-controller). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

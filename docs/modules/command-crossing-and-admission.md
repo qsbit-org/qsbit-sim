@@ -1,6 +1,6 @@
 # Command Crossing and Atomic Admission
 
-**Architecture position:** [Integrated contract, Section 3.9](../module-architecture.md#39-command-crossing-and-atomic-admission). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

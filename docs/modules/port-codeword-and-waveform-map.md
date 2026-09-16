@@ -1,6 +1,6 @@
 # Port Codeword and Waveform Map
 
-**Architecture position:** [Integrated contract, Section 3.14](../module-architecture.md#314-port-codeword-and-waveform-map). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

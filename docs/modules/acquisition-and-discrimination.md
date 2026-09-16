@@ -1,6 +1,6 @@
 # Acquisition and Discrimination
 
-**Architecture position:** [Integrated contract, Section 3.17](../module-architecture.md#317-acquisition-and-discrimination-model). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

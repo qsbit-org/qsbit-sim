@@ -1,6 +1,6 @@
 # Future Synchronization Adapter
 
-**Architecture position:** [Integrated contract, Section 3.21](../module-architecture.md#321-future-synchronization-adapter-and-multiple-nodes). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

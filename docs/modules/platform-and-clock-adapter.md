@@ -1,6 +1,6 @@
 # Platform Configuration and Clock Adapter
 
-**Architecture position:** [Integrated contract, Section 3.1](../module-architecture.md#31-platform-configuration-and-clock-adapter). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

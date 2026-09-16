@@ -2,7 +2,7 @@
 
 Each page describes one **logical module** in the Phase 1 architecture. A logical module is not automatically a separate `sc_module` or `SC_METHOD`. The CPU domain, TCU domain and DeviceRuntime are the principal clocked or timed owners; pure libraries and queue substates run inside those owners. Adding a SystemC process or a clock edge between two logical boxes would change the timing contract.
 
-The [high-level design](../high-level-design.md) states project goals. The [integrated module architecture](../module-architecture.md) is normative for the proposed baseline protocol, especially producer sealing, strict receiver-edge visibility, TCU edge order, device batching and END drain. These module pages explain implementation-facing behavior; numerical timing values and final ISA encodings still require a pinned profile. The [verification plan](../engineering-and-testing.md) gives regression scenarios.
+The [high-level design](../high-level-design.md) states project goals. The [architecture overview](../module-architecture.md) defines cross-module protocol, especially producer sealing, strict receiver-edge visibility, TCU edge order, device batching and END drain. These pages own each module's local behavior and implementation contract; numerical timing values and final ISA encodings still require a pinned profile. The [verification plan](../engineering-and-testing.md) gives regression scenarios.
 
 | Module | Implementation boundary |
 | --- | --- |

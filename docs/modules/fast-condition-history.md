@@ -1,6 +1,6 @@
 # Fast-Condition History
 
-**Architecture position:** [Integrated contract, Section 3.19](../module-architecture.md#319-optional-fast-condition-history). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

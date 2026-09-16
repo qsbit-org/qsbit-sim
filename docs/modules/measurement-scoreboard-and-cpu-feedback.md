@@ -1,6 +1,6 @@
 # Measurement Scoreboard and CPU Feedback
 
-**Architecture position:** [Integrated contract, Section 3.18](../module-architecture.md#318-measurement-scoreboard-and-cpu-feedback-crossing). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

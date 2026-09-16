@@ -1,6 +1,6 @@
 # ELF Loader and Program Image
 
-**Architecture position:** [Integrated contract, Section 3.2](../module-architecture.md#32-elf-loader-and-program-image). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

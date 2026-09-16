@@ -1,6 +1,6 @@
 # Quantum Instruction Adapter
 
-**Architecture position:** [Integrated contract, Section 3.6](../module-architecture.md#36-quantum-instruction-adapter). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

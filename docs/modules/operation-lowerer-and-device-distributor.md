@@ -1,6 +1,6 @@
 # Operation Lowerer and Device Distributor
 
-**Architecture position:** [Integrated contract, Section 3.7](../module-architecture.md#37-optional-lowerer-device-event-distributor-and-configuration-store). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

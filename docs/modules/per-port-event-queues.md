@@ -1,6 +1,6 @@
 # Per-Port Event Queues
 
-**Architecture position:** [Integrated contract, Section 3.11](../module-architecture.md#311-per-port-event-queues). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

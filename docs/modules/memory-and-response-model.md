@@ -1,6 +1,6 @@
 # Memory and Response Model
 
-**Architecture position:** [Integrated contract, Section 3.5](../module-architecture.md#35-memory-and-response-model). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

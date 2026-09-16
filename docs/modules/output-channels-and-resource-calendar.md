@@ -1,6 +1,6 @@
 # Output Channels and Resource Calendar
 
-**Architecture position:** [Integrated contract, Section 3.15](../module-architecture.md#315-output-channels-and-device-resource-calendar). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 

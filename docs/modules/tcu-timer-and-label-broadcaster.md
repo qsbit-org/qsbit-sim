@@ -1,6 +1,6 @@
 # TCU Timer and Label Broadcaster
 
-**Architecture position:** [Integrated contract, Section 3.12](../module-architecture.md#312-tcu-timer-and-timing-label-broadcaster). **Status:** proposed behavior; no implementation exists yet.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** proposed behavior; no implementation exists yet.
 
 ## Responsibility and neighbors
 
