@@ -1,44 +1,52 @@
 # Engineering and Verification Plan
 
-**Status:** Discussion draft, 2026-09-16
+**Status:** Phase 1 verification requirements agreed; fixtures and selected backend versions remain to be pinned, 2026-09-16.
 
-## Coding rules
+## Coding and SystemC rules
 
-Use C++20, CMake, and the Accellera SystemC reference implementation. Pin the tested SystemC release rather than using an unbounded latest version. Put portable RV32I semantics in a library without a SystemC dependency. Keep simulation modules thin and isolate clocked behavior from pure algorithms. Use `sc_time` for simulation scheduling, fixed-width integers for architectural values, and explicit conversions at their boundary. Choose one state owner per module, initialize it in construction or reset, and document reset semantics.
+Use C++20, CMake, and a pinned Accellera SystemC release. Keep the RV32I ISA library free of SystemC dependencies and isolate pure state transitions from scheduling processes. Represent architectural values with fixed-width integers and simulated event times with checked integer ticks or `sc_time` at the SystemC boundary. Give each mutable state object one owner; define construction, reset, overflow, and teardown behavior. Use the checked-in `.clang-format`, enable compiler warnings as errors in CI, and run `clang-tidy` on changed C++ where available.
 
-Use `SC_METHOD` only for nonblocking logic that cannot suspend. Use `SC_THREAD` when `wait()` is required. Avoid ambiguous same-timestamp behavior: tests should assert ordering where the protocol guarantees it and allow either order where it does not. Avoid unbounded `sc_fifo` use for hardware queues. Report model errors through structured status and SystemC reports, with stable machine-readable trace records. Run formatting and static analysis in CI.
+Use `SC_METHOD` only for nonblocking behavior and `SC_THREAD` when `wait()` is required. Document sensitivity, reset, and which edge observes a handshake. Avoid modeling hardware queues with unbounded containers. Do not rely on incidental SystemC delta-cycle order for a hardware-visible result: define and test the same-timestamp sampling, acceptance, state commit, and output-visibility rule. Allow alternate order only for diagnostic events whose order is explicitly outside the contract. Log structured machine-readable trace records for CPU retirement, command acceptance, queue changes, TCU dispatch, readout, feedback, errors, and stop reason.
 
-These rules are project decisions informed by the [SystemC language standard and reference implementation](https://systemc.org/resources/standards/) and [Accellera's Common Practices project](https://github.com/accellera-official/systemc-common-practices); they are not a verbatim Accellera style guide. The Common Practices repository provides reusable transaction, configuration, and reporting patterns, but it does not define all project-specific process or test conventions.
+These are project conventions informed by the [SystemC reference implementation](https://github.com/accellera-official/systemc) and [Accellera Common Practices](https://github.com/accellera-official/systemc-common-practices); neither is presented as a verbatim style guide for qsbit-sim.
 
 ## Open-source RV32I references
 
 | Project | Relevant use | Integration assessment |
 | --- | --- | --- |
-| [Ripes](https://github.com/mortbopet/Ripes) | Five-stage processor datapath and hazard behavior reference. | Useful design and test oracle; its graphical application architecture is not a direct SystemC component. Check license before copying code. |
-| [skyzh RISCV-Simulator](https://github.com/skyzh/RISCV-Simulator) | C++ RV32I pipeline branch and instruction-level examples. | Small enough to inspect; branch-specific code and maintenance state require review before reuse. |
-| [rv32emu](https://github.com/sysprog21/rv32emu) | Functional RV32I execution and broad instruction support. | Candidate independent architectural oracle, not a cycle pipeline substitute. |
-| [Spike](https://github.com/riscv-software-src/riscv-isa-sim) | Established functional ISA reference. | Prefer differential testing or an optional external adapter; integration is larger than a small embedded core. |
+| [Ripes](https://github.com/mortbopet/Ripes) | Five-stage datapath and hazard behavior. | Useful independent cycle examples; its graphical model is not a drop-in SystemC component. Review license before copying. |
+| [rv32emu](https://github.com/sysprog21/rv32emu) | Functional RV32 instruction execution. | Candidate architectural-state oracle, not a cycle-pipeline substitute. |
+| [Spike](https://github.com/riscv-software-src/riscv-isa-sim) | Established ISA simulator. | Prefer differential testing or an optional CPU adapter after interface review. |
+| [RISCV-VP](https://github.com/agra-uni-bremen/riscv-vp) | RV32 semantics and ELF loading within a SystemC platform. | Useful reference for program loading and adapters; instruction-based timing is not automatically the selected pipeline profile. |
 
-Recommendation: implement the project-owned RV32I pipeline and its plain-C++ ISA core. Reuse open-source code selectively only after API, license, and test review. This meets the requirement to implement and understand the initial pipeline while leaving an external CPU backend feasible.
+The initial pipeline belongs to qsbit-sim. Borrowing source requires license, maintenance, API, and test review. A future external CPU can be a functional adapter, or it can declare a tested timing profile; architectural-state agreement alone does not establish cycle equivalence.
 
-## Test layers and gates
+## Test layers and release gates
 
 | Layer | Tests | Required result |
 | --- | --- | --- |
-| ISA unit | Decode fields, immediates, sign extension, arithmetic overflow, branches, loads, stores, alignment, zero register, illegal encodings. | Exact architectural state and trap result per case. |
-| Pipeline unit | Forwarding, load-use stall, control hazard flush, simultaneous memory and command pressure, retirement order. | Cycle trace and final architectural state match the specified pipeline model. |
-| TCU unit | Timestamp order, equal-timestamp tie rule, queue full and empty, lane occupancy, late command, reset, feedback correlation. | Exact event ticks, order, status, and no loss or duplication. |
-| Component integration | CPU command adapter, TCU, scripted device, and feedback path. | Trace matches a golden event schedule; both measurement outcomes run. |
-| End-to-end use case | Bare-metal RV32I program emits timed controls and branches on feedback. | Final memory signature and complete trace match expectations. |
-| Architecture tests | Supported RV32I subset from the [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) through an appropriate target adapter. | All applicable tests pass; unsupported privileged features are declared, never quietly skipped. |
-| Differential and randomized | Compare retired architectural state with Spike or another independent reference using seeded programs. | No mismatches; failing seed and program are retained. |
+| ISA and ELF unit | Decode every supported RV32I class and extension mask; immediates, sign extension, arithmetic overflow, branches, alignment, zero register, illegal encodings, ELF mapping and entry. | Exact architectural effect and error. Unknown extension words never become no-ops. |
+| Toolchain contract | Assemble each custom instruction with pinned GNU or LLVM `.insn` macros, link an RV32 ELF, disassemble it, load it, then decode and execute it. | The versioned ISA specification, emitted machine word, disassembly, and simulator behavior agree. Unexpected compression or relaxation is detected. |
+| Pipeline unit | Forwarding, load-use stall, branch flush, memory wait, extension blocking, retirement order, reset at each stage. | Cycle trace and architectural state match the selected profile. |
+| CPU adapter component | Held request under backpressure, acceptance at a defined edge, one-time side effect, memory response, feedback visibility, and same-time edge ordering. | No command loss or duplication; cycle and boundary events match the protocol. A replacement adapter runs the same contract tests. |
+| TCU and device component | Queue full and almost-full, two independent ports at one target time, same-port conflict, equal-time tie rule, missed deadline, clock crossing, readout and reset. | Exact event time, ordering and status; bounded resource state remains valid. |
+| End-to-end scripted use case | RV32I-extension ELF issues controls, waits, measures and branches for both deterministic outcomes. | Full boundary trace, final memory signature and stop reason match the fixture. |
+| CACTUS differential gate | One ISA-neutral workload produces independent CACTUS eQASM and qsbit-sim RV32I-extension binaries; run matched configuration with scripted measurement streams. | Event count, operation, target, order, correlation and absolute time are identical with zero common-grid-tick tolerance at every required probe. Missing probes and unsupported mappings fail explicitly. |
+| Device adapter contract | Run a circuit-level live-measurement prototype and a small pulse-level prototype; exercise unsupported capabilities, reset, qubit ordering, overlapping drives, and host-time isolation. | Each adapter passes its declared capability tests; unsupported operations reject clearly. Backend compute duration never changes simulated event time. |
+| Architecture conformance | Applicable RV32I cases from the [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) through a target adapter. | Applicable tests pass; unsupported privilege or platform requirements are identified, not silently skipped. |
+| Differential and randomized | Compare retired state with Spike or another independent ISA reference using seeded programs. | No architectural mismatches; retain seed, program, configuration and first differing retirement. |
 
-Run pure unit tests without SystemC. Give each SystemC test case its own executable or fresh child process because elaborated modules and simulation time are not generally reset to an initial state by a normal C++ test fixture. Register tests with CTest. Use a small timeout for every scenario to detect deadlock. Use deterministic fake devices and seeded random streams. Keep slow architecture and random tests in a separate CI tier.
+The CACTUS gate has priority over hand-written golden schedules for a Phase 1 timing claim. Its fixture records the exact CACTUS commit, execution entry point, actual clock periods and phases, reset release, codeword and device configuration, deterministic measurements, both binaries, and a versioned trace schema. Start with single commands and waits, then independent simultaneous ports, queue pressure, both feedback branches, repeated measurements, and a longer program. On failure, print the first divergent boundary event and the nearest CPU stall and queue-state records. Compare absolute post-reset time after a single common-origin normalization; do not shift individual events.
 
-The initial CI gate should compile Debug and Release builds, run formatting checks, compile with warnings enabled, run fast CTest, and run AddressSanitizer plus UndefinedBehaviorSanitizer jobs where supported. Coverage reports should show untested branches in ISA decode, TCU error handling, and feedback paths; a single overall percentage is not an acceptance criterion. Add a trace-schema compatibility test when the first external adapter is introduced.
+## CI and test execution
 
-## References for testing approach
+Keep pure ISA tests independent of SystemC. Run each SystemC scenario in a fresh executable or child process; a normal C++ fixture must not assume elaborated modules and simulation time can be rewound. Register tests with CTest, give each scenario a timeout, and use deterministic seeds printed on failure. Separate fast tests from slower architecture, random, numerical-backend, and CACTUS differential jobs.
 
-- [Accellera SystemC reference implementation](https://github.com/accellera-official/systemc) includes examples and a regression suite; it is the source for API behavior and regression patterns.
-- [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) are the instruction-set conformance source for supported target configurations.
-- [CMake CTest documentation](https://cmake.org/cmake/help/latest/manual/ctest.1.html) defines test registration and execution. The separate-process SystemC test convention is a project decision based on the simulation kernel lifecycle.
+The initial CI gate builds Debug and Release, checks formatting, treats warnings as errors, runs fast CTest, and runs AddressSanitizer and UndefinedBehaviorSanitizer where supported. Add coverage reports for ISA decode, extension errors, TCU conflict handling, and feedback; a single global coverage percentage is not an acceptance criterion. Phase 1 completion additionally requires the applicable architecture tests, CACTUS differential suite, and two backend-adapter contract prototypes. Preserve test binaries, configuration and event traces as reviewable artifacts. A successful process exit alone is never sufficient.
+
+## References
+
+- [Accellera SystemC reference implementation](https://github.com/accellera-official/systemc) provides API behavior, examples, and regression tests.
+- [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) provide an ISA conformance source for declared target configurations.
+- [RISC-V assembly manual](https://github.com/riscv-non-isa/riscv-asm-manual/blob/main/src/asm-manual.adoc) and [GNU `.insn` formats](https://sourceware.org/binutils/docs/as/RISC_002dV_002dFormats.html) document existing custom-instruction assembly support.
+- [CMake CTest documentation](https://cmake.org/cmake/help/latest/manual/ctest.1.html) defines test registration and execution. The fresh-process convention is a qsbit-sim decision based on the SystemC kernel lifecycle.

@@ -2,6 +2,8 @@
 
 A C++20 and SystemC simulation project for a programmable quantum control processor. The first design target combines an extensible RV32I classical execution engine with a QuMA-inspired timing control unit.
 
+Phase 1 targets RV32I extension programs, cycle-level control timing, and exact boundary-event agreement with CACTUS for equivalent workloads. An MMIO-only demonstration is an earlier smoke test. TQEC integration is reserved for Phase 2.
+
 The architecture is being discussed in [docs/high-level-design.md](docs/high-level-design.md). Engineering and verification rules are in [docs/engineering-and-testing.md](docs/engineering-and-testing.md) and [AGENTS.md](AGENTS.md).
 
 This repository currently contains design documents. It does not claim a working simulator yet.
