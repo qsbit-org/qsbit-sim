@@ -21,8 +21,9 @@
 
 - Apply the checked-in `.clang-format`; enable compiler warnings and treat new warnings as errors in CI. Use `clang-tidy` for changed C++ code where available.
 - Prefer value types, RAII, `enum class`, `std::span`, and explicit ownership. Avoid raw owning pointers and hidden global state.
-- Keep each SystemC process small and assign one clear owner to each piece of mutable state. Do not call `wait()` from `SC_METHOD`. Use `SC_THREAD` for blocking protocol behavior and `SC_METHOD` for nonblocking combinational behavior. Document process sensitivity and reset behavior.
+- Keep each SystemC process small and assign one clear owner to each piece of mutable state. Do not call `wait()` from `SC_METHOD`. Use `SC_THREAD` for blocking protocol behavior and `SC_METHOD` for nonblocking combinational or clocked state transitions. Logical substages within a clock-domain owner do not each require a separate process. Document process sensitivity and reset behavior.
 - Model externally visible event times with `sc_time` and an explicit simulation time resolution. Do not infer hardware timing from host wall-clock time or delta cycles.
+- Distinguish producer-operation acceptance from atomic TCU group admission; follow the sealing, strict-edge visibility, empty-stream, backend batching, and epoch-reset rules in `docs/module-architecture.md`.
 - Use bounded queues where hardware backpressure matters. Make overflow and underflow observable. Specify same-time event order, cross-domain visibility, exact acceptance and one-time side effects; do not let SystemC delta-cycle order decide hardware behavior. Log structured trace events for instruction retirement, queue operations, feedback, and timed output.
 
 ## Testing requirements
