@@ -38,6 +38,8 @@
 
 ## Change workflow
 
+Keep review working notes, agent review reports, audit findings, and review checklists out of tracked repository content. Store local review artifacts under the ignored `docs/reviews/` directory or outside this repository. Incorporate accepted findings into the relevant design document, decision record, code, or tests; do not link committed documents to ignored review artifacts.
+
 1. Read the relevant architecture contract and cite the exact behavior being implemented.
 2. Make the smallest coherent change with tests.
 3. Run the affected tests, then the full fast CTest suite before reporting completion.

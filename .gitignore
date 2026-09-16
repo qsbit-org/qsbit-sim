@@ -4,3 +4,4 @@ out/
 compile_commands.json
 *.vcd
 *.fst
+docs/reviews/

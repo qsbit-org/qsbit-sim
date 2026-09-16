@@ -1,6 +1,6 @@
 # Module Architecture and QuMA-Style Timing Control
 
-**Status:** Reviewed Phase 1 baseline proposal, 2026-09-16. Protocol rules below are concrete project choices, distinguished from paper mechanisms in Section 5. Instruction encodings and numerical timing-profile values remain open. See the [review record](reviews/2026-09-16-module-architecture-review.md) for resolved findings. Every implementation must select and record a complete profile; this document does not claim CACTUS equivalence has already been demonstrated.
+**Status:** Phase 1 baseline proposal, 2026-09-16. Protocol rules below are concrete project choices, distinguished from paper mechanisms in Section 5. Instruction encodings and numerical timing-profile values remain open. Every implementation must select and record a complete profile; this document does not claim CACTUS equivalence has already been demonstrated.
 
 ## 1. Architectural rule
 
