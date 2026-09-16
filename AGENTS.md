@@ -6,6 +6,7 @@
 - Treat `docs/high-level-design.md` as a proposal until its open decisions are resolved. Record a decision in that document or a dedicated architecture decision record before changing an architectural contract.
 - Implement a C++20 and SystemC simulator. The initial classical engine must implement RV32I instruction semantics and a cycle-level pipeline. Keep its integration boundary independent of its concrete implementation so another RISC-V simulator can replace it later.
 - Follow the timing-control principles described in the QuMA literature. Do not copy CACTUS internals as an architectural constraint. Phase 1 must compare independently executed equivalent workloads against CACTUS at the quantum-control boundary with zero common-grid-tick time difference.
+- Keep every CACTUS-specific comparator, probe, translation script, workload, fixture, configuration, and result artifact in a separate disposable validation project. The simulator may expose a generic versioned trace through its public interface, but it must have no CACTUS-specific code path or build dependency. Removing the validation project must not require editing this repository.
 - Treat MMIO-only and single-lane demonstrations as M0 smoke tests, not Phase 1 completion. Phase 1 uses RV32I extension instructions and validates both circuit-level and small-system pulse-level backend adapters.
 
 ## Source and dependency discipline
@@ -31,7 +32,7 @@
 - Run each SystemC scenario in a fresh test executable or process. Do not assume simulation time or elaborated module state can be reset in the same process.
 - Assert event order, timestamps, queue state, final architectural state, and stop reason. A successful process exit alone is insufficient.
 - Use deterministic seeds and print the seed on failure. Keep fast unit tests separate from longer randomized and RISC-V architecture tests.
-- Register tests with CTest. CI must run formatting, build, unit tests, component tests, use-case tests, and sanitizer jobs where supported.
+- Register tests with CTest. Core CI must run formatting, build, unit tests, component tests, use-case tests, and sanitizer jobs where supported. Run CACTUS differential acceptance from the separate validation project.
 - Do not claim a feature complete until the tests in `docs/engineering-and-testing.md` for that feature pass. Phase 1 timing claims require the CACTUS differential gate; adapter-extensibility claims require both circuit-level and pulse-level contract tests.
 
 ## Change workflow
