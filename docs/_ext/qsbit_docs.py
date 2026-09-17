@@ -31,7 +31,7 @@ def make_demo(root, build, output, name, program, outcomes):
         raise ExtensionError(f'{name}: decreasing trace time')
     starts = [e for e in events if e['kind'] == 'OperationStart']
     expected = [('h', 1160), ('cx', 1200), ('measure', 1240), ('measure', 1240)] if program == 'bell' else [
-        ('x', 1160), ('measure', 1240), ('x' if outcomes == '1' else 'z', 3560)]
+        ('x', 1160), ('measure', 1240), ('x' if outcomes == '1' else 'z', 1520)]
     observed = [(e['operation'], e['tick']) for e in starts]
     if observed != expected:
         raise ExtensionError(f'{name}: unexpected operation schedule {observed}, expected {expected}')

@@ -73,8 +73,8 @@ publishing the playback data.
 | Program | Physical starts (ns) | Outcome |
 | --- | --- | --- |
 | Bell | H: 1160; CX: 1200; both acquisitions: 1240 | Both scripted bits are 1. |
-| Feedback, outcome 1 | X: 1160; acquisition: 1240; branch-selected X: 3560 | Memory word 4096 is 1. |
-| Feedback, outcome 0 | X: 1160; acquisition: 1240; branch-selected Z: 3560 | Memory word 4096 is 0. |
+| Feedback, outcome 1 | X: 1160; acquisition: 1240; branch-selected X: 1520 | Memory word 4096 is 1. |
+| Feedback, outcome 0 | X: 1160; acquisition: 1240; branch-selected Z: 1520 | Memory word 4096 is 0. |
 
 In each run, acquisition samples at 1280 ns. The result is ready at 1300 ns,
 CPU-visible at 1305 ns and committed to fast history at 1340 ns. TCU conditions
@@ -82,7 +82,9 @@ can use that history on later edges.
 
 In Bell, two measurement APPENDs join one group before QREAD seals it.
 In feedback, QREAD completes before the classical branch chooses the final
-operation. Neither waiting for a result nor an empty queue pauses the TCU timer.
+operation. Both branches reach admission at 1480 ns and schedule the selected
+gate for cycle 26 (1520 ns), leaving two TCU cycles before output. Neither
+waiting for a result nor an empty queue pauses the TCU timer.
 
 The scripted backend demonstrates control timing. Use the
 [Aer example](backends.md#install-an-optional-backend) to obtain bits from

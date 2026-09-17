@@ -59,10 +59,13 @@ With the default profile, the trace contains these milestones:
 | 1280 | The backend supplies the measurement bit. |
 | 1300 | Discrimination finishes; the result is ready for delivery. |
 | 1305 | The CPU receives the result. |
-| 3560 | The branch-selected X starts on qubit 1. |
+| 1520 | The branch-selected X starts on qubit 1. |
 
-The gap before the final operation comes from the program's requested timing.
-Waiting for a result does not pause the TCU.
+After receiving the result at 1305 ns, the CPU executes the branch and submits
+the selected action. Both branches reach TCU admission at 1480 ns. The program
+advances its cursor from cycle 12 to cycle 26, scheduling output at
+`1000 + 26 * 20 = 1520 ns`. This leaves two TCU cycles between admission and
+output. Waiting for a result does not pause the TCU.
 
 ## Try the other branch
 
@@ -76,7 +79,7 @@ build-gcc/qsbit-sim --config build-gcc/examples/runs/scripted.json \
 ```
 
 The new summary should report `memory["4096"]` as `0`. The operation at
-3560 ns is now Z on qubit 1. The scripted backend returns the requested bit
+1520 ns is now Z on qubit 1. The scripted backend returns the requested bit
 regardless of the preceding X; it does not evolve quantum state.
 
 Open the [execution player](execution.md) to step through both branches.

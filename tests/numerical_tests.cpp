@@ -93,7 +93,7 @@ int sc_main(int argc, char **argv) {
         CHECK((starts == std::vector<Tick>{1160, 1200, 1240, 1240}));
       } else if (scenario == "feedback") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[3]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{1160, 1240, 3560}));
+        CHECK((starts == std::vector<Tick>{1160, 1240, 1520}));
       } else if (scenario == "pulse") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[1]) > 1 - 1e-12);
         CHECK((starts == std::vector<Tick>{1160, 1240}));

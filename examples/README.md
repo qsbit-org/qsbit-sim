@@ -45,8 +45,10 @@ returns one for this preparation, yielding `|11>`. Scripted runs cover both bran
 build/qsbit-sim --config build/examples/runs/feedback.json --backend scripted --outcomes 0
 ```
 
-The branch computes future control while the TCU timer continues. Its long explicit
-interval provides CPU and crossing slack; result waiting does not pause or rebase time.
+The CPU receives the result at 1305 ns. Both branches submit a group that the TCU
+admits at 1480 ns. QADVANCE moves the cursor from cycle 12 to cycle 26, so the
+selected gate starts at 1520 ns, two TCU cycles after admission. The TCU timer
+continues throughout the CPU work.
 
 ## Constant pulse
 
@@ -64,7 +66,7 @@ build/qsbit-sim --config build/examples/runs/pulse.json
 | Example | Physical starts in nanoseconds |
 | --- | --- |
 | Bell | H: 1160; CX: 1200; both acquisitions: 1240. |
-| Feedback | X on q0: 1160; acquisition: 1240; selected gate on q1: 3560. |
+| Feedback | X on q0: 1160; acquisition: 1240; selected gate on q1: 1520. |
 | Pulse | X drive: 1160; acquisition: 1240. |
 
 Default acquisition duration is 40 ns and discriminator delay is 20 ns. Results for

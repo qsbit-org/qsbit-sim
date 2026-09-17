@@ -39,7 +39,7 @@ int sc_main(int argc, char **argv) {
     } else if (scenario == "feedback_one" || scenario == "feedback_zero") {
       CHECK(operations.size() == 3);
       CHECK(operations[0].tick == 1160 && operations[1].tick == 1240);
-      CHECK(operations[2].tick == 3560 && operations[2].operation == (outcome ? "x" : "z"));
+      CHECK(operations[2].tick == 1520 && operations[2].operation == (outcome ? "x" : "z"));
     } else if (scenario == "pulse") {
       CHECK(operations.size() == 2 && operations[0].operation == "drive_x" &&
             operations[0].tick == 1160);
