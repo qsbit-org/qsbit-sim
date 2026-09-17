@@ -1,18 +1,16 @@
 # Measurement Scoreboard and CPU Feedback
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+The scoreboard reserves a result slot when the producer accepts a measurement.
+It tracks that measurement until its bit reaches the CPU and QREAD consumes it.
+Each slot carries a token so delayed results cannot overwrite a reused slot.
 
-## Responsibility and neighbors
+## Connections
 
-Token and slot state belongs to the CPU-domain producer and scoreboard; a separate committed mailbox handles CPU crossing.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Authorized acquisition APPEND, tagged discrimination completion, READ_RESULT request and CPU edge. |
-| Downstream outputs | ProducerAccepted with token; CPU-visible result or a typed token fault. |
-| State owner and retained state | Bounded `(epoch, measurement_id, result_slot, slot_generation)` records in Free, Pending or Visible state, plus CPU-delivery credits. |
-
-## Module diagram
+- **Input:** a measurement reservation from the producer, a tagged CPU completion,
+  or a QREAD handle.
+- **Output:** a token and 32-bit handle, a result bit, or an incomplete read.
+- **Scheduling:** reservation and consumption occur in the CPU control call.
+  `TimelineProducer::receive()` delivers eligible results before the CPU steps.
 
 ```{graphviz}
 digraph module {
@@ -20,45 +18,58 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Acquisition acceptance and completion"];
   owner [label="Scoreboard"];
-  state [label="slots_; generations_; fast_pending_"];
+  state [label="slots_\ngenerations_\nfast_pending_"];
   output [label="Token / visible result / released slot"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Slot lifecycle
 
-**Activation:** Allocate at producer acceptance; crossing completion becomes eligible on a later CPU edge; READ_RESULT acts through CPU commit path.
+A slot moves from **Free** to **Pending** when `reserve()` assigns its token.
+The token includes epoch, measurement ID, slot, generation, handle and target.
+The returned handle is what the program stores in a register.
 
-**Transition:** Reserve CPU completion capacity before accepting acquisition, mark the slot Pending immediately, and return its token. The discriminator refers to this token without another allocation. Match both epoch and slot_generation when delivering the result after crossing latency. READ_RESULT first seals any open group through FLUSH, waits for Visible, consumes that token and frees its CPU slot.
+`deliver()` checks the full token and changes Pending to **Visible**. A QREAD
+first flushes any open group, then waits if its slot is still Pending. Once
+Visible, consumption returns the bit and makes the slot Free.
 
-**Time and visibility:** Acquisition end, result-ready, CPU-visible, and result-consumption are separate milestones. Some may share a global tick when the profile permits it; result-ready to CPU-visible always obeys the strict crossing rule. Distinct tokens may complete out of order. Fast-path credits are independent of CPU slot consumption.
+Acquisition end, result readiness, CPU visibility and consumption are separate
+events. A result ready on a CPU edge crosses to a strictly later edge, even with
+zero discriminator delay. Different tokens can complete out of order.
 
-**Reset and errors:** Unknown, consumed, wrong-generation or wrong-epoch reads fault. Old-epoch completion cannot refill a reused slot. Session reset invalidates all generations.
+Fast-feedback delivery has separate credits. Consuming a CPU result does not
+release a pending fast credit; the TCU's delivery acknowledgment does. Successful
+simulation completion waits for those deliveries, but it may retain unread
+Visible CPU slots as final state.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `slots_` | `vector<Slot>` | Each slot has Free, Pending or Visible state, token and result bit. |
-| `generations_` | `per-slot generation` | Persists across reset so a reused slot does not revive an old handle. |
+| `generations_` | per-slot generation | Persists across reset so a reused slot does not revive an old handle. |
 | `fast_pending_` | `map<measurement ID, Token>` | Independent fast-delivery credits, released by acknowledgment. |
-| `next_measurement_` | `checked ID` | Next measurement identity within the epoch. |
+| `next_measurement_` | checked ID | Next measurement identity within the epoch. |
 
-reserve changes Free to Pending and allocates a checked handle/token. deliver validates the complete token and changes Pending to Visible. consume returns incomplete for Pending; Visible becomes Free and returns its bit. Fast credit may remain pending after CPU consumption. Reset clears slots/credits and restarts measurement IDs in a new epoch, retaining slot generations.
+[C++ API](../api.md#feedbackhpp).
 
-[Current C++ declarations](../api.md#feedbackhpp).
+## Reset and errors
 
-## Implementation and verification
+Unknown, consumed, wrong-generation or wrong-epoch handles fail. A full
+CPU slot array causes APPEND to fail rather than wait for a later QREAD that
+cannot execute while APPEND is blocked.
 
-Scoreboard owns CPU slots, generations and independent fast delivery credits; TimelineProducer receives CPU completions.
+Reset clears slots and pending fast credits and restarts measurement IDs in a
+new epoch. Per-slot generation counters survive reset, so reusing a slot cannot
+make an old handle valid again.
 
-- Implementation: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
+## Implementation and tests
+
+Source: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
 
 **CTest:** `control.scoreboard`, `protocol.readout`.
 
-Checks slot reuse, generations, duplicate/stale results, consumption and independent delivery credits.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check result consumption and slot reuse, reject duplicate or stale
+results, and verify that CPU consumption and fast delivery release their
+respective resources independently.

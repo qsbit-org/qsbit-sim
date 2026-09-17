@@ -1,38 +1,61 @@
-# ADR 0002: Observable timing equivalence and reference defects
+# ADR 0002: Observable timing equivalence
 
-Date: 2026-09-17. Status: accepted; external acceptance runs are recorded separately.
+Date: 2026-09-17. Status: accepted.
 
-The requested equivalence concerns final quantum-operation timing and TCU behavior.
-The classical microarchitecture may differ. Therefore producer acceptance and private
-queue occupancy are diagnostic probes, not equal-time assertions across two different
-CPU pipelines. Each simulator must independently execute its own program. Required
-common probes are label firing, device operation identity and start tick, measurement
-result readiness, and CPU feedback visibility when the reference implements it.
-Operation-end timing is checked against the selected device contract in native tests;
-a reference that exposes no end event cannot certify that probe.
+## Context
 
-The pinned reference's binary measurement path has two source defects: incorrect
-measurement bit masks and an opcode comparison that implicitly constructs a width-only
-integer wrapper. Keep original-reference runs and failures. A separately named reference
-variant may apply the minimal binary-measurement fixes, with its patch and executable
-hash recorded externally. It must not change TCU, clock, device, or feedback delay code.
-Unmodified assembly-mode feedback is an additional independent cross-check; it does not
-substitute for a successful binary test. Reports must distinguish all reference variants.
+CACTUS and qsbit-sim use different instruction sets and classical pipelines.
+The comparison must establish that independently executed programs produce the
+same quantum-operation timing and supported TCU behavior. Internal CPU activity
+cannot provide a common cycle-by-cycle reference.
 
-Reference FIFO prefetch and final-group buffering require terminal waiting points.
-These guards contain no quantum operations. A bounded reference observation window
-must include every functional operation and feedback result, and report no queue error.
-Its later guard-only points are outside the workload boundary comparison. Native QEND
-must still drain completely. This establishes functional workload timing equivalence,
-not equivalence of the reference's finite-program termination protocol.
+## Required observations
 
-Deterministic basis-state measurements may use live numerical backends on both sides.
-This avoids injecting a reference trace or an expected schedule into qsbit-sim. For
-probabilistic circuits, equal RNG seeds across different libraries do not imply equal
-samples: validate state probabilities, correlations and timing separately. Scripted
-measurements remain appropriate for native protocol tests and future external fixtures.
+Compare corresponding label firings, device-operation identities and start ticks,
+measurement readiness, and CPU feedback visibility where the reference exposes
+those events. Use one declared time origin; do not align individual events after
+the run to remove discrepancies.
 
-The reference's unimplemented fast-condition path cannot certify QAPPEND_IF. Native
-exact-token history, same-edge exclusion, cancellation and delivery-credit tests cover
-that contract. Reports list it as unsupported by the reference, never as a passing
-reference comparison. Distributed synchronization remains explicitly unsupported in v1.
+Producer acceptance and private queue occupancy help diagnose a mismatch, but
+they need not occur at equal times in different CPU pipelines. Operation-end
+timing is covered by native tests of the selected device contract. A reference
+that exposes no end event cannot verify that observation.
+
+## Reference variants
+
+The pinned CACTUS binary-measurement path has two source defects: incorrect
+measurement bit masks and an opcode comparison that constructs a width-only
+integer wrapper. Preserve runs and failures from the unmodified reference.
+
+A separately named variant may apply the minimal fixes, with its patch and
+executable hash recorded in the external comparison workspace. It must leave
+TCU behavior, clocks, device delays and feedback delays unchanged. Unmodified
+assembly-mode feedback provides an additional cross-check; it does not replace
+a successful binary-mode test. Every result identifies the reference variant.
+
+## Workload boundaries
+
+The reference's FIFO prefetch and final-group buffering require terminal waiting
+points. These points contain no quantum operations. The observation window must
+include every functional operation and feedback result, with no queue error.
+Later waiting points fall outside the workload comparison.
+
+Native QEND must still drain the simulator completely. The comparison therefore
+verifies the functional workload's timing; the reference's finite-program
+termination protocol has a separate boundary.
+
+## Measurements and unsupported features
+
+Deterministic basis-state measurements can use live numerical backends on both
+sides. Each simulator computes its own results without importing an expected
+trace or schedule. For probabilistic circuits, equal random seeds in different
+libraries do not imply equal samples. Check probabilities, correlations and
+timing separately. Scripted measurements remain useful for native protocol tests.
+
+The reference does not implement the fast-condition path and cannot verify
+QAPPEND_IF. Native tests cover exact measurement matching, exclusion of results
+that arrive on the firing edge, conditional cancellation and delivery credits.
+Comparison results identify this limitation explicitly. Distributed
+synchronization is unsupported in the initial qsbit-sim profile.
+
+Comparison programs, patches, traces and reports remain outside the repository.

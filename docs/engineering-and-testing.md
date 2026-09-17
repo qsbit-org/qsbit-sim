@@ -1,111 +1,159 @@
-# Engineering and Verification Plan
+# Test the simulator
 
-**Status:** executable verification suite, 2026-09-17. Dependency versions are recorded in the manifests and lock file; [implementation.md](implementation.md) describes the implemented profile. [ADR 0002](decisions/0002-reference-comparison-scope.md) records reference limitations.
+The test suite checks instruction results, cycle timing, control protocols and
+device behavior. Tests that cross a module boundary assert timestamps and final
+state as well as successful completion.
 
-## Coding and SystemC rules
+Run commands from the repository root. The
+[build guide](building.md#enable-tests) shows how to enable tests.
 
-Use C++20 and CMake with the SystemC dependency declared in `cmake/SystemC.cmake`. Keep the RV32I ISA library free of SystemC dependencies and isolate pure state transitions from scheduling processes. Represent architectural values with fixed-width integers and simulated event times with checked integer ticks or `sc_time` at the SystemC boundary. Give each mutable state object one owner; define construction, reset, overflow, and teardown behavior. Use the checked-in `.clang-format`, enable compiler warnings as errors in CI, and run `clang-tidy` on changed C++ where available.
+## Run the fast suite
 
-Use `SC_METHOD` only for nonblocking behavior and `SC_THREAD` when `wait()` is required. Document sensitivity, reset, and which edge observes a handshake. Avoid modeling hardware queues with unbounded containers. Do not rely on incidental SystemC delta-cycle order for a hardware-visible result: define and test the same-timestamp sampling, acceptance, state commit, and output-visibility rule. Allow alternate order only for diagnostic events whose order is explicitly outside the contract. Log structured machine-readable trace records for CPU retirement, producer acceptance, group admission, queue changes, label firing, readout, feedback, errors, and stop reason.
+```sh
+cmake --preset gcc-ninja -DBUILD_TESTING=ON
+cmake --build --preset gcc-ninja --parallel
+ctest --test-dir build-gcc -L fast --output-on-failure
+```
 
-## Open-source RV32I references
+List registered tests with `ctest --test-dir build-gcc -N`.
+Select a test by name with `-R`, for example:
 
-| Project | Relevant use | Integration assessment |
-| --- | --- | --- |
-| [Ripes](https://github.com/mortbopet/Ripes) | Five-stage datapath and hazard behavior. | Useful independent cycle examples; its graphical model is not a drop-in SystemC component. Review license before copying. |
-| [rv32emu](https://github.com/sysprog21/rv32emu) | Functional RV32 instruction execution. | Candidate architectural-state oracle, not a cycle-pipeline substitute. |
-| [Spike](https://github.com/riscv-software-src/riscv-isa-sim) | Established ISA simulator. | Prefer differential testing or an optional CPU adapter after interface review. |
-| [RISCV-VP](https://github.com/agra-uni-bremen/riscv-vp) | RV32 semantics and ELF loading within a SystemC platform. | Useful reference for program loading and adapters; instruction-based timing is not automatically the selected pipeline profile. |
+```sh
+ctest --test-dir build-gcc -R '^control\.' --output-on-failure
+```
 
-The initial pipeline belongs to qsbit-sim. Borrowing source requires license, maintenance, API, and test review. A future external CPU can be a functional adapter, or it can declare a tested timing profile; architectural-state agreement alone does not establish cycle equivalence.
+Optional dependencies and build flags determine which tests are registered.
 
-## Test layers and release gates
+## What each test family checks
 
-| Layer | Tests | Required result |
-| --- | --- | --- |
-| ISA and ELF unit | Decode every supported RV32I class and extension mask; immediates, sign extension, arithmetic overflow, branches, alignment, zero register, illegal encodings, ELF mapping and entry. | Exact architectural effect and error. Unknown extension words never become no-ops. |
-| Toolchain contract | Assemble each custom instruction with pinned GNU or LLVM `.insn` macros, link an RV32 ELF, disassemble it, load it, then decode and execute it. | The versioned ISA specification, emitted machine word, disassembly, and simulator behavior agree. Unexpected compression or relaxation is detected. |
-| Pipeline unit | Forwarding, load-use stall, branch flush, memory wait, extension blocking, retirement order, reset at each stage. | Cycle trace and architectural state match the selected profile. |
-| CPU adapter component | Oldest non-speculative publication, producer acceptance versus group admission, held request and one-time retirement, result-read flush, and memory response. | No instruction discarded by a pipeline flush emits a control event; two scalar APPENDs can complete one group without deadlock; retirement follows each operation's completion rule. |
-| TCU and device component | Intervals and member manifests, label broadcast, zero-wait coalescing, atomic admission, empty-stream recovery, late admission, old-state queue credits, per-port firing width, fixed output latency, conflicts and drain. | Exact trigger and physical-output ticks; idle unmentioned ports remain valid; faults cause no partial batch; empty queues never shift the logical timeline. |
-| End-to-end scripted use case | RV32I-extension ELF issues controls, waits, measures and branches for both deterministic outcomes. | Full boundary trace, final memory signature and stop reason match the fixture. |
-| External CACTUS differential gate | One ISA-neutral workload produces independent CACTUS eQASM and qsbit-sim RV32I-extension binaries; run matched configuration with deterministic scripted streams or deterministic live basis-state measurements. | Event count, operation, target, order, correlation and absolute time are identical with zero common-grid-tick tolerance at every required probe. Missing probes and unsupported mappings fail explicitly. |
-| Device adapter contract | Run a circuit-level live-measurement prototype and a small pulse-level prototype; exercise unsupported capabilities, reset, qubit ordering, overlapping drives, and host-time isolation. | Each adapter passes its declared capability tests, including one chronological backend owner and joint same-time batching; unsupported operations reject clearly. Backend compute duration never changes simulated event time. |
-| Architecture conformance | Applicable RV32I cases from the [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) through a target adapter. | Applicable tests pass; unsupported privilege or platform requirements are identified, not silently skipped. |
-| Differential and randomized | Compare retired state with Spike or another independent ISA reference using seeded programs. | No architectural mismatches; retain seed, program, configuration and first differing retirement. |
-
-The CACTUS gate is implemented entirely in a separate, disposable validation project. It calls the public qsbit-sim interface and reads its versioned generic trace; all CACTUS-specific probes, translators, workloads, fixtures, comparison scripts, and artifacts stay outside this repository. It is neither a core build dependency nor a default CI job. Removing that project must leave qsbit-sim source, build files, and tests unchanged. The CACTUS gate has priority over hand-written golden schedules for a Phase 1 timing claim. Its fixture records the exact CACTUS commit, execution entry point, actual clock periods and phases, reset release, codeword and device configuration, deterministic measurements, both binaries, and a versioned trace schema. Start with single commands and waits, then independent simultaneous ports, queue pressure, both feedback branches, repeated measurements, and a longer program. On failure, print the first divergent boundary event and the nearest CPU stall and queue-state records. Compare absolute post-reset time after a single common-origin normalization; do not shift individual events.
-
-## CI and test execution
-
-The baseline protocol in [module-architecture.md](module-architecture.md) requires these focused regression scenarios when implemented:
-
-| Scenario | Required result |
+| Test family | Main assertions |
 | --- | --- |
-| Two APPENDs planned for one logical TCU cycle, then ADVANCE | Both APPENDs retire after entering the same bounded open group; ADVANCE seals it, one complete group is admitted, and both ports fire on the planned TCU edge. |
-| Oversized staging group, excessive per-port firing width, or insufficient total destination capacity | Immediate typed fault, not a stall depending on a later instruction. |
-| Configured TCU start before the first real point is ready | The empty origin may be skipped; a future point succeeds only if admitted before its original due edge. |
-| Empty TCU stream during measurement feedback | Timer continues; a timely later point succeeds and an expired one fails without rebasing. |
-| Request published on a receiver edge, and a full queue firing on the admission edge | Strictly later visibility; freed-slot credit is usable on the following edge. |
-| Reversed SystemC module registration and runnable order | Identical hardware-visible trace and state. |
-| Older taken branch or memory fault | No younger speculative control request reaches producer staging. |
-| Two delayed pulses reserve overlapping exclusive intervals | Entire conflicting launch batch fails before any member begins; adjacent half-open intervals succeed. |
-| Overlapping pulse drives delivered in opposite port order | One joint state evolution per interval and the same physical result. |
-| Unknown, duplicate, consumed, or old-epoch measurement token | Explicit error or specified stale-epoch discard; no overwrite of another result-slot generation. |
-| Late discriminator arm and zero discriminator processing delay | Result readiness uses both acquisition end and arm tick; CPU delivery still follows crossing latency. |
-| Different CPU and fast-feedback latencies | Independent delivery and credit release; a later pending measurement does not suppress fast-condition history. |
-| Session reset coincident with a start, pulse boundary or result completion | Reset dominates; no old-epoch callback can create new-epoch state. |
-| END while pulses or results are outstanding | The simulator drains physical work and every enabled feedback crossing, including a slower fast-condition path, before reporting success. |
-| Same-target instantaneous gate and measurement on one tick | The full boundary batch is rejected before quantum-state mutation. |
+| `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
+| `control.*` | Atomic admission, manifests, queue bounds, deadlines, result slots and predicates. |
+| `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and token history. |
+| `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
+| `adapter.*` | Replacement CPU construction through `ICpuCycleModel` and session reset. |
+| `docs.*` | Documentation links, checked declarations and registered test references. |
 
-Keep pure ISA tests independent of SystemC. Run each SystemC scenario in a fresh executable or child process; a normal C++ fixture must not assume elaborated modules and simulation time can be rewound. Register tests with CTest, give each scenario a timeout, and use deterministic seeds printed on failure. Separate fast tests from slower architecture, random, and numerical-backend jobs; run the CACTUS differential suite from the external validation project.
+Each [module page](modules/README.md) names its relevant CTest entries and
+describes what those tests establish.
 
-The initial CI gate builds Debug and Release, checks formatting, treats warnings as errors, runs fast CTest, and runs AddressSanitizer and UndefinedBehaviorSanitizer where supported. Add coverage reports for ISA decode, extension errors, TCU conflict handling, and feedback; a single global coverage percentage is not an acceptance criterion. Phase 1 completion additionally requires the applicable architecture tests, CACTUS differential suite, and two backend-adapter contract prototypes. Preserve test binaries, configuration and event traces as reviewable artifacts. A successful process exit alone is never sufficient.
+## Timing regressions
 
-## References
+When changing a protocol, check the boundary case that distinguishes the old
+and new behavior. The existing suite includes:
 
-- [Accellera SystemC reference implementation](https://github.com/accellera-official/systemc) provides API behavior, examples, and regression tests.
-- [RISC-V Architectural Certification Tests](https://github.com/riscv/riscv-arch-test) provide an ISA conformance source for declared target configurations.
-- [RISC-V assembly manual](https://github.com/riscv-non-isa/riscv-asm-manual/blob/main/src/asm-manual.adoc) and [GNU `.insn` formats](https://sourceware.org/binutils/docs/as/RISC_002dV_002dFormats.html) document existing custom-instruction assembly support.
-- [CMake CTest documentation](https://cmake.org/cmake/help/latest/manual/ctest.1.html) defines test registration and execution. The fresh-process convention is a qsbit-sim decision based on the SystemC kernel lifecycle.
+- Two APPENDs at one cursor, including ADVANCE(0), followed by one complete admission.
+- Requests published exactly on a receiver edge, and admission while a full
+  queue fires. The receiver cannot consume a newly published request on that edge or reuse
+  a slot freed by that edge's firing.
+- Empty timing queues during CPU feedback waits. The timer continues and
+  late groups fail without shifting their deadlines.
+- Taken branches and older faults that discard younger control instructions.
+- Overlapping resource intervals, adjacent intervals and same-target sampling
+  collisions. Invalid batches must not partially change device state.
+- Delayed discriminator arms, zero discriminator delay, independent CPU and
+  fast-result crossings, and exact-token history eviction.
+- Reset at clock and physical boundaries, stale completions and result-slot reuse.
+- END while physical work or fast-feedback credits remain pending.
 
-## Executable test entry points
+Registration-order tests run equivalent scenarios with reversed SystemC process
+registration and compare the resulting trace and state.
 
-- `core.*`: RV32I arithmetic and control, encoding validation, ELF and raw memory, strict-edge mailboxes and memory service.
-- `control.*`: atomic manifests and queue credits, empty-stream deadlines, scoreboard and fast predicates.
-- `protocol.*`: held producer operations, staging and slot limits, resource conflicts, delayed discriminator arm, overflow rollback, reset and exact-token history.
-- `systemc.*`: ELF use cases, registration-order invariance and fresh-process pipeline, reset, clock, feedback and CLI scenarios. `systemc.use_cases` reports its executed scenario count.
-- `adapter.*`: CPU factory injection through ICpuCycleModel, including session reset.
-- `numerical.*`: real Aer Bell-state correlation and feedback, pulse inversion, full-device simultaneous drives, analytic simultaneous noncommuting drives and unsupported-capability rejection.
-- `reference.rv32_random`: 32 deterministic seeds; compare every retired register state and PC plus final memory against Unicorn 2.1.4.
-- `reference.rv32_architecture`: 38 pinned RV32I architecture-test bodies; compare retirements and memory signatures against Unicorn. One privileged-trap alignment case is explicitly excluded; native tests check the typed alignment fault. This is not an official certification result.
+## SystemC test processes
 
-The architecture-test adapter replaces platform entry and exit, and uses RV32I NOP padding in the upstream address-load helper. It does not modify generated instruction-test bodies. The source revision is pinned in the runner. Artifacts stay in the build tree.
+Run each independent SystemC scenario in a fresh executable or child process.
+A normal C++ fixture cannot assume it can rewind elaboration or simulation time.
+Keep pure ISA and transition tests independent of SystemC where possible.
 
-Run Debug and Release suites with explicitly selected backend tests, a bridge-only suite without numerical packages, and a Python-free ASan/UBSan build. Build commands and opt-in flags are in [building.md](building.md). Leak detection is disabled for the SystemC process lifecycle; address and undefined-behavior errors remain fatal. The CI workflow preserves failure traces. No CACTUS tooling is part of this workflow.
+Use deterministic inputs and seeds. Assert event times, required ordering,
+final registers or memory, and the stop reason. When a comparison fails, report
+the seed and first differing event so the run can be reproduced.
 
-For focused line and branch evidence, configure a separate build with `-DQSBIT_COVERAGE=ON`, run its CTest suite, then run `python tools/coverage.py --build BUILD_DIRECTORY`. The generated gcov JSON and summary remain in that build directory. Coverage reports complement architectural assertions; no line-coverage percentage proves timing correctness.
+## Optional backend tests
+
+Enable `QSBIT_PYTHON_BACKENDS` and the selected numerical test options described
+in [building](building.md#cmake-options).
+`python.plugin` checks adapter loading without numerical packages.
+`numerical.*` checks live Aer Bell correlations and feedback, pulse inversion,
+simultaneous drives, and unsupported operations.
+
+The pulse tests include simultaneous noncommuting drives with an analytic
+expected state. Matching a sequence of ideal gates would not establish that
+joint pulse evolution is correct.
+
+## Independent ISA checks
+
+`reference.rv32_random` compares every retired register state and PC, plus final
+memory, against Unicorn using deterministic generated programs.
+
+`reference.rv32_architecture` runs the applicable pinned RV32I architecture-test
+bodies and compares retirements and memory signatures. Its adapter replaces
+platform entry and exit and uses RV32I NOP padding in the upstream address-load
+helper; it does not modify the generated instruction-test bodies.
+
+One case requiring privileged trap handling is explicitly excluded. Native
+tests check the corresponding typed alignment fault. These checks do not
+constitute official RISC-V certification.
+
+The runners and dependency manifests pin their reference versions. Test programs,
+traces and reports remain in the build tree.
+
+## Compare with CACTUS
+
+CACTUS validation runs in a separate disposable project. It compiles a shared
+workload into independent eQASM and RV32I-extension programs, runs both, and
+compares corresponding control and device events on a common time grid.
+qsbit-sim must execute its own program rather than consume the reference trace
+as a schedule.
+
+The fixture records both binaries, reference revision and patches, execution
+entry point, actual clock periods and phases, reset/start timing, mappings and
+measurement inputs. Compare absolute event times after one common-origin
+normalization, with zero tick tolerance. Do not shift individual events.
+
+Producer acceptance times and private queue occupancies can differ between CPU
+models. Missing reference probes and unsupported features are coverage limits.
+[ADR 0002](decisions/0002-reference-comparison-scope.md) defines the required
+observations and known reference limitations.
+
+All reference-specific translators, probes, fixtures and reports stay outside
+this repository and its default CI workflow.
+
+## CI, sanitizers and coverage
+
+The [CI workflow](../.github/workflows/ci.yml) runs a core sanitizer build, a
+bridge-only build, Aer tests, pulse tests and documentation checks. It checks
+formatting and optional-dependency isolation and preserves diagnostic artifacts.
+Compiler warnings are errors.
+
+Use the [sanitizer build](building.md#sanitizers) to check address and
+undefined-behavior errors. For line and branch coverage, use a separate build:
+
+```sh
+cmake -S . -B build-coverage -DBUILD_TESTING=ON -DQSBIT_COVERAGE=ON
+cmake --build build-coverage --parallel
+ctest --test-dir build-coverage --output-on-failure
+python3 tools/coverage.py --build build-coverage
+```
+
+Coverage artifacts stay under the build directory. Examine untested error and
+timing paths; a global coverage percentage alone does not prove correctness.
 
 ## Documentation checks
 
-With `BUILD_TESTING=ON`, CTest registers `docs.contracts` and `docs.checker` in the
-`fast` and `documentation` labels. CI runs them with the simulator suite.
-
 ```sh
-ctest --test-dir build -L documentation --output-on-failure
+ctest --test-dir build-gcc -L documentation --output-on-failure
 ```
 
-`docs.contracts` checks local Markdown links and headings, compares C++ excerpts to
-headers, and validates each module's **CTest** references against the configured
-CTest registry. Optional backend tests are described separately from required baseline
-evidence. To refresh excerpts after reviewing an interface change:
+`docs.contracts` checks local links and heading targets, compares marked C++
+excerpts with headers, and checks module CTest references. `docs.checker` tests
+that validator's failure cases. After changing a header, refresh excerpts with:
 
 ```sh
-python tools/check_docs.py --build build --write
+python3 tools/check_docs.py --build build-gcc --write
 ```
 
-Review the resulting diff and update the behavior descriptions and relevant regression
-assertions in the same change. Excerpt and link checks detect structural drift; timing,
-reset and admission claims require tests that assert their observable behavior.
-Use `ctest --test-dir build -N` for the configured test inventory and verbose test
-output for scenario counts. Build options determine which optional tests are registered.
+These checks catch structural drift. Behavioral claims still need the relevant
+simulator assertions. Changes to rendered pages or diagrams also need the
+[website tests](website.md#run-website-tests).

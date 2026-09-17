@@ -1,124 +1,130 @@
-# Executable implementation
+# Implementation and default profile
 
-Version 0.1.0 implements the Phase 1 modules in C++20 and SystemC. The
-[initial profile decision](decisions/0001-initial-implementation.md) fixes the CPU,
-instruction encodings and default timing. [Reference comparison scope](decisions/0002-reference-comparison-scope.md)
-defines which externally observable times can be compared across different CPUs.
+This reference lists the current libraries, numerical defaults and supported
+features. The [architecture overview](high-level-design.md) explains the data
+path; the [control protocol](module-architecture.md) defines event ordering.
 
-## Build and ownership
+## Libraries and owners
 
-`qsbit_core` contains ISA semantics, program memory, the replaceable CPU interface,
-producer, TCU, feedback and physical-device transitions. It has no SystemC or Python
-link dependency. `qsbit_systemc` wraps these owners in one `Simulator` module;
-`qsbit_python` bridges an optional numerical backend, and `qsbit_config` parses profiles.
-CMake discovers an installed SystemC or fetches the pinned source during configure.
-The Python bridge and numerical backends are optional; see [building.md](building.md)
-and [backends.md](backends.md).
+| Library | Contents | Dependencies |
+| --- | --- | --- |
+| `qsbit_core` | ISA, memory, CPU interface and model, producer, TCU, feedback and devices. | C++20; no SystemC or Python link dependency. |
+| `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Core and SystemC. |
+| `qsbit_config` | JSON run and profile parsing. | Core and the configured JSON library. |
+| `qsbit_python` | Calls to optional Python backend adapters. | Python development library and pybind11; built only when enabled. |
 
-`Simulator` registers CPU, memory and TCU `SC_METHOD` processes at their positive clock
-edges. A timed wakeup covers physical boundaries, reset and watchdog. A delta notification
-requests a barrier, which checks that all owners whose clocks have an edge at that tick
-have finished. Only then may DeviceRuntime advance shared quantum state. Reversing process
-registration changes neither committed messages nor the observable trace. Delta cycles
-coordinate execution; they never represent an extra hardware cycle.
+The [module reference](modules/README.md) maps logical responsibilities to their
+C++ owners and source files.
 
-Logical module ownership and source locations are listed in [modules/README.md](modules/README.md).
-Queues and pure logical substages are intentionally not separate SystemC processes.
+`Simulator` registers three clock methods: CPU and memory on CPU rising edges,
+and TCU on TCU rising edges. A timed wakeup handles device boundaries, reset and
+watchdog. A zero-time barrier processes physical work only after every clocked
+method due at that tick has finished.
 
-## CPU profile
+## Default timing
 
-The three stages are fetch, decode and execute/commit, with one pending fetch and one
-pending data transaction. Fetch, decode and execute latches advance at most one stage
-per edge. Execute reads operands as it enters, after the older same-edge retirement.
-A load or blocked extension holds execute; younger stages cannot publish side effects.
-Taken branches invalidate younger work, including outstanding fetch generations.
-A memory fault becomes fatal only when its instruction is oldest. Stores occur exactly
-once on memory completion; reset preserves committed bytes.
+The time resolution is 1 ns. Protocol times, epochs and IDs use checked 64-bit
+integers. Architectural registers and addresses use 32 bits.
 
-Requests and responses each cross on a strictly later CPU edge. Configured memory
-latency starts at request acceptance. Consequently a one-cycle memory service does not
-mean one cycle from CPU request to CPU response. The ISA library describes effects,
-not these delays. `ICpuCycleModel` is the replacement boundary; an external CPU adapter
-must preserve oldest-only publication and completion semantics to claim timing support.
+| Setting | Default |
+| --- | --- |
+| CPU and memory period | 5 ns |
+| TCU period | 20 ns |
+| CPU and TCU phase | 0 ns |
+| Initial TCU cycle zero | 1000 ns |
+| Command, reply and CPU-result crossing | 1 receiver edge |
+| Fast-result crossing | 2 TCU receiver edges |
+| Memory service | 1 CPU period after acceptance |
+| Timing queue capacity | 32 points |
+| Event queue capacity | 32 entries per port |
+| Producer staging | 16 actions |
+| Measurement slots | 8 |
+| Firing width | 1 action per port per group |
 
-## Time and reset
+These are defaults, not fixed hardware constants. Dump the complete current
+profile, including mappings and other settings, with:
 
-A tick is one nanosecond. Ticks, labels, event IDs and epochs use checked 64-bit values.
-The default CPU period is 5 ticks, TCU period 20, and logical TCU cycle zero is tick 1000.
-Clock phases are independently configurable. Publication at p becomes visible on the
-first receiver edge strictly after p, then N-1 further receiver edges.
+```sh
+build-gcc/qsbit-sim --dump-default-profile out/default-profile.json
+```
 
-Session reset is global and dominates all other work at its tick. It clears protocol
-state and quantum state, resets PC to the ELF entry and preserves memory bytes. Its
-new logical TCU origin is the first TCU edge at or after `reset_tick + profile.start`.
-This makes `start` the startup offset for each epoch. The initial epoch starts at tick
-zero. Reset never rewinds SystemC time. Measurement-slot generations survive reset;
-old-epoch completions cannot fill a new slot.
+Each run summary records its full validated profile and an FNV-1a fingerprint.
+The fingerprint identifies the configuration; it is not a cryptographic check.
+The profile stays fixed throughout the run and all session resets.
 
-The profile is validated and copied before elaboration. CLI overrides create a new
-profile; runtime code receives const references. It includes mappings, capacities,
-periods, delays, seed and watchdog. Each summary records the complete profile plus its
-stable FNV-1a fingerprint; this identifier is not a cryptographic integrity check.
+## CPU and memory
+
+The default CPU is a single-issue, in-order pipeline with fetch, decode and
+execute/commit stages. Each latch advances at most once per CPU edge.
+An older instruction retires before a younger instruction entering execute
+captures its operands.
+
+A load or blocked extension holds execute. A taken branch discards younger
+instructions and invalidates pending fetch generations. Only the oldest
+instruction can publish a store or producer operation. Speculative fetch faults
+become fatal only when their instruction is oldest.
+
+Memory has separate fetch and data ports, each with one pending transaction.
+Request crossing, service time and response crossing are distinct delays.
+Stores occur once at completion. Reset cancels pending transactions and
+preserves committed bytes.
 
 ## Producer and TCU
 
-QAPPEND resolves an immutable action mapping and adds actions to bounded staging.
-It retires on local acceptance. A measurement reserves a scoreboard token first.
-Positive QADVANCE, QFLUSH, QREAD and QEND seal an open group when needed; only one
-immutable submission may await acknowledgment. QADVANCE(0) preserves the open group.
-QREAD flushes before waiting and consumes a result handle. QEND closes production;
-successful stop waits for all queues, physical actions and enabled result paths.
+QAPPEND resolves a mapping and stages actions for the current producer cursor.
+It completes on local acceptance. QADVANCE, QFLUSH, QREAD and QEND seal the open
+group when required; only one submission can await an admission reply.
+QADVANCE(0) changes neither cursor nor group.
 
-A full CPU result-slot array is a capacity fault: stalling would prevent a later QREAD
-from freeing it. Exhausted fast-delivery credits can stall because already-issued work
-can release them independently. Oversized groups and per-port width violations fault
-before changing staging.
+TCU admission inserts the timing point and all event members together.
+It checks capacity before firing removes any old entries. The timer selects
+due groups using cumulative intervals, including across empty-queue gaps.
+Conditions use exact-token history from earlier TCU edges.
 
-TCU admission appends one timing point and every manifested per-port event atomically.
-Credits use old occupancy. Newly admitted groups cannot fire on their admission edge.
-Cumulative intervals determine due cycles even across empty-queue gaps. The due label
-selects the complete batch, conditions use previously visible exact-token history,
-and resource preflight precedes dequeue or output. Fast results arriving on the firing
-edge become available only for later edges. A false condition consumes its event with
-a cancellation record; it does not change the schedule of later points.
+The TCU validates the entire transition before committing firing and admission.
+A false condition consumes its event with a cancellation record. It does not
+shift subsequent points.
 
-## Physical actions and backends
+## Device actions
 
-Mappings select `gate`, `pulse`, `acquire` or `arm` actions. Start is label-fire tick plus
-mapping delay. Positive durations reserve half-open port and resource intervals.
-Independent ports may overlap; same-target overlapping pulses are summed by the pulse
-backend when resource declarations permit them. A gate at a measurement sample tick on
-the same target is rejected before backend mutation.
+Mappings select `gate`, `pulse`, `acquire` or `arm` actions.
+Physical start is `fire_tick + delay`. All durations are positive, and resources
+are occupied over `[start, end)`.
 
-DeviceRuntime evolves the previous drive set to a boundary once, samples ending
-acquisitions together, removes ended actions, applies independent starting gates as a
-batch, starts new actions, then publishes ready results. With acquisition end E, arm
-start A and discriminator latency L, readiness is `max(E,A)+L`. L may be zero; crossing
-latencies remain positive. An implicit arm uses acquisition start. A separate arm must
-share the acquisition token and target. Readiness arithmetic is validated before any
-calendar or boundary mutation.
+At each boundary, the runtime evolves the previous drive set, samples ending
+acquisitions, ends old actions, applies starting gates and activates new
+intervals. Ready results are published last. Overlapping permitted pulses are
+evolved jointly. A gate starting on the same target and tick as a measurement
+sample is unsupported.
 
-`IQuantumBackend` supports validation, reset, joint interval evolution, gate batches,
-joint measurement with collapse and state inspection. CPU or TCU processes never call
-numerical backend evolution. The adapters are:
+Readiness is `max(acquisition_end, arm_start) + discriminator_delay`.
+An implicit arm uses acquisition start. The discriminator delay may be zero;
+feedback still crosses to a strictly later receiver edge.
 
-| Backend | Implemented capability | Limits |
+## Backend limits
+
+| Backend | Supported behavior | Limits |
 | --- | --- | --- |
-| Scripted | Deterministic token-indexed measurement bits and protocol testing. | Does not model a quantum state. |
-| Aer | Persistent statevector, supported one- and two-qubit gates, joint mid-circuit measurement and collapse. | 1–20 qubits; no pulse integration or noise model in v1. |
-| Pulse | Aer gates and measurement plus joint piecewise-constant X, Y and Z Hamiltonian evolution using SciPy `expm`. | 1–8 qubits; ideal closed-system constant drives, no waveform samples or dissipative solver. |
+| Scripted | Fixed measurement bits indexed by measurement ID. | No quantum state. |
+| Aer | Persistent statevector, supported one- and two-qubit gates, joint measurement and collapse. | 1–20 qubits; no pulse integration or noise model. |
+| Pulse | Aer gates and measurement, plus joint constant X, Y and Z Hamiltonian evolution with SciPy `expm`. | 1–8 qubits; no sampled waveforms or dissipative solver. |
 
-Pulse amplitude is angular frequency in radians per nanosecond, with Hamiltonian
-`H = sum(amplitude * Pauli / 2)` and hbar set to one. Rotation-gate amplitude is its
-angle in radians. Qubit zero is the least significant statevector bit. Host execution
-time never changes timestamps. A backend failure terminates the run; it is not retried
-against a partly changed quantum state.
+Pulse amplitude is angular frequency in radians/ns with
+`H = sum(amplitude * Pauli / 2)` and hbar = 1.
+Rotation-gate amplitude is an angle in radians.
+Qubit 0 is the least significant statevector bit.
 
-## Scope
+## Unsupported features
 
-All 21 logical modules have an executable implementation or, for future synchronization,
-an explicit rejecting boundary. RV32I privileged mode, compressed instructions, interrupts,
-caches, distributed synchronization, TQEC input, arbitrary sampled waveforms, dissipation,
-and GPU adapters are future work. ECALL and EBREAK produce typed traps; FENCE.I and
-unselected instruction extensions reject. This version is an architecture simulator,
-not an RTL model, hardware certification, or a general-purpose RISC-V operating-system platform.
+The current profile does not implement privileged execution, interrupts, caches,
+compressed instructions, distributed synchronization, TQEC input, sampled
+waveforms, dissipation or GPU adapters. ECALL and EBREAK raise distinct traps;
+FENCE.I and unselected ISA extensions raise `IllegalInstruction`.
+QSYNC raises `UnsupportedSynchronization`.
+
+Session reset clears controller and quantum state under the same profile.
+A controller-only reset that preserves qubit state is not implemented.
+
+See [ADR 0001](decisions/0001-initial-implementation.md) for the implementation
+choices and [ADR 0002](decisions/0002-reference-comparison-scope.md) for the scope
+of CACTUS timing comparisons.

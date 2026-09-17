@@ -1,18 +1,22 @@
 # Platform Configuration and Clock Adapter
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`Simulator` connects the CPU, memory, TCU and device models to the SystemC
+scheduler. It creates their clocks, calls each model at the right time, and
+applies session resets.
 
-## Responsibility and neighbors
+The timing profile is the configuration for a run: clock periods and phases,
+communication delays, queue capacities, and port mappings. `Simulator` validates
+and copies it before simulation starts. The copy remains unchanged during the run,
+including across resets.
 
-Platform setup owns the immutable timing profile; a session coordinator owns reset requests. This is a SystemC integration boundary, not a per-cycle hardware datapath.
+## Connections
 
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | CLI configuration, the device profile, selected ISA profile, and a requested session start or reset tick. |
-| Downstream outputs | CPU and TCU clocks, cross-domain mailbox capacities and latencies, DeviceRuntime timing, epoch and trace metadata. |
-| State owner and retained state | Validated integer tick resolution, clock periods and phases, start tick, current session epoch, and immutable configuration hash. |
-
-## Module diagram
+- **Input:** a `Profile`, loaded `ProgramImage`, backend, and optional reset ticks
+  from the application.
+- **Output:** calls to the CPU, memory and TCU models at their rising edges, and
+  calls to `DeviceRuntime` at scheduled physical boundaries.
+- **Scheduling:** `Simulator` is the SystemC module. The models it calls are C++
+  objects with persistent state.
 
 ```{graphviz}
 digraph module {
@@ -20,46 +24,61 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Validated profile and reset request"];
   owner [label="Simulator"];
-  state [label="profile_; cpu_clock_, tcu_clock_; wake_, barrier_"];
+  state [label="profile_\ncpu_clock_, tcu_clock_\nwake_, barrier_"];
   output [label="Clock edges / reset / physical wakeup"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Clocks and physical boundaries
 
-**Activation:** Validate and construct before elaboration. Each edge callback and timed wakeup checks reset before ordinary work; the first callback applies it once for that tick. Clock edges wake their respective domain owners.
+The CPU and memory methods run on CPU rising edges. The TCU method runs on
+TCU rising edges. These processes use `dont_initialize()`, so their first execution
+comes from their clock event rather than the kernel's initialization pass.
 
-**Transition:** Check that every period, phase and device delay maps exactly to global ticks; create separate CPU and TCU clocks; publish a single read-only profile snapshot to all owners. Configure start independently of CPU progress so admission backpressure cannot prevent timer start.
+Each method checks for reset, advances its model if no reset applies, and records
+that it has finished work for the current tick. It then requests the device
+barrier with a zero-time notification.
 
-**Time and visibility:** Global simulation time never rewinds. At a coincident reset and clock edge, reset dominates and suppresses that edge’s ordinary state transition. Ordinary clocks still create every modeled edge.
+The barrier checks that every clocked method due at this tick has finished. It
+then processes any physical boundary due at the same tick. This allows a TCU
+launch with zero output delay to join the complete device batch before quantum
+state changes.
 
-**Reset and errors:** Reject unrepresentable or inconsistent parameters before sc_start. Session reset preserves the immutable timing profile, increments the epoch, invalidates old callbacks and initializes the backend; a future controller-only reset needs a different contract.
+`schedule_wakeup()` selects the earliest pending device boundary, reset or
+watchdog tick. It cancels the previous timed notification before scheduling the
+next one. Event payloads remain in the model objects; `sc_event` only wakes a
+process. See [event ordering](../module-architecture.md#crossing-and-tcu-edge-order)
+for communication between models.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `profile_` | `const Profile` | Validated clocks, capacities, mappings and delays; immutable across reset. |
 | `cpu_clock_, tcu_clock_` | `sc_clock` | CPU/memory and TCU rising-edge activation. |
 | `wake_, barrier_` | `sc_event` | Timed wakeup and zero-time barrier activation; payload lives in owners. |
-| `cpu_done_, memory_done_, tcu_done_` | `optional tick` | Marks which coincident edge transitions have completed. |
-| `epoch_, resets_, last_reset_` | `session state` | Applies a reset once per requested tick and invalidates old work. |
+| `cpu_done_, memory_done_, tcu_done_` | optional tick | Marks which coincident edge transitions have completed. |
+| `epoch_, resets_, last_reset_` | session state | Applies a reset once per requested tick and invalidates old work. |
 
-On an edge, reset is applied first. Otherwise the owning model advances and records its done tick. The barrier waits for all clock edges due at that tick, then processes a due device boundary. schedule_wakeup selects the next physical boundary, reset or watchdog; it cancels the prior wake notification before scheduling another.
+[C++ API](../api.md#simulatorhpp).
 
-[Current C++ declarations](../api.md#simulatorhpp).
+## Reset and errors
 
-## Implementation and verification
+Every clock method and timed wakeup checks reset before ordinary work.
+The first callback at a reset tick applies it; other callbacks at that tick skip
+their normal transitions. Reset starts a new epoch and initializes the backend
+while preserving memory bytes and the timing profile. SystemC time keeps moving
+forward.
 
-Simulator owns immutable configuration, three clock-edge methods, timed wakeups and the explicit device barrier.
+Construction rejects invalid profiles, reset ticks, missing backends and CPU
+factories that return no model. Version 1 requires a SystemC resolution of 1 ns.
 
-- Implementation: [simulator.cpp](../../src/simulator.cpp) and [simulator.hpp](../../include/qsbit/simulator.hpp).
+## Implementation and tests
+
+Source: [simulator.cpp](../../src/simulator.cpp) and [simulator.hpp](../../include/qsbit/simulator.hpp).
 
 **CTest:** `systemc.use_cases`.
 
-Checks unequal periods/phases, reset at coincident physical boundaries and exact trace equality under reversed process registration.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The integration tests cover unequal clock periods and phases, reset at coincident
+physical boundaries, and exact trace equality after reversing process registration.

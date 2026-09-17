@@ -1,18 +1,15 @@
 # ISA Decoder and Semantics
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+The ISA library decodes instruction words and calculates their architectural
+effects. It specifies the result of an instruction; the CPU model decides when
+that result becomes visible.
 
-## Responsibility and neighbors
+## Connections
 
-Pure C++ library called by the CPU owner. It does not own the PC, GPRs or a SystemC process.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Fetched 32-bit word, PC, operand values, ISA extension profile and privilege assumptions. |
-| Downstream outputs | Typed decoded operation, architectural effect description or typed fault; control operations go to the quantum instruction adapter. |
-| State owner and retained state | No mutable architectural state. Tables of encoding masks and semantics are immutable for the simulation session. |
-
-## Module diagram
+- **Input:** a 32-bit instruction word for `rv32::decode()`; a decoded instruction,
+  PC and operand values for `rv32::evaluate()`.
+- **Output:** `rv32::Decoded` and `rv32::Effect` values, or a typed fault.
+- **Caller:** the CPU model's decode and execute stages.
 
 ```{graphviz}
 digraph module {
@@ -20,43 +17,49 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Instruction word and operands"];
   owner [label="rv32::decode / evaluate"];
-  state [label="Decoded; Effect"];
+  state [label="Decoded\nEffect"];
   output [label="Decoded / Effect or typed fault"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="value records / configuration"];
 }
 ```
 
-## Behavior
+## Decode and evaluate
 
-**Activation:** Call when the CPU model reaches its decode or execute stage, according to the selected pipeline profile.
+`decode()` identifies RV32I and the version 1 custom-0 instructions. It extracts
+register fields and immediates, checks fixed encoding bits, and records which
+register operands the CPU must read.
 
-**Transition:** Decode RV32I, immediates and enabled custom encodings; calculate sign extension, branch target, register effect and exceptions; describe APPEND, ADVANCE, FLUSH, READ_RESULT or END effects without performing them.
+`evaluate()` calculates results such as arithmetic values, branch decisions,
+next PC and memory access parameters. It neither updates registers nor accesses
+memory. RV32I arithmetic uses 32-bit wraparound; time and protocol IDs use checked
+arithmetic elsewhere in the simulator.
 
-**Time and visibility:** Function execution consumes no SystemC time. Pipeline stage timing belongs to the CPU model. The assembler contract verifies emitted machine words against these masks.
+The CPU sends decoded quantum instructions through
+[`adapt_quantum()`](quantum-instruction-adapter.md). That path creates a producer
+operation instead of executing a quantum effect inside the ISA library.
+Both functions are synchronous C++ calls and add no simulated delay.
 
-**Reset and errors:** Unknown or disabled encodings return illegal instruction. Reset does not change immutable decode tables.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Decoded` | `value record` | Operation, original word, register fields, immediate and register-use flags. |
-| `Effect` | `value record` | Next PC, result, memory request parameters and branch outcome. |
+| `Decoded` | value record | Operation, original word, register fields, immediate and register-use flags. |
+| `Effect` | value record | Next PC, result, memory request parameters and branch outcome. |
 
-decode maps one machine word to Decoded or raises IllegalInstruction. evaluate takes Decoded plus PC and operand values, and returns Effect. It does not store registers, update the CPU PC, access memory or consume simulated time. Quantum instructions take the producer-adapter path in the CPU.
+[C++ API](../api.md#isahpp).
 
-[Current C++ declarations](../api.md#isahpp).
+## Reset and errors
 
-## Implementation and verification
+Invalid or unsupported encodings raise `IllegalInstruction`. ECALL and
+EBREAK produce distinct traps. The CPU delays a speculative instruction's fault
+until that instruction becomes oldest, so a taken branch can discard a wrong-path
+fault. The ISA library retains no state to reset.
 
-rv32::decode and rv32::evaluate implement RV32I and custom-0 validation without SystemC.
+## Implementation and tests
 
-- Implementation: [isa.cpp](../../src/isa.cpp) and [isa.hpp](../../include/qsbit/isa.hpp).
+Source: [isa.cpp](../../src/isa.cpp) and [isa.hpp](../../include/qsbit/isa.hpp).
 
 **CTest:** `core.isa_arithmetic`, `core.isa_control`, `core.isa_decode`.
 
-Checks RV32I effects, control flow and legal/illegal instruction encodings.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The ISA tests check arithmetic results, branch and jump effects, and the
+acceptance or rejection of individual instruction encodings.

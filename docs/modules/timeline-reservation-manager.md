@@ -1,18 +1,21 @@
 # Timeline Reservation Manager
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`TimelineProducer` prepares operations for future TCU cycles. It collects
+actions that should fire together, seals them into one group, and waits for the
+TCU to accept that group.
 
-## Responsibility and neighbors
+Its **cursor** is the logical TCU cycle being prepared. The cursor is independent
+of the running TCU timer: the CPU can prepare cycle 8 while the TCU is still
+waiting to start.
 
-CPU-domain substate that prepares groups of operations for one planned TCU cycle. It does not have its own clocked SystemC process.
+## Connections
 
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | APPEND, ADVANCE, FLUSH, READ_RESULT and END from the adapter; TCU group acknowledgments. |
-| Downstream outputs | Immutable sealed group, producer acceptance reply, cursor advancement and EndOfStream marker. |
-| State owner and retained state | Producer cursor (the logical TCU cycle being planned), initial empty origin, capacity-limited open group, and at most one sealed group awaiting admission. |
-
-## Module diagram
+- **Input:** ordered `ProducerOperation` calls, admission replies, CPU measurement
+  completions and returned fast-feedback credits.
+- **Output:** a completed instruction result, a sealed `Group`, or `EndOfStream`
+  through `ControlLinks`.
+- **Scheduling:** `Simulator::cpu_edge()` receives eligible replies before the CPU
+  attempts its next producer operation.
 
 ```{graphviz}
 digraph module {
@@ -20,46 +23,68 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Ordered producer operations"];
   owner [label="TimelineProducer"];
-  state [label="cursor_, last_admitted_due_; open_events_, open_, flushed_; sealed_"];
+  state [label="cursor_, last_admitted_due_\nopen_events_, open_, flushed_\nsealed_"];
   output [label="Group / EndOfStream / CPU completion"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Preparing and submitting a group
 
-**Activation:** Advance on CPU edges through semantic operations; group replies arrive via a committed mailbox.
+APPEND resolves a command, checks its capacity requirements and adds its
+actions to the open group at the cursor. A measurement reserves a result slot
+at this point. The instruction can then retire, allowing another APPEND to add
+actions for the same cycle.
 
-**Transition:** APPEND places an event in the open group at the producer cursor and retires on `ProducerAccepted`; a second APPEND may join the same group. ADVANCE(0) changes nothing. Positive ADVANCE freezes a real open group, waits for its matching `GroupReply` acknowledgment, then moves the cursor by the requested number of logical TCU cycles. An untouched initial origin needs no submission. FLUSH seals without moving the cursor, so APPEND there remains invalid until a positive ADVANCE. READ_RESULT flushes before waiting; END flushes before closing production.
+Positive ADVANCE seals an open group and waits for its matching `GroupReply`.
+After the reply arrives, it moves the cursor by the requested number of TCU
+cycles and opens the next group. ADVANCE(0) leaves both cursor and group unchanged.
+FLUSH seals without moving the cursor. APPEND after FLUSH requires a positive
+ADVANCE first.
 
-**Time and visibility:** The group interval is the current producer cursor minus the preceding sealed point’s due cycle, using logical origin zero for the first point; it is not measured from CPU execution or host time. A sealed group remains immutable while its crossing request is held. Admission confirms queue insertion, not physical firing.
+For example, APPEND(A), APPEND(B), ADVANCE(3) at cursor 4 submits A and B together
+for cycle 4. The cursor becomes 7 only after admission is acknowledged. None of
+these operations changes the TCU timer or advances SystemC time directly.
 
-**Reset and errors:** Impossible staging or per-port total capacity faults immediately. Reset discards the open and sealed group and returns to the implicit origin with a new epoch.
+READ_RESULT flushes before waiting for a CPU-visible measurement. END flushes
+before publishing closure. The producer holds the instruction ID and operands
+across retries and permits only one sealed submission at a time.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+At startup, an untouched empty origin needs no submission. After a positive
+ADVANCE opens a point, sealing that point submits an entry even if it has no
+events. Such an entry is a wait-only point. The
+[producer protocol](../module-architecture.md#producer-operations-and-progress)
+defines all completion cases.
 
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `cursor_, last_admitted_due_` | `logical TCU cycles` | Point being prepared and preceding acknowledged point; their difference is the next interval. |
-| `open_events_, open_, flushed_` | `open-group state` | Staged events and whether the point remains appendable. |
-| `sealed_` | `optional Group` | One immutable submission awaiting the matching label reply. |
-| `held_` | `optional ProducerOperation` | Preserves the identity/operands of an incomplete CPU operation. |
-| `last_label_, next_event_, closed_` | `identity and lifecycle` | Monotone labels/events and END closure. |
+| `cursor_, last_admitted_due_` | logical TCU cycles | Current planned cycle and the last acknowledged due cycle. Their difference gives the next interval. |
+| `open_events_, open_, flushed_` | open-group state | Staged events and whether the point remains appendable. |
+| `sealed_` | optional Group | One immutable submission awaiting the matching label reply. |
+| `held_` | optional ProducerOperation | Keeps the instruction ID and operands unchanged while an operation waits. |
+| `last_label_, next_event_, closed_` | identity and lifecycle | Allocates increasing label and event IDs and records producer closure. |
 
-APPEND validates and stages events, then returns a result to retire the instruction. Sealing assigns the next label, publishes Group and returns incomplete. receive consumes GroupReply, clears sealed/open contents and marks the point flushed. The held ADVANCE then moves cursor; held FLUSH completes; held READ waits for its visible slot; held END publishes closure. ADVANCE(0) completes without sealing or moving cursor.
+[C++ API](../api.md#producerhpp).
 
-[Current C++ declarations](../api.md#producerhpp).
+## Reset and errors
 
-## Implementation and verification
+A group that exceeds staging, per-port width or total destination capacity
+fails immediately. A full CPU result-slot array also fails: only a later
+READ_RESULT could free it, so blocking the current APPEND would prevent progress.
+The producer can wait for fast-feedback credits because earlier measurements
+can release them independently.
 
-TimelineProducer owns cursor, bounded open events, one sealed group and held operation identity.
+Reset clears staged and sealed groups, the held operation and closure state.
+It returns the cursor to zero and restarts IDs in the new epoch.
 
-- Implementation: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
+## Implementation and tests
+
+Source: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
 
 **CTest:** `protocol.producer`, `protocol.capacity`, `systemc.use_cases`.
 
-Checks held operation identity, one submission, acknowledgment before cursor movement, staging bounds, and coalescing APPENDs across ADVANCE(0).
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check that a blocked operation keeps its identity and submits only
+once, that the cursor moves after acknowledgment, and that staging stays bounded.
+They also check that ADVANCE(0) leaves multiple APPENDs in the same group.

@@ -1,18 +1,15 @@
 # Fast-Condition History
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`FastHistory` stores measurement results for conditional TCU output. It has
+its own delivery path and latency, so a result can reach the CPU before or after
+it reaches the TCU.
 
-## Responsibility and neighbors
+## Connections
 
-Optional TCU-domain history plus its own result crossing; it does not share CPU result visibility.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Tagged discriminator completion and TCU clock edges. |
-| Downstream outputs | Committed condition snapshot for launch preflight and fast-delivery credit release. |
-| State owner and retained state | Per-target result history, predicate table, validity bit, crossing mailbox and epoch. |
-
-## Module diagram
+- **Input:** tagged measurement completions from `ControlLinks::fast_results`.
+- **Output:** predicate results for launch preflight and delivered-token
+  acknowledgments that return fast-feedback credits to the CPU.
+- **Owner:** `TcuCycleModel`; history is committed at the end of a TCU transition.
 
 ```{graphviz}
 digraph module {
@@ -20,43 +17,54 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Discriminator result mailbox"];
   owner [label="FastHistory"];
-  state [label="history_; Profile::history_depth"];
+  state [label="history_\nProfile::history_depth"];
   output [label="Predicate result / delivered credit"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Receiving and using a result
 
-**Activation:** Completion becomes eligible after configured TCU receiver-edge latency; TCU edge commits it after that edge’s due actions sample the prior snapshot.
+The TCU first evaluates the due group's conditions using existing history.
+It then commits eligible incoming completions. A `FastResultVisible` event marks
+this commit; conditions can use the new result starting on the next TCU edge.
 
-**Transition:** Update history for every completed measurement independently of CPU result consumption and later pending measurements. An always-true selector supports unconditional events. A conditional event reads the prior committed history snapshot; a false predicate creates an explicit cancellation.
+History is bounded per target. A new completion appends its full token and bit;
+when `history_depth` is exceeded, the oldest entry is removed. Lookup requires
+the exact token captured by QAPPEND_IF, not merely the latest bit for that qubit.
 
-**Time and visibility:** A completion arriving on the same edge as a due label affects only a later edge. Per-target issue order is required in the baseline optional profile; unrelated targets may complete out of order.
+For example, if a result is committed at the 100 ns TCU edge, a group firing at
+100 ns cannot use it. With a 20 ns period, a group at 120 ns can use it if the
+entry is still retained.
 
-**Reset and errors:** Missing required history faults. Conditional measurement is unsupported in the baseline to avoid leaving a token pending after cancellation. Reset clears history and old deliveries.
+CPU result consumption does not erase TCU history. Measurements on different
+targets may complete out of order; results for one target must arrive in
+increasing measurement-ID order.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `history_` | `vector<deque<Completion>>` | Bounded per-target history of exact measurement tokens/results. |
-| `Profile::history_depth` | `per-target bound` | Evicts the oldest entry after an accepted new result. |
+| `Profile::history_depth` | per-target bound | Evicts the oldest entry after an accepted new result. |
 
-evaluate requires an exact token match and compares its bit with the predicate. commit rejects same-target duplicates/out-of-order IDs, appends a valid completion and enforces depth. TCU decisions evaluate the previously committed history; same-edge incoming results become usable on a later TCU edge. Reset clears all histories.
+[C++ API](../api.md#feedbackhpp).
 
-[Current C++ declarations](../api.md#feedbackhpp).
+## Reset and errors
 
-## Implementation and verification
+An absent or evicted required token raises a fault. Duplicate or out-of-order
+results for the same target also fail. Old-epoch completions are discarded.
+Session reset clears all history and pending delivery state.
 
-FastHistory retains exact-token results per target. TcuCycleModel commits arriving results after that edge's firing decision.
+When `fast_feedback` is disabled, the result path is inactive and conditional
+output cannot obtain results through it.
 
-- Implementation: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
+## Implementation and tests
+
+Source: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
 
 **CTest:** `control.fast`, `protocol.history`.
 
-Checks exact-token lookup, eviction, duplicate results and exclusion of same-edge arrivals from firing decisions.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check exact-token lookup, history eviction and duplicate results.
+They also verify that a result arriving on an edge cannot affect that edge's
+firing decision.

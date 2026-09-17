@@ -1,18 +1,16 @@
 # Acquisition and Discrimination
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+Readout separates measurement sampling from result availability.
+`DeviceRuntime` samples the backend at acquisition end, then waits for the
+discriminator timing before publishing the bit to the CPU and optional fast path.
 
-## Responsibility and neighbors
+## Connections
 
-DeviceRuntime-owned readout protocol substate and scheduled result-ready events.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Readout acquisition action, optional discriminator arm carrying the same measurement token, and backend sample. |
-| Downstream outputs | Tagged completion to CPU-feedback crossing and independent fast-condition path. |
-| State owner and retained state | Positive acquisition interval, arm tick, sample and collapse tick, result-ready tick, token status and reserved path credits. |
-
-## Module diagram
+- **Input:** an acquisition action, its existing measurement token and any
+  separately mapped discriminator-arm action.
+- **Output:** one tagged `Completion` to each enabled feedback path.
+- **Owner:** `DeviceRuntime::readouts_`, updated at acquisition, arm and result-ready
+  physical boundaries.
 
 ```{graphviz}
 digraph module {
@@ -20,45 +18,57 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Acquisition and discriminator triggers"];
   owner [label="DeviceRuntime::readouts_"];
-  state [label="Readout::token; Readout::end / arm / ready; Readout::sample"];
+  state [label="Readout::token\nReadout::end / arm / ready\nReadout::sample"];
   output [label="Completion to CPU and fast mailboxes"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## From acquisition to result
 
-**Activation:** Acquisition start and end are physical boundary events; result readiness is a timed callback.
+The producer has already reserved the measurement token and delivery capacity.
+Readout does not allocate another token. If acquisition requires a separate arm,
+group validation requires one matching arm with the same token and target.
+Otherwise the discriminator is implicitly armed at acquisition start.
 
-**Transition:** Allocate no new token. For a separate acquisition and discriminator arm, group validation requires exactly one of each with the same token. Baseline sampling and collapse occur at acquisition end. With arm tick a and processing delay L, ready tick is max(acquisition_end,a)+L. Fan out the same completion to each reserved delivery path.
+Let E be acquisition end, A the arm start and L the discriminator delay.
+The backend samples and collapses state at E; the bit becomes ready at
+`max(E, A) + L`.
 
-**Time and visibility:** A backend call returning early on the host does not publish the result. Even L=0 still obeys the later receiver-edge crossing rule.
+For example, an acquisition ending at 1280 ns with an earlier arm and a 20 ns
+delay produces `ResultReady` at 1300 ns. With the default crossings, the CPU
+receives the bit at 1305 ns and the TCU commits it at 1340 ns.
 
-**Reset and errors:** Missing or duplicate arm, unknown token, and unsupported raw-waveform discrimination are faults. Reset clears old scheduled physical work; mailbox receivers discard stale completions.
+The runtime stores the sample until readiness, publishes the same token and bit
+to both enabled paths, then removes the readout record. A zero discriminator
+delay can make sampling and readiness share a tick. It still cannot make a
+clocked receiver consume the result on that tick.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `Readout::token` | `Token` | Measurement identity reserved by the producer/scoreboard. |
-| `Readout::end / arm / ready` | `global ticks` | Acquisition end, discriminator arm and max(end,arm)+delay. |
-| `Readout::sample` | `optional<bool>` | Unset before acquisition end; populated by backend.measure. |
-| `ControlLinks::cpu_results / fast_results` | `independent mailboxes` | One completion published to each enabled delivery path. |
+| `Readout::end / arm / ready` | global ticks | Acquisition end, arm start and result-ready ticks. |
+| `Readout::sample` | `optional<bool>` | Empty until the backend samples the measurement at acquisition end. |
+| `ControlLinks::cpu_results / fast_results` | independent mailboxes | One completion published to each enabled delivery path. |
 
-accept validates acquisition/arm pairing and records the existing token. At acquisition end process calls the backend and stores the outcome. At ready tick it publishes Completion and erases readout state. Even zero discriminator delay uses strict receiver-edge visibility. Reset discards scheduled readouts; no old physical boundary survives.
+[C++ API](../api.md#devicehpp).
 
-[Current C++ declarations](../api.md#devicehpp).
+## Reset and errors
 
-## Implementation and verification
+Missing or duplicate arms, mismatched targets or tokens, and overflowing
+readiness times fail validation. The backend supplies measurement bits; raw
+waveform discrimination is not implemented.
 
-DeviceRuntime holds readout token, sample, arm and readiness state. Readiness is max(acquisition end, arm start) plus discriminator delay.
+Session reset removes pending readouts and physical callbacks. Receivers reject
+or discard stale completions according to their epoch checks.
 
-- Implementation: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
+## Implementation and tests
+
+Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
 
 **CTest:** `protocol.readout`.
 
-Checks delayed arm, sample/readiness ticks, token matching and separate CPU/fast visibility.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The readout tests check delayed arms, exact sampling and readiness ticks, token
+matching, and delivery through the separate CPU and fast-feedback paths.

@@ -1,18 +1,15 @@
 # Quantum Instruction Adapter
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`adapt_quantum()` translates a decoded quantum instruction and its register
+operands into a `ProducerOperation`. This keeps binary instruction fields out of
+the timeline producer.
 
-## Responsibility and neighbors
+## Connections
 
-Pure mapping called from the authorized CPU commit path. It does not introduce its own SystemC thread.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Decoded extension effect, immutable operand snapshot, target configuration and active epoch. |
-| Downstream outputs | One semantic producer operation or typed unsupported error; result reads consult the CPU-domain scoreboard. |
-| State owner and retained state | No independently clocked state; pending instruction identity remains owned by the CPU. |
-
-## Module diagram
+- **Input:** `rv32::Decoded`, instruction ID, captured operand values and the
+  predicate handle used by QAPPEND_IF.
+- **Output:** one `ProducerOperation` for `TimelineProducer::execute()`.
+- **Caller:** the CPU, when the quantum instruction is oldest and may issue its effect.
 
 ```{graphviz}
 digraph module {
@@ -20,43 +17,52 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Authorized decoded operation"];
   owner [label="adapt_quantum"];
-  state [label="rv32::Decoded; ProducerOperation"];
+  state [label="rv32::Decoded\nProducerOperation"];
   output [label="ProducerOperation"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="value records / configuration"];
 }
 ```
 
-## Behavior
+## Mapping an instruction
 
-**Activation:** Call only for the oldest non-speculative instruction when the CPU cycle model authorizes external publication.
+The instruction's `funct3` field selects Append, Advance, Flush, ReadResult,
+End, ConditionalAppend or Synchronize. For example, QAPPEND captures the port
+and codeword register values. QAPPEND_IF also captures the register named by
+`rd` as a predicate-handle source; it does not write that register.
 
-**Transition:** Map codeword instructions to APPEND(port, codeword), waits to ADVANCE(interval), explicit sealing to FLUSH, result reads to READ_RESULT(token), and producer closure to END. These semantic operations map to the v1 custom-0 opcodes in ADR 0001. Use the configured port action map without assuming a codeword names a gate.
+The adapter performs no queue insertion or waiting. The producer validates the
+requested mapping and returns an optional result. An absent result keeps the CPU
+instruction blocked; a present result allows it to retire.
 
-**Time and visibility:** Producer acceptance and TCU admission are distinct; the adapter returns whichever completion the semantic operation requires. It never advances T_D by sleeping a host process.
+See the [instruction reference](../interfaces.md#quantum-instruction-encoding)
+for field encodings and the [producer](timeline-reservation-manager.md) for
+completion rules. Conversion is a direct C++ call within the CPU edge and adds
+no separate cycle.
 
-**Reset and errors:** Reject unsupported operation, port or operand before irreversible acceptance. No mutable state to clear on reset; stale-epoch requests are rejected.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `rv32::Decoded` | `input record` | Validated custom-0 encoding. |
-| `ProducerOperation` | `output record` | Instruction ID, operation kind, operands, predicate handle and expected bit. |
+| `rv32::Decoded` | input record | Validated custom-0 encoding. |
+| `ProducerOperation` | output record | Instruction ID, operation kind, operands, predicate handle and expected bit. |
 
-The CPU calls adapt_quantum only for its oldest quantum instruction. funct3 selects Append, Advance, Flush, ReadResult, End, ConditionalAppend or Synchronize. Captured register values become operation operands. The adapter retains no state; TimelineProducer keeps a blocked operation identity. Synchronize reaches the explicit unsupported fault.
+[C++ API](../api.md#producerhpp).
 
-[Current C++ declarations](../api.md#producerhpp).
+## Reset and errors
 
-## Implementation and verification
+The adapter rejects non-quantum input. The decoder checks malformed custom
+encodings before they reach it. A valid QSYNC becomes a Synchronize operation,
+which the producer rejects with `UnsupportedSynchronization`.
 
-adapt_quantum maps decoded custom-0 instructions and captured register operands into ProducerOperation values.
+The adapter has no retained state. The CPU and producer clear their held
+instruction state on reset.
 
-- Implementation: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
+## Implementation and tests
+
+Source: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
 
 **CTest:** `core.isa_decode`, `systemc.use_cases`.
 
-Checks extension encoding validation and execution of APPEND, ADVANCE, FLUSH, READ, END and conditional actions; QSYNC rejects.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check extension encodings and execute APPEND, ADVANCE, FLUSH,
+READ_RESULT, END and conditional actions. A QSYNC case checks the unsupported
+synchronization fault.

@@ -83,6 +83,14 @@ def check_browser(site, module_pages):
             page = browser.new_page(viewport={'width': 1440, 'height': 1050})
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
+            page.goto(base + '/index.html')
+            page.get_by_role('main').get_by_role('link', name='Run your first simulation', exact=True).first.click()
+            page.wait_for_url('**/quickstart.html')
+            assert page.get_by_role('heading', name='Run the feedback program', exact=True).count() == 1
+            page.get_by_role('main').get_by_role('link', name='execution player', exact=True).click()
+            page.wait_for_url('**/execution.html')
+            assert page.get_by_role('heading', name='Follow the feedback path', exact=True).count() == 1
+            assert page.get_by_role('heading', name='Example schedules', exact=True).count() == 1
             page.goto(base + '/architecture.html')
             diagram = page.locator('object[type="image/svg+xml"]').first
             page.wait_for_function("document.querySelector('object')?.contentDocument?.querySelectorAll('a').length >= 21")
@@ -100,7 +108,7 @@ def check_browser(site, module_pages):
             for name in sorted(module_pages):
                 page.goto(base + '/modules/' + name)
                 assert page.locator('h1').count() == 1, name
-                assert page.get_by_role('heading', name='Objects and state transition', exact=True).count() == 1, name
+                assert page.get_by_role('heading', name='Objects and state', exact=True).count() == 1, name
                 assert page.locator('object[type="image/svg+xml"]').count() == 1, name
             page.goto(base + '/api.html')
             assert page.locator('body').inner_text().find('ICpuCycleModel') >= 0

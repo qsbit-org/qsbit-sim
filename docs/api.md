@@ -1,91 +1,94 @@
-# C++ API
+# C++ API reference
 
-Declarations include private state used by the [module contracts](modules/README.md).
+Use [interface contracts](cpp-interfaces.md) to understand the main adapter
+boundaries, or select a header below to find its source. The namespace reference
+contains the extracted declarations, including private state named by the
+[module reference](modules/README.md).
 
 (backend_8hpp)=
 ## backend.hpp
 
-[Open header](../include/qsbit/backend.hpp). Definitions appear in the namespace reference below.
+Quantum backend operations and the scripted implementation. [Open header](../include/qsbit/backend.hpp).
 
 (control_8hpp)=
 ## control.hpp
 
-[Open header](../include/qsbit/control.hpp). Definitions appear in the namespace reference below.
+Profiles, action mappings, group records and measurement tokens. [Open header](../include/qsbit/control.hpp).
 
 (cpu_8hpp)=
 ## cpu.hpp
 
-[Open header](../include/qsbit/cpu.hpp). Definitions appear in the namespace reference below.
+Replaceable CPU interface and the three-stage implementation. [Open header](../include/qsbit/cpu.hpp).
 
 (defaults_8hpp)=
 ## defaults.hpp
 
-[Open header](../include/qsbit/defaults.hpp). Definitions appear in the namespace reference below.
+Construction of the default timing and device profile. [Open header](../include/qsbit/defaults.hpp).
 
 (device_8hpp)=
 ## device.hpp
 
-[Open header](../include/qsbit/device.hpp). Definitions appear in the namespace reference below.
+Physical intervals, resource reservations and device execution. [Open header](../include/qsbit/device.hpp).
 
 (error_8hpp)=
 ## error.hpp
 
-[Open header](../include/qsbit/error.hpp). Definitions appear in the namespace reference below.
+Typed faults and their diagnostic names. [Open header](../include/qsbit/error.hpp).
 
 (feedback_8hpp)=
 ## feedback.hpp
 
-[Open header](../include/qsbit/feedback.hpp). Definitions appear in the namespace reference below.
+CPU result slots and TCU measurement history. [Open header](../include/qsbit/feedback.hpp).
 
 (image_8hpp)=
 ## image.hpp
 
-[Open header](../include/qsbit/image.hpp). Definitions appear in the namespace reference below.
+ELF/raw loading, memory bytes and segment permissions. [Open header](../include/qsbit/image.hpp).
 
 (isa_8hpp)=
 ## isa.hpp
 
-[Open header](../include/qsbit/isa.hpp). Definitions appear in the namespace reference below.
+Decoded RV32I instructions and architectural effects. [Open header](../include/qsbit/isa.hpp).
 
 (mailbox_8hpp)=
 ## mailbox.hpp
 
-[Open header](../include/qsbit/mailbox.hpp). Definitions appear in the namespace reference below.
+Bounded messages with explicit receiver eligibility ticks. [Open header](../include/qsbit/mailbox.hpp).
 
 (memory_8hpp)=
 ## memory.hpp
 
-[Open header](../include/qsbit/memory.hpp). Definitions appear in the namespace reference below.
+Fetch/data ports and timed memory service. [Open header](../include/qsbit/memory.hpp).
 
 (producer_8hpp)=
 ## producer.hpp
 
-[Open header](../include/qsbit/producer.hpp). Definitions appear in the namespace reference below.
+Quantum instruction adaptation, group preparation and crossings. [Open header](../include/qsbit/producer.hpp).
 
 (python__backend_8hpp)=
 ## python_backend.hpp
 
-[Open header](../include/qsbit/python_backend.hpp). Definitions appear in the namespace reference below.
+Optional bridge to Python quantum adapters. [Open header](../include/qsbit/python_backend.hpp).
 
 (simulator_8hpp)=
 ## simulator.hpp
 
-[Open header](../include/qsbit/simulator.hpp). Definitions appear in the namespace reference below.
+SystemC scheduling, CPU construction, reset and completion. [Open header](../include/qsbit/simulator.hpp).
 
 (tcu_8hpp)=
 ## tcu.hpp
 
-[Open header](../include/qsbit/tcu.hpp). Definitions appear in the namespace reference below.
+Timing queues, event queues and the TCU edge transition. [Open header](../include/qsbit/tcu.hpp).
 
 (time_8hpp)=
 ## time.hpp
 
-[Open header](../include/qsbit/time.hpp). Definitions appear in the namespace reference below.
+Tick arithmetic and clock-edge calculations. [Open header](../include/qsbit/time.hpp).
 
 (trace_8hpp)=
 ## trace.hpp
 
-[Open header](../include/qsbit/trace.hpp). Definitions appear in the namespace reference below.
+Trace records and JSONL serialization. [Open header](../include/qsbit/trace.hpp).
 
 ## Namespace reference
 

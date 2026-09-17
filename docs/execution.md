@@ -1,8 +1,12 @@
 # Follow a program through the controller
 
-Select a deterministic scripted run. **Next event** advances one recorded event;
-**Next tick** skips to the first event at a later simulation tick. Playback speed
-changes only the presentation. Several events can share one hardware timestamp.
+This page follows real simulator traces for the Bell and measurement-feedback
+examples. Start with **feedback-one** to see a measurement reach the CPU and
+select the next quantum operation. [Quickstart](quickstart.md) shows how to
+run that program locally.
+
+Use **Next event** to advance one record or **Next tick** to move to the next
+simulation timestamp. The speed control changes playback only.
 
 ```{raw} html
 <div id="trace-player" class="trace-player" aria-label="Simulation trace player">
@@ -29,34 +33,57 @@ changes only the presentation. Several events can share one hardware timestamp.
 <noscript>The interactive player requires JavaScript. The timing table and module contracts below remain available.</noscript>
 ```
 
-## What the display means
+## Follow the feedback path
 
-Global tick is simulated time in nanoseconds. CPU cycle is the clock edge index;
-between edges the display shows the last edge index. TCU logical cycle begins at
-the configured start. Producer cursor is shown only when recorded by producer events,
-as a **last observed value**. The player does not reconstruct private queue contents
-or pipeline latches from retirement records.
+1. Select **feedback-one** and open **Input assembly**. The program prepares
+   qubit 0, measures it and branches on the result.
+2. Jump to `ProducerAccepted`. Its `cycle` is the producer cursor: the TCU
+   cycle being prepared. Acceptance means the action is staged at the CPU.
+3. Find `GroupAdmitted` and then `LabelFired`. The first records queue insertion;
+   the second records the planned TCU firing edge.
+4. Follow `MeasurementSampled`, `ResultReady` and `CpuResultVisible`. These show
+   sampling, discriminator delay and delivery to the CPU.
+5. Continue to the last `OperationStart`. With outcome 1, the program selects X
+   on qubit 1. Select **feedback-zero** to see the same branch select Z.
 
-The event list retains trace order within a tick. Independent owners may emit events
-at the same tick; their list positions do not imply an extra cycle or a hardware
-ordering dependency. Timeline marks share an x coordinate when their ticks match.
-Click a timeline mark or choose a milestone to jump to its recorded event.
+Click the component cards to read the relevant module behavior.
 
-## Expected schedules
+## Read the displayed values
 
-All examples use the scripted backend and the default profile. Outcomes are fixed;
-these runs explain control timing, not numerical quantum-state evolution.
+Global tick is simulation time in nanoseconds. The displayed CPU edge index and
+TCU logical cycle are derived from that tick and the profile. Between CPU edges, the
+display retains the last edge index. TCU logical cycles begin at the configured
+start.
 
-| Program | Physical operation starts (ns) | Result |
+**Last observed state** shows only values recorded by earlier events, together
+with their observation tick. For example, occupancy is the value recorded at
+the last admission; it is not a live view of the queue. Retirement records do
+not reveal current pipeline latches.
+
+Several events can share a timestamp. They appear at the same horizontal
+position on the timeline. Moving to the next record at that tick does not
+advance a hardware cycle.
+
+## Example schedules
+
+The examples use the default profile and scripted measurement bits.
+The website build runs their ELF programs and checks the schedules before
+publishing the playback data.
+
+| Program | Physical starts (ns) | Outcome |
 | --- | --- | --- |
-| Bell | H: 1160; CX: 1200; both acquisitions: 1240 | Both scripted measurements return 1. |
-| Feedback, outcome 1 | X: 1160; acquisition: 1240; feedback X: 3560 | Memory word 4096 contains 1. |
-| Feedback, outcome 0 | X: 1160; acquisition: 1240; feedback Z: 3560 | Memory word 4096 contains 0. |
+| Bell | H: 1160; CX: 1200; both acquisitions: 1240 | Both scripted bits are 1. |
+| Feedback, outcome 1 | X: 1160; acquisition: 1240; branch-selected X: 3560 | Memory word 4096 is 1. |
+| Feedback, outcome 0 | X: 1160; acquisition: 1240; branch-selected Z: 3560 | Memory word 4096 is 0. |
 
-In each run, acquisition samples at 1280 ns, the discriminator result is ready at 1300 ns, CPU visibility begins at 1305 ns, and fast visibility begins at 1340 ns.
+In each run, acquisition samples at 1280 ns. The result is ready at 1300 ns,
+CPU-visible at 1305 ns and committed to fast history at 1340 ns. TCU conditions
+can use that history on later edges.
 
-In Bell, both measurement APPENDs join one group. QREAD seals that group before
-waiting for a CPU-visible result. In feedback, QREAD completes before the classical
-branch chooses the final operation. Compare [producer behavior](modules/timeline-reservation-manager.md),
-[TCU firing](modules/tcu-timer-and-label-broadcaster.md), and
-[measurement visibility](modules/measurement-scoreboard-and-cpu-feedback.md).
+In Bell, two measurement APPENDs join one group before QREAD seals it.
+In feedback, QREAD completes before the classical branch chooses the final
+operation. Neither waiting for a result nor an empty queue pauses the TCU timer.
+
+The scripted backend demonstrates control timing. Use the
+[Aer example](backends.md#install-an-optional-backend) to obtain bits from
+quantum-state evolution.

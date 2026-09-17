@@ -1,104 +1,88 @@
-# ADR 0001: Initial executable profile
+# ADR 0001: Initial CPU and control profile
 
-Date: 2026-09-16. Status: accepted for implementation; verification is in progress.
+Date: 2026-09-16. Status: accepted.
 
-## Scope and ownership
+## Context
 
-Implement all Phase 1 module contracts. The future synchronization adapter rejects
-requests with `UnsupportedSynchronization`; distributed pause/resume remains Phase 2.
-The baseline protocol in `module-architecture.md` is unchanged. CACTUS comparison is
-an external acceptance activity, never a source or build dependency of the simulator.
+The simulator needs an executable RV32I front end and a timed quantum control
+path. The control path follows the QuMA approach: the CPU prepares operations
+ahead of time, and a timing control unit releases them at their planned cycles.
+The CPU and quantum backend must remain replaceable without changing that protocol.
 
-## CPU and memory
+## Decision
 
-The initial replaceable CPU uses an in-order three-stage fetch, decode and execute/commit
-pipeline. Each latch advances at most once per CPU edge. An instruction commits only
-from the oldest execute stage. Operands are read when entering execute, with explicit
-same-edge forwarding of the preceding commit. Loads hold execute until their response;
-younger decode and fetch instructions remain held. Taken branches flush both younger
-stages. A blocked extension holds its identity and operands until its completion rule
-is satisfied. Faults suppress younger effects.
+Use C++20 and SystemC. Keep instruction semantics and state transitions in
+ordinary C++ objects. `Simulator` owns the SystemC processes and calls those
+objects at CPU edges, TCU edges and scheduled device boundaries.
 
-Instruction and data requests use independent bounded ports of one memory owner, which
-supports one outstanding request per port. Both requests and responses obey strict-edge
-visibility. Memory completion latency is counted from its acceptance edge. Fetches are
-speculative; their faults are delivered only when that instruction becomes oldest.
-All instructions are 32-bit. RV32I ECALL and EBREAK terminate with distinct typed traps;
-privileged instructions and unselected ISA extensions are illegal instructions. FENCE
-orders this in-order blocking memory model. FENCE.I is not part of the selected ISA.
+The initial CPU has three in-order stages: fetch, decode and execute/commit.
+Each stage advances at most once per CPU edge. Operands are read on entry to
+execute, with forwarding from the instruction that commits on that edge. A
+load holds execute until its response arrives. A taken branch flushes younger
+instructions, and a blocked quantum instruction retains its identity and operands.
 
-## Quantum extension v1
+Instruction and data accesses use independent bounded memory ports. Each port
+allows one outstanding transaction. Requests and responses become visible only
+on a receiver edge strictly after publication; memory completion latency starts
+at acceptance. Speculative fetch faults are deferred until the fetched
+instruction becomes the oldest instruction.
 
-Use the RISC-V custom-0 opcode `0x0b` and the R-type operand fields. The simulator loads
-machine code; GNU assembler `.insn` macros are the independent encoding toolchain.
+### Program and instruction boundary
 
-| funct3 | Name | Operands and completion |
-| --- | --- | --- |
-| 0 | QAPPEND | rs1 is port; rs2 is codeword; rd receives a nonzero measurement handle for acquisition, otherwise zero. Complete on ProducerAccepted. |
-| 1 | QADVANCE | rs1 is unsigned interval; rd and rs2 must be zero. Complete after required group admission. |
-| 2 | QFLUSH | All register fields must be zero. Complete after required admission. |
-| 3 | QREAD | rs1 is a live measurement handle, rs2 zero; rd receives the bit. Flush, then wait for CPU-visible result and consume it. |
-| 4 | QEND | All register fields zero. Close production after flush; successful simulator stop still requires drain. |
-| 5 | QAPPEND_IF | rs1 is port, rs2 codeword, rd names a register holding an earlier measurement handle; funct7 selects expected bit 0 or 1. No register is written. |
-| 6 | QSYNC | Reserved synchronization boundary; always faults in this profile. |
-| 7 | reserved | Illegal instruction. |
+Load 32-bit RV32I machine code from an ELF file or raw binary. Keep assembly
+outside the simulator. The examples use GNU assembler macros to encode the
+quantum extension in the RISC-V custom-0 opcode space.
 
-funct7 must be zero except QAPPEND_IF. Encodings with other fixed fields are rejected.
-The 32-bit architectural measurement handle refers to a checked CPU-owned record with
-epoch, measurement ID, slot and generation; no generation bits are silently truncated.
-Fast conditions snapshot the stable measurement identity at APPEND, independent of
-whether its CPU slot is subsequently consumed. Conditional acquisition is rejected in
-v1, avoiding a pending token for an operation that never executes.
+The extension separates building a group from admitting it to the TCU. APPEND
+completes after local staging, so several instructions can contribute actions
+to one planned cycle. ADVANCE and FLUSH wait for any required admission reply.
+READ_RESULT flushes before waiting for a measurement; END flushes before closing
+production. The [instruction reference](../interfaces.md#quantum-instruction-encoding)
+defines the encodings and completion rules.
 
-## Default numerical profile
+Measurement handles refer to records with an epoch, measurement ID, slot and
+generation. Fast conditions retain the exact measurement identity even after the
+CPU consumes its result slot. Conditional acquisition is unsupported because a
+cancelled acquisition would leave its result handle unresolved. QSYNC returns
+`UnsupportedSynchronization`.
 
-Time resolution is 1 ns. CPU and memory period is 5 ticks; TCU period is 20 ticks;
-initial phases are zero and logical TCU cycle zero occurs at tick 1000. Crossings use
-one receiver edge, except the independently configurable fast-result path defaults to
-two. Memory completion latency is one memory edge after acceptance. Capacities default
-to 32 timing points, 32 events per port, 16 staged actions and 8 measurement slots.
-One group can be admitted and at most one old timing point can fire on a TCU edge;
-each port fires at most one action per group. Queue credits use old occupancy.
+### Timing and backend boundary
 
-The immutable profile also contains the port action map, positive action durations,
-output delays, discriminator arm delays, discriminator processing delays, qubit count,
-seed and watchdog. CLI overrides create a new validated profile before elaboration.
-Every run records the complete profile and a stable fingerprint. External comparison
-selects its own explicit numerical configuration through this generic interface.
+A validated profile fixes clocks, crossing delays, capacities and action maps
+before simulation starts. The [implementation reference](../implementation.md#default-timing)
+lists the defaults. Committed mailboxes carry payloads and eligibility ticks;
+SystemC events wake processes without carrying the payload themselves.
 
-## Backend and scheduling
+At each physical tick, a barrier waits for all due clock transitions before
+processing device actions. This includes actions launched with zero delay on
+that tick. `DeviceRuntime` controls evolution intervals, measurements and
+result publication. A backend computes quantum state changes synchronously
+and never advances SystemC time.
 
-Use SystemC compiled as C++20. The CPU, memory and TCU own pure transition objects.
-Committed tick-stamped mailboxes enforce visibility independently of runnable order.
-Device boundary collection has an explicit per-tick barrier after the TCU transition,
-including zero-delay launches. The quantum backend never advances SystemC time.
+The built-in scripted backend supports deterministic protocol tests. Optional
+Python adapters provide live Qiskit Aer simulation and a small-system
+piecewise-constant Hamiltonian backend. Each numerical backend maintains one
+shared state across operations and mid-circuit measurements. Capability checks
+run before a complete boundary batch changes state.
 
-Provide a scripted backend for deterministic protocol tests, a live Python adapter to
-Qiskit Aer, and a small-system piecewise-constant Hamiltonian
-backend using SciPy. Dependency constraints are in [pyproject.toml](../../pyproject.toml).
-The latter jointly integrates active drives, rather than
-claiming pulse support from ideal-gate replay. Python calls are synchronous host work;
-all physical times and result publication remain controlled by DeviceRuntime.
+### Replacement interfaces
 
-Numerical backends maintain one shared state across operations and mid-circuit
-measurements. Backend capabilities are checked before whole-batch mutation. Changing
-the selected backend does not alter CPU or TCU timing.
+`Simulator` accepts a CPU factory that takes a `Clock`, entry PC and `Trace`
+reference and returns an `ICpuCycleModel`. An external CPU adapter must obey the
+same edge, reset and instruction-publication contracts. The default factory
+creates the three-stage RV32I model.
 
-## Validation boundaries
+Quantum backends implement `IQuantumBackend` and reject unsupported actions in `validate()`.
+Replacing a backend changes state evolution and measurement results while the
+controller retains ownership of operation timing.
 
-TCU differential validation compares corresponding group-output events on the common
-positive-interval domain. Complete workload validation additionally compares actual
-device operations and supported measurement feedback. Different internal structures
-do not require identical private queue occupancy or speculative CPU activity.
-Unavailable reference features are explicit coverage limitations, never passing tests.
-Public trace events provide operation identity, epoch, physical tick, local cycle,
-operation, targets and event-specific payload, including fault detail or queue occupancy. No per-event time alignment is
-permitted. The first release must carry evidence for its supported comparisons.
+## Consequences
 
-## CPU construction boundary
+The initial CPU is small enough to test directly, but its cycle counts do not
+claim compatibility with an existing processor. Classical pipelines may differ
+in an external comparison as long as both produce the required timed quantum
+operations. [ADR 0002](0002-reference-comparison-scope.md) defines those comparisons.
 
-`Simulator` accepts an optional CPU factory taking a plain `Clock`, entry PC and
-`Trace` reference and returning `ICpuCycleModel`. The default factory constructs the
-RV32I three-stage model. This makes replacement executable through composition; an
-external adapter does not require editing the SystemC scheduling owner. The factory
-must return a valid model and use the same reset and oldest-publication contract.
+The simulator does not execute eQASM binaries. Distributed synchronization and
+conditional acquisition require additional contracts before implementation.
+CACTUS comparison tools and reports remain outside the source repository.

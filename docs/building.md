@@ -1,84 +1,98 @@
 # Build and test options
 
-Run commands from the repository root. CMake writes all generated artifacts into
-the selected build directory. Linux is covered by CI. See
-[install build prerequisites](prerequisites.md) for system packages and tool checks.
+Run commands from the repository root. CMake writes executables, assembled
+examples and test outputs into the selected build directory.
+[Quickstart](quickstart.md) covers the first example;
+[prerequisites](prerequisites.md) lists the required tools.
 
 ## Choose a compiler
 
-The checked-in presets use Ninja and keep each compiler in a separate build
-directory. Install CMake 3.24 or newer, Ninja, and either Clang or GCC with
-C++20 support, then choose one:
-
-```sh
-cmake --preset clang-ninja
-cmake --build --preset clang-ninja --parallel
-```
+The presets keep GCC and Clang builds in separate directories. Choose one:
 
 ```sh
 cmake --preset gcc-ninja
 cmake --build --preset gcc-ninja --parallel
 ```
 
-The resulting executables are `build-clang/qsbit-sim` and
-`build-gcc/qsbit-sim`. Add `-DBUILD_TESTING=ON` to the configure command to
-enable tests, then run `ctest --preset clang-ninja` or
-`ctest --preset gcc-ninja`. Extra CMake options can be passed to either
-configure command. If the compiler executable has a different name or path,
-override both `-DCMAKE_C_COMPILER=/path/to/c-compiler` and
-`-DCMAKE_CXX_COMPILER=/path/to/cxx-compiler` in a fresh build directory.
-SystemC builds C and assembly sources as well as C++ sources, so the two
-compiler selections must agree. Plain `cmake -S . -B build` also remains
-supported and uses CMake's default generator and compiler.
+```sh
+cmake --preset clang-ninja
+cmake --build --preset clang-ninja --parallel
+```
+
+The executables are `build-gcc/qsbit-sim` and `build-clang/qsbit-sim`.
+Add configuration options to the first command, such as
+`-DQSBIT_BUILD_EXAMPLES=ON`.
+
+To select a compiler by path, use `-DCMAKE_CXX_COMPILER=/path/to/cxx-compiler`
+in a fresh build directory. You can also configure without a preset:
+
+```sh
+cmake -S . -B build
+cmake --build build --parallel
+```
+
+That form uses CMake's default generator and compiler. Use a new build directory
+when changing compiler, Python interpreter or major dependency versions.
+
+## Enable tests
+
+```sh
+cmake --preset gcc-ninja -DBUILD_TESTING=ON
+cmake --build --preset gcc-ninja --parallel
+ctest --preset gcc-ninja
+```
+
+`BUILD_TESTING` also builds the example programs. Core tests need Python and
+RISC-V binutils, but no numerical quantum packages. See the
+[testing guide](engineering-and-testing.md) for test labels and optional suites.
 
 ## CMake options
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `QSBIT_FETCH_SYSTEMC` | ON | Fetch the pinned SystemC revision if an installation is not found. |
-| `QSBIT_BUILD_EXAMPLES` | OFF | Assemble example programs; requires GNU RISC-V binutils. |
-| `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge; requires Python development files and pybind11. |
-| `BUILD_TESTING` | OFF | Build core tests and examples; requires a Python interpreter and RISC-V binutils. |
-| `QSBIT_TEST_AER` | OFF | Register Aer numerical tests; requires the `aer` extra. |
-| `QSBIT_TEST_PULSE` | OFF | Register pulse numerical tests; requires the `pulse` extra. |
-| `QSBIT_TEST_WEBSITE` | OFF | Build and browser-test the website; requires `BUILD_TESTING`, Doxygen, Graphviz, `docs` and `docs-test` extras, and Chromium. |
-| `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests; requires the `verification` extra. |
-| `QSBIT_ARCH_TEST_SOURCE` | empty | Path to the pinned RISC-V architecture-test checkout. |
+| `QSBIT_FETCH_SYSTEMC` | ON | Fetch the pinned SystemC source if no installation is found. |
+| `QSBIT_BUILD_EXAMPLES` | OFF | Assemble example programs with GNU RISC-V binutils. |
+| `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge using Python development files and pybind11. |
+| `BUILD_TESTING` | OFF | Build core tests and examples. |
+| `QSBIT_TEST_AER` | OFF | Register numerical tests for the `aer` extra. |
+| `QSBIT_TEST_PULSE` | OFF | Register numerical tests for the `pulse` extra. |
+| `QSBIT_TEST_WEBSITE` | OFF | Register strict website and browser tests; requires testing and the [website tools](website.md). |
+| `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests using the `verification` extra. |
+| `QSBIT_ARCH_TEST_SOURCE` | empty | Select a pinned RISC-V architecture-test checkout. |
 | `QSBIT_SANITIZERS` | OFF | Enable address and undefined-behavior sanitizers. |
-| `QSBIT_COVERAGE` | OFF | Generate gcov coverage; use a separate build from sanitizers. |
+| `QSBIT_COVERAGE` | OFF | Generate gcov coverage in a build separate from sanitizers. |
 
-Backend test options require both `BUILD_TESTING` and `QSBIT_PYTHON_BACKENDS`.
-With `BUILD_TESTING=ON`, enabling the bridge also registers `python.plugin`, an
-external-adapter test that uses no numerical packages. An explicitly enabled backend test fails if its dependencies are missing.
+Numerical backend tests require both `BUILD_TESTING` and `QSBIT_PYTHON_BACKENDS`.
+With both enabled, `python.plugin` also tests an external adapter without
+numerical dependencies. An explicitly enabled test fails if its dependencies
+are missing.
 
 ## SystemC
 
-To use an existing C++20 SystemC installation:
+To use an installed C++20 SystemC library:
 
 ```sh
 cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/systemc-install -DQSBIT_FETCH_SYSTEMC=OFF
 ```
 
-The pinned source revision is recorded in `cmake/SystemC.cmake`. An offline build
-can use a local checkout of that revision:
+For an offline source build, provide the revision pinned in
+[cmake/SystemC.cmake](../cmake/SystemC.cmake):
 
 ```sh
 cmake -S . -B build -DFETCHCONTENT_SOURCE_DIR_SYSTEMC=/path/to/systemc-source
 ```
 
-CMake downloads missing sources only during configure. Rebuilding a configured tree
-does not install Python packages or fetch dependencies. Use a separate build directory
-when changing the compiler, Python interpreter, or major dependency versions.
+CMake downloads missing sources during configuration. Subsequent builds use
+the configured dependencies and do not install Python packages.
 
 ## Python environments
 
-Use `.venv` for the optional bridge and adapters. Activate it before configuring
-CMake. To select a different existing interpreter explicitly, set
-`-DPython3_EXECUTABLE=/path/to/python`. The interpreter and development library must
-belong to the same Python installation. Python compatibility and optional dependency
-sets are declared in `pyproject.toml`; there is no single required Python minor version.
+Create optional Python environments in `.venv` and activate them before CMake
+configuration. Select an existing interpreter with
+`-DPython3_EXECUTABLE=/path/to/python` when needed. Its development library must
+match that interpreter.
 
-A locked development environment with both bundled backends and ISA references:
+For a locked development environment with both numerical backends and ISA tests:
 
 ```sh
 uv sync --frozen --extra pulse --extra verification --extra dev
@@ -89,17 +103,18 @@ cmake --build build-python --parallel
 ctest --test-dir build-python --output-on-failure
 ```
 
-To use pip instead, create and activate `.venv`, then run
-`python -m pip install -e '.[pulse,verification,dev]'`. pip resolves the declared
-version ranges; uv uses the checked-in lock file. Neither workflow installs optional
-backends unless the corresponding extras are selected.
+For pip, create and activate `.venv`, then run
+`python -m pip install -e '.[pulse,verification,dev]'`. pip resolves the ranges
+in [pyproject.toml](../pyproject.toml); uv uses [uv.lock](../uv.lock).
+Select only the extras your workflow needs.
 
 ## Independent ISA tests
 
-`QSBIT_ISA_REFERENCES=ON` enables the randomized differential test. For the architecture
-test suite, provide a checkout at revision `37e6e0022814d880375e4a310b4a9a10fb9b268a`
-and configure `QSBIT_ARCH_TEST_SOURCE` to that directory. See
-[verification](engineering-and-testing.md) for supported cases and coverage limits.
+`QSBIT_ISA_REFERENCES=ON` enables randomized comparison with an independent ISA
+engine. To include architecture-test bodies, set `QSBIT_ARCH_TEST_SOURCE` to
+a checkout at revision `37e6e0022814d880375e4a310b4a9a10fb9b268a`.
+The [testing guide](engineering-and-testing.md#independent-isa-checks) explains
+coverage and exclusions.
 
 ## Sanitizers
 

@@ -1,18 +1,16 @@
 # Operation Lowerer and Device Distributor
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+The lowerer expands one port/codeword command into the device actions defined
+by the profile. A command can select several actions on different physical ports,
+such as acquisition and a separate discriminator arm.
 
-## Responsibility and neighbors
+## Connections
 
-Pure producer-side group resolver. Mandatory port action resolution is present even if optional higher-level lowering is disabled.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Profile, source port/codeword, epoch, instruction/event IDs and optional measurement and condition tokens. |
-| Downstream outputs | Immutable per-port event group with resolved resources, delays, durations and measurement associations. |
-| State owner and retained state | Configuration tables are read-only for the simulation session; transient grouping and duplicate checks occur within the producer owner. |
-
-## Module diagram
+- **Input:** source port and codeword, profile, epoch, instruction ID, first event ID,
+  and any measurement or condition token.
+- **Output:** `ReservedEvent` values for the producer's open group.
+- **Caller:** `TimelineProducer` during APPEND; group validation also runs when
+  the producer seals a group and when the TCU checks admission.
 
 ```{graphviz}
 digraph module {
@@ -20,44 +18,53 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Open producer group and codeword map"];
   owner [label="lower / validate_group"];
-  state [label="Profile::mappings; ReservedEvent; Group"];
+  state [label="Profile::mappings\nReservedEvent\nGroup"];
   output [label="ReservedEvent values / validated Group"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="value records / configuration"];
 }
 ```
 
-## Behavior
+## Resolving and validating actions
 
-**Activation:** APPEND resolves and validates actions before producer acceptance; sealing assigns the group label and manifest before crossing submission.
+`lower()` looks up the mapping and creates one event per `ActionSpec`.
+It assigns consecutive event IDs while preserving the source instruction,
+source port and codeword. Each event also names its physical output port,
+resources, targets and timing parameters.
 
-**Transition:** Resolve each codeword to ActionSpec values and assign stable event IDs. The producer accumulates these events in one open group, checks capacity and manifest consistency, then submits them together to the TCU. Baseline direct port-codeword commands do not require eQASM decoding. Higher-level multi-point lowering needs a separately declared bounded timing profile.
+Acquisition and arm actions carry the measurement token already reserved by the
+scoreboard. The producer gathers all returned events into its open group.
+When the group is sealed, it assigns a label and builds a manifest containing
+the exact event IDs.
 
-**Time and visibility:** Pure lookup itself adds no modeled latency. Any future microcode pipeline with finite issue bandwidth must declare its stage timing and queue demand.
+`validate_group()` checks those identities, the action mappings, acquisition/arm
+pairing and per-port bounds. It validates a complete value before that value is
+inserted into TCU queues. Lookup and validation add no separate simulated stage.
 
-**Reset and errors:** Missing mapping, incompatible port or impossible group width fails before admission. Session reset does not change the immutable configuration.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Profile::mappings` | `read-only mappings` | Maps a source port/codeword to one or more ActionSpec values. |
-| `ReservedEvent` | `output values` | Resolved action plus epoch, event/instruction IDs and optional tokens. |
-| `Group` | `producer-owned aggregate` | Timing point, ordered manifest, events and profile fingerprint. |
+| `Profile::mappings` | read-only mappings | Maps a source port/codeword to one or more ActionSpec values. |
+| `ReservedEvent` | output values | Resolved action plus epoch, event/instruction IDs and optional tokens. |
+| `Group` | producer-owned aggregate | Timing point, ordered manifest, events and profile fingerprint. |
 
-lower creates one event per mapped action and assigns consecutive checked event IDs. Acquisition/arm events require a measurement token. validate_group checks manifest order and identities, mapping consistency and per-port width/storage bounds. These calls are pure with respect to model state; the producer appends validated values and later assigns a label.
+[C++ API](../api.md#controlhpp).
 
-[Current C++ declarations](../api.md#controlhpp).
+## Reset and errors
 
-## Implementation and verification
+Unknown mappings, inconsistent identities, invalid acquisition/arm pairs and
+impossible group sizes raise typed faults. Producer checks reject staging and
+per-port capacity violations before accepting the APPEND.
 
-lower resolves immutable mappings into ReservedEvent values. TimelineProducer validates the complete staged group.
+The lowerer retains no mutable state. Reset discards the producer's generated
+events; the profile mappings remain unchanged. Multi-point microcode expansion
+is not implemented.
 
-- Implementation: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
+## Implementation and tests
+
+Source: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
 
 **CTest:** `control.mapping`, `protocol.capacity`.
 
-Checks mapping errors, manifest validation and rejection of groups exceeding staging or result capacity.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests reject invalid mappings and manifests, and groups that exceed
+staging or result capacity.

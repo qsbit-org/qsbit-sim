@@ -1,18 +1,16 @@
 # Command Crossing and Atomic Admission
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+A sealed group crosses from the CPU producer to the TCU through a mailbox.
+The TCU accepts its timing point and all port events together. Temporary queue
+pressure leaves the same group waiting in the mailbox.
 
-## Responsibility and neighbors
+## Connections
 
-The mailbox holds one sealed group crossing from the CPU domain; the TCU-domain owner decides whether to insert it into its queues. The mailbox cannot mutate those queues by itself.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | One sealed group from the producer and an optional prior admission reply. |
-| Downstream outputs | Atomic timing and event queue writes, GroupReply acknowledgment or typed error. |
-| State owner and retained state | One held request, epoch and group IDs, crossing visibility tick, reply mailbox and de-duplication state. |
-
-## Module diagram
+- **Input:** the producer's sealed `Group` through `ControlLinks::groups`.
+- **Output:** entries in the TCU timing and event queues, followed by a `GroupReply`
+  through the return mailbox.
+- **Scheduling:** the TCU checks an eligible group on a TCU rising edge;
+  the CPU receives its reply on a later CPU edge.
 
 ```{graphviz}
 digraph module {
@@ -20,45 +18,59 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Sealed group mailbox"];
   owner [label="ControlLinks / TcuCycleModel"];
-  state [label="groups, replies, closure; Envelope; TcuCycleModel::last_label_"];
+  state [label="groups, replies, closure\nEnvelope\nTcuCycleModel::last_label_"];
   output [label="Queue insertion / GroupReply"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Crossing and acceptance
 
-**Activation:** TCU admission check runs on its rising edge only after the request passes configured receiver-edge latency.
+Publishing a message records its epoch and receiver-eligible tick. Eligibility
+starts at the first receiver edge strictly after publication, followed by any
+additional configured receiver periods. With TCU edges at 20 and 40 ns and a
+one-edge crossing, a group published at 20 ns is first eligible at 40 ns.
 
-**Transition:** Check the sealed group’s member list, due-cycle deadline, queue capacity and IDs. If every check passes, insert one timing entry and all required per-port entries together, then return an ID-matched `GroupReply` acknowledgment. If only current occupancy blocks insertion, keep the same request pending; never insert a partial group.
+The TCU checks the group's manifest, profile fingerprint, ordered label, deadline
+and queue requirements. If current occupancy leaves enough room, it inserts the
+timing point and every event in one transition. `Simulator` then removes the
+mailbox request and publishes its label in `GroupReply`.
 
-**Time and visibility:** At edge E, use old occupancy. While the timer runs, require the group’s due cycle to be later than `T_D`; before start, require admission strictly before its mapped due tick. An entry admitted at E cannot fire at E; a freed slot becomes usable on the next TCU edge.
+Capacity is measured before any entries fire on that edge. Space freed by firing
+becomes usable on the next TCU edge. A full queue leaves the candidate in place;
+its original deadline continues to approach while it waits.
 
-**Reset and errors:** Reject stale epoch, duplicate group, impossible total capacity and late due cycle. Session reset clears mailboxes; old callbacks remain barred by epoch.
+Admission must occur strictly before the group's due tick. Admission itself
+does not launch the group, and a newly admitted group cannot fire on the same
+edge. See [crossing and edge order](../module-architecture.md#crossing-and-tcu-edge-order)
+for the complete transition.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `groups, replies, closure` | `Mailbox<Group / GroupReply / EndOfStream>` | One-slot crossings between producer and TCU. |
-| `Envelope` | `published, eligible, epoch, value` | Durable payload and computed receiver visibility. |
-| `TcuCycleModel::last_label_` | `last admitted label` | Enforces ordered, nonduplicate submission. |
-| `timing_, events_` | `TCU queues` | Admission checks old occupancy before inserting all members. |
+| `Envelope` | `published, eligible, epoch, value` | Retains the payload until its receiver can consume it. |
+| `TcuCycleModel::last_label_` | last admitted label | Enforces ordered, nonduplicate submission. |
+| `timing_, events_` | TCU queues | Admission checks occupancy at the start of the edge before inserting the whole group. |
 
-publish computes eligibility from the first receiver edge strictly after publication. peek leaves a blocked group in its mailbox. A successful TCU transition returns admitted=true; Simulator takes the group and publishes GroupReply. Temporary occupancy stalls; impossible capacity, stale identity or a missed deadline raises a fault.
+[C++ API](../api.md#producerhpp).
 
-[Current C++ declarations](../api.md#producerhpp).
+## Reset and errors
 
-## Implementation and verification
+Malformed groups, duplicate or stale identities, impossible capacity and
+late arrival raise typed faults. The TCU validates the whole transition before
+committing its queue changes. A fault in candidate admission also suppresses
+any launch planned by that TCU transition.
 
-ControlLinks carries committed groups and replies. TcuCycleModel checks complete-group capacity using old occupancy.
+Session reset clears the crossing mailboxes and TCU queues. Epoch checks prevent
+old work from entering the new session.
 
-- Implementation: [tcu.cpp](../../src/tcu.cpp) and [mailbox.hpp](../../include/qsbit/mailbox.hpp).
+## Implementation and tests
+
+Source: [tcu.cpp](../../src/tcu.cpp) and [mailbox.hpp](../../include/qsbit/mailbox.hpp).
 
 **CTest:** `core.mailbox`, `control.admission`, `control.atomic`.
 
-Checks strict-edge delivery, old occupancy, complete-group admission and unchanged queues on preflight failure.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check delivery on a strictly later receiver edge and admission using
+capacity from the start of the edge. Failed preflight must leave queues unchanged.

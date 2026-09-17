@@ -1,12 +1,18 @@
-# C++ Interface Reference
+# C++ interface contracts
 
-These declarations define the CPU/TCU adapter and control records.
-The [behavioral protocol](module-architecture.md#4-baseline-protocol-and-event-ordering)
-defines ordering; [external interfaces](interfaces.md) define JSON and program formats.
+These interfaces connect the CPU, producer, TCU and trace consumers.
+Their declarations are checked against the current headers.
+See the [control protocol](module-architecture.md) for ordering and the
+[external formats](interfaces.md) for program and JSON inputs.
 
 ## CPU adapter
 
-[include/qsbit/cpu.hpp](../include/qsbit/cpu.hpp)
+`Simulator` calls `step()` once per CPU edge. The model owns its registers,
+PC and pipeline state. `CpuPorts::control` returns an optional 32-bit result:
+absence means the same operation must remain held; a present value completes it.
+Use the CPU factory to supply another implementation.
+
+Source: [include/qsbit/cpu.hpp](../include/qsbit/cpu.hpp).
 
 <!-- source: {"path": "include/qsbit/cpu.hpp", "start": "struct CpuPorts {", "end": "class CpuCycleModel final"} -->
 ```cpp
@@ -30,7 +36,12 @@ public:
 
 ## TCU transition
 
-[include/qsbit/tcu.hpp](../include/qsbit/tcu.hpp)
+`step()` checks a due group and an optional admission candidate at one TCU
+edge. The preflight callback validates physical actions before queue removal.
+`TcuOutput` reports admission, the launch batch and delivered fast-result tokens.
+The method computes the logical cycle from its tick and configured start.
+
+Source: [include/qsbit/tcu.hpp](../include/qsbit/tcu.hpp).
 
 <!-- source: {"path": "include/qsbit/tcu.hpp", "start": "struct TcuOutput {", "end": "} // namespace qsbit"} -->
 ```cpp
@@ -74,7 +85,15 @@ private:
 
 ## Control records
 
-[include/qsbit/control.hpp](../include/qsbit/control.hpp)
+`Group` combines one timing point and its resolved events. The manifest lists
+exact event IDs; `configuration` is the profile fingerprint. Per-port counts
+are computed from the event list.
+
+`GroupReply` acknowledges a label. `EndOfStream` identifies the last admitted
+label, with zero for an empty stream. Mailbox envelopes supply epoch and
+visibility timing; the simulator has one control stream.
+
+Source: [include/qsbit/control.hpp](../include/qsbit/control.hpp).
 
 <!-- source: {"path": "include/qsbit/control.hpp", "start": "struct Token {", "end": "struct PhysicalAction {"} -->
 ```cpp
@@ -128,7 +147,11 @@ struct LaunchBatch {
 
 ## Trace record
 
-[include/qsbit/trace.hpp](../include/qsbit/trace.hpp)
+`TraceEvent` stores a timestamp, kind and event-specific fields.
+The kind determines the meaning of `id`, `cycle` and `value`; there are no
+separate clock-domain or status fields. JSONL serialization adds `schema: 1`.
+
+Source: [include/qsbit/trace.hpp](../include/qsbit/trace.hpp).
 
 <!-- source: {"path": "include/qsbit/trace.hpp", "start": "struct TraceEvent {", "end": "class Trace {"} -->
 ```cpp
@@ -151,4 +174,3 @@ struct TraceEvent {
 };
 ```
 <!-- /source -->
-

@@ -1,36 +1,53 @@
-# Simulator Module Contracts
+# Module reference
 
-Each page describes one **logical module** in the Phase 1 architecture. A logical module is not automatically a separate `sc_module` or `SC_METHOD`. The CPU domain, TCU domain and DeviceRuntime are the principal clocked or timed owners; pure libraries and queue substates run inside those owners. Adding a SystemC process or a clock edge between two logical boxes would change the timing contract.
+Use these pages to look up a module's connections, behavior, stored state and
+tests. Start with the [architecture overview](../high-level-design.md) for the
+complete data path, or select a module in the
+[architecture diagram](../architecture.md).
 
-The [high-level design](../high-level-design.md) states project goals. Start with the [glossary](../glossary.md) if producer cursor, open group, admission, firing, or SystemC scheduling is unfamiliar. The [architecture overview](../module-architecture.md) defines cross-module protocol, especially producer sealing, strict receiver-edge visibility, TCU edge order, device batching and END drain. These pages own each module's local behavior and implementation contract; the selected values and encodings are fixed in [ADR 0001](../decisions/0001-initial-implementation.md). Every module page links to its implementation and focused tests. The [verification guide](../engineering-and-testing.md) gives regression scenarios.
+The names describe logical responsibilities. `Simulator` schedules C++ owners;
+the boxes do not each represent a separate SystemC process or clock stage.
+The [control protocol](../module-architecture.md) defines the shared timing rules.
 
-| Module | Implementation boundary |
+## Setup and CPU
+
+| Module | What it does |
 | --- | --- |
-| [01. Platform Configuration and Clock Adapter](platform-and-clock-adapter.md) | Platform setup owns the immutable timing profile; a session coordinator owns reset requests. |
-| [02. ELF Loader and Program Image](elf-loader-and-program-image.md) | Pure C++ startup component. |
-| [03. ISA Decoder and Semantics](isa-decoder-and-semantics.md) | Pure C++ library called by the CPU owner. |
-| [04. CPU Cycle Model](cpu-cycle-model.md) | One CPU-domain owner, normally wrapped by a clock-sensitive `SC_METHOD`; its pipeline is a replaceable pure C++ cycle model. |
-| [05. Memory and Response Model](memory-and-response-model.md) | Clocked memory owner for runtime requests. |
-| [06. Quantum Instruction Adapter](quantum-instruction-adapter.md) | Pure mapping called from the authorized CPU commit path. |
-| [07. Operation Lowerer and Device Distributor](operation-lowerer-and-device-distributor.md) | Pure producer-side group resolver. |
-| [08. Timeline Reservation Manager](timeline-reservation-manager.md) | Logical substate of the CPU-domain owner, not a second independently clocked process. |
-| [09. Command Crossing and Atomic Admission](command-crossing-and-admission.md) | Crossing mailbox plus admission logic in the TCU-domain owner. |
-| [10. Timing Queue](timing-queue.md) | Bounded FIFO substate of one TCU cycle model. |
-| [11. Per-Port Event Queues](per-port-event-queues.md) | Bounded queue bank owned by the same TCU cycle model as the timing queue and broadcaster. |
-| [12. TCU Timer and Label Broadcaster](tcu-timer-and-label-broadcaster.md) | One TCU rising-edge process owns deterministic time and invokes queue matching and launch preflight as logical substages. |
-| [13. Condition Gate and Launch Preflight](condition-gate-and-launch-preflight.md) | Pure substage within the TCU edge transition. |
-| [14. Port Codeword and Waveform Map](port-codeword-and-waveform-map.md) | Pure immutable lookup used during APPEND and group sealing, before TCU admission. |
-| [15. Output Channels and Resource Calendar](output-channels-and-resource-calendar.md) | DeviceRuntime is the sole owner of physical channel occupancy and future interval reservations. |
-| [16. Quantum-State Service and Backends](quantum-state-service-and-backends.md) | One chronological service is the sole caller of a replaceable quantum-state backend for a shared state. |
-| [17. Acquisition and Discrimination](acquisition-and-discrimination.md) | DeviceRuntime-owned readout protocol substate and scheduled result-ready events. |
-| [18. Measurement Scoreboard and CPU Feedback](measurement-scoreboard-and-cpu-feedback.md) | Token and slot state belongs to the CPU-domain producer and scoreboard; a separate committed mailbox handles CPU crossing. |
-| [19. Fast-Condition History](fast-condition-history.md) | Optional TCU-domain history plus its own result crossing; it does not share CPU result visibility. |
-| [20. Trace Recorder and Stop Controller](trace-recorder-and-stop-controller.md) | Two separate logical responsibilities documented together: trace is observation-only; the stop controller owns completion and fatal termination. |
-| [21. Future Synchronization Adapter](future-synchronization-adapter.md) | Extension boundary only. |
+| [Platform and clocks](platform-and-clock-adapter.md) | Creates the run profile, clocks and scheduled wakeups. |
+| [ELF loader](elf-loader-and-program-image.md) | Loads executable bytes, segment permissions and entry PC. |
+| [ISA decoder](isa-decoder-and-semantics.md) | Decodes instructions and calculates architectural effects. |
+| [CPU cycle model](cpu-cycle-model.md) | Advances the pipeline, handles stalls and retires instructions. |
+| [Memory](memory-and-response-model.md) | Completes timed fetches, loads and stores. |
+| [Quantum instruction adapter](quantum-instruction-adapter.md) | Converts instruction fields and operands into producer operations. |
 
-The standalone CACTUS comparison project remains outside this repository. It consumes the generic public trace and does not add simulator module code.
+## Command preparation and TCU
 
-In module diagrams, solid arrows carry data, dashed arrows identify their labeled state or activation dependencies. State/configuration boxes list values used by the behavior. They do not introduce additional SystemC processes. **CTest** entries name executable regression tests and describe their assertions. Optional backend tests are identified separately.
+| Module | What it does |
+| --- | --- |
+| [Port/codeword map](port-codeword-and-waveform-map.md) | Selects device actions from the run profile. |
+| [Operation lowerer](operation-lowerer-and-device-distributor.md) | Expands commands into identified per-port events. |
+| [Timeline producer](timeline-reservation-manager.md) | Collects actions for a planned cycle and seals groups. |
+| [Crossing and admission](command-crossing-and-admission.md) | Transfers groups and inserts all their queue entries together. |
+| [Timing queue](timing-queue.md) | Retains intervals, due cycles and member lists. |
+| [Per-port event queues](per-port-event-queues.md) | Retain actions until their group's label fires. |
+| [TCU timer](tcu-timer-and-label-broadcaster.md) | Selects the due group on each TCU edge. |
+| [Conditions and launch checks](condition-gate-and-launch-preflight.md) | Filters conditional actions and checks the complete launch. |
+
+## Devices, feedback and completion
+
+| Module | What it does |
+| --- | --- |
+| [Output channels and resource calendar](output-channels-and-resource-calendar.md) | Reserve and execute physical intervals. |
+| [Quantum backend](quantum-state-service-and-backends.md) | Evolves shared state and returns measurement outcomes. |
+| [Acquisition and discrimination](acquisition-and-discrimination.md) | Samples measurements and schedules result readiness. |
+| [Scoreboard and CPU feedback](measurement-scoreboard-and-cpu-feedback.md) | Track handles and deliver results to QREAD. |
+| [Fast-condition history](fast-condition-history.md) | Retains exact-token results for conditional TCU output. |
+| [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
+| [Synchronization boundary](future-synchronization-adapter.md) | Rejects QSYNC; distributed synchronization is not implemented. |
+
+In module diagrams, solid arrows show inputs and outputs; dashed arrows connect
+state or configuration to the behavior that uses it. Each **CTest** entry names
+registered tests. Optional numerical tests are identified separately.
 
 ```{toctree}
 :hidden:

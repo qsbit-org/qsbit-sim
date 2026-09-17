@@ -1,18 +1,15 @@
 # Memory and Response Model
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`MemoryModel` services the CPU's instruction and data accesses. It owns the
+loaded `ProgramImage` and keeps one pending transaction for each of its two ports.
+A store changes memory when its transaction completes.
 
-## Responsibility and neighbors
+## Connections
 
-Clocked memory owner for runtime requests. ELF loading initializes its storage before the run.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Load-plan bytes, one stable CPU request with ID, and configured memory clock edge (initially the CPU clock). |
-| Downstream outputs | Bounded response mailbox with ID, value or access fault. |
-| State owner and retained state | Byte storage, pending request slots, configured latency counters and response state. |
-
-## Module diagram
+- **Input:** fetch and data requests through separate `MemoryPort` mailboxes.
+- **Output:** responses containing the request ID and either a value or an access fault.
+- **Scheduling:** `Simulator::memory_edge()` calls the model on each CPU rising edge.
+  Memory uses the CPU clock in the current implementation.
 
 ```{graphviz}
 digraph module {
@@ -20,45 +17,54 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="ELF bytes and CPU request"];
   owner [label="MemoryModel"];
-  state [label="image_; pending_[0], pending_[1]; last_id_"];
+  state [label="image_\npending_[0], pending_[1]\nlast_id_"];
   output [label="MemoryResponse or access fault"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Request, completion and response
 
-**Activation:** Wake on a configured memory clock edge, initially the CPU clock. Read a committed request; publish a later response according to the profile.
+A request published by the CPU becomes eligible on the next CPU edge. If the
+port was idle at the start of that edge and its response mailbox has space, the
+memory model accepts it. Completion is scheduled `memory_latency` CPU periods
+after acceptance.
 
-**Transition:** Check address and alignment, accept a request once by identity, schedule read or write completion, and apply a store effect once at its configured completion point. Keep a response stable until consumed; do not have both CPU and memory mutate the same request object.
+When a pending transaction is due and response storage is available, the model
+performs the access and publishes its response. The CPU can receive that response
+only on a later edge. With 5 ns CPU periods and a one-cycle memory latency, a
+request published at 0 ns can be accepted at 5 ns, complete at 10 ns and become
+CPU-visible at 15 ns, provided the port and response path remain available.
 
-**Time and visibility:** For a request published at tick p, eligibility begins at the first memory edge strictly after p. Response latency is counted in memory edges and reported as a tick.
+A port that completes a transaction on an edge cannot accept another on that
+same edge. Fetch and data ports make these decisions independently. Their request
+IDs must increase, preventing repeated stores and reordered requests.
 
-**Reset and errors:** Out-of-range and misaligned accesses produce typed faults. Baseline session reset clears in-flight transactions but preserves loaded bytes; cold start reloads them.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `image_` | `ProgramImage` | Runtime RAM and segment permissions. |
-| `pending_[0], pending_[1]` | `optional Pending` | Independent fetch/data request, completion tick and epoch. |
-| `last_id_` | `request IDs` | Rejects repeated or out-of-order requests per port. |
-| `MemoryPort` | `request/response mailboxes` | One request slot and one response slot for each CPU port. |
+| `pending_[0], pending_[1]` | optional Pending | Independent fetch/data request, completion tick and epoch. |
+| `last_id_` | request IDs | Rejects repeated or out-of-order requests per port. |
+| `MemoryPort` | request/response mailboxes | One request slot and one response slot for each CPU port. |
 
-On each memory edge, complete a due old transaction if its response mailbox has space. Accept a new request only if the pending slot was already idle at the start of the edge and the response mailbox has space. A completion cannot free a slot for same-edge reuse. A write takes effect at completion. The response is published at that tick and becomes CPU-visible on a later strict edge. Reset clears pending state and port mailboxes while retaining memory bytes.
+[C++ API](../api.md#memoryhpp).
 
-[Current C++ declarations](../api.md#memoryhpp).
+## Reset and errors
 
-## Implementation and verification
+Access checks happen when the memory operation completes. Alignment, range
+and permission failures are returned in `MemoryResponse`; the CPU decides when
+to expose the fault.
 
-MemoryModel owns one pending fetch and one pending data transaction; both responses use strict-edge mailboxes.
+Session reset clears pending transactions and the surrounding port mailboxes.
+It preserves the image and all stores completed before reset.
 
-- Implementation: [memory.cpp](../../src/memory.cpp) and [memory.hpp](../../include/qsbit/memory.hpp).
+## Implementation and tests
+
+Source: [memory.cpp](../../src/memory.cpp) and [memory.hpp](../../include/qsbit/memory.hpp).
 
 **CTest:** `core.memory`, `systemc.use_cases`.
 
-Checks memory service and latency-dependent execution, load/store hazards and older access faults.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check memory service times, load/store hazards and access faults,
+including their effect on CPU execution.

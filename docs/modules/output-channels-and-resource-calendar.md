@@ -1,18 +1,16 @@
 # Output Channels and Resource Calendar
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`DeviceRuntime` schedules physical actions after the TCU fires a group.
+Its resource calendar reserves the complete future interval for each action,
+including actions whose output delay means they have not started yet.
 
-## Responsibility and neighbors
+## Connections
 
-DeviceRuntime is the sole owner of physical channel occupancy and future interval reservations.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | TCU launch batch, resolved action intervals and previously scheduled physical boundaries. |
-| Downstream outputs | Codeword-trigger, physical-start and physical-end records, active drive set and event batches to quantum service and readout. |
-| State owner and retained state | Resource interval calendar, pending boundaries, active channels, last processed physical tick and session epoch. |
-
-## Module diagram
+- **Input:** validated TCU `LaunchBatch` values with resolved action descriptors.
+- **Output:** physical starts and ends, active pulse drives, backend calls and
+  measurement completions.
+- **Scheduling:** the SystemC barrier calls `process()` at the next physical
+  boundary after all clocked work due at that tick has finished.
 
 ```{graphviz}
 digraph module {
@@ -20,45 +18,59 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Immutable TCU launch batch"];
   owner [label="DeviceRuntime"];
-  state [label="calendar_; boundaries_; active_"];
+  state [label="calendar_\nboundaries_\nactive_"];
   output [label="Physical actions / backend calls / Completion"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Reserving and executing intervals
 
-**Activation:** Scheduled physical-boundary events wake DeviceRuntime; zero-delay launches join the current tick’s explicit phase batch.
+`accept()` converts each event to an interval:
+`start = fire_tick + delay`, `end = start + duration`.
+It checks the complete batch against existing reservations and then installs
+all intervals. Resource occupancy is half-open, `[start, end)`, so one action
+can end at the exact tick another begins.
 
-**Transition:** Preflight each complete launch batch against existing future reservations and same-batch actions. Install every accepted half-open interval [start,end) once. End old actions before starting new ones at the same tick; allow back-to-back occupancy. Additive drives may overlap if the backend supports them.
+At a physical boundary, the runtime validates the whole boundary batch. It
+evolves quantum state under the previously active drives up to this tick,
+samples ending acquisitions, removes ended actions, applies starting ideal
+gates and activates new intervals. Ready results are published last.
 
-**Time and visibility:** DeviceRuntime aggregates all actions assigned tick t before physical-state evaluation. An sc_event only wakes the owner; callback identity and payload remain in durable epoch-tagged storage.
+Independent ports may operate together. Overlapping pulses can share a target
+when their resource declarations permit it and the backend supports joint
+evolution. Port iteration order must not change the resulting quantum state.
 
-**Reset and errors:** Unsupported conflict rejects the whole batch. Session reset aborts active actions and invalidates scheduled old-epoch callbacks. Positive pulse and acquisition duration is required.
+For pulses active over [10,30) and [20,40), backend evolution covers [10,20)
+with the first drive, [20,30) with both, and [30,40) with the second.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `calendar_` | `ResourceCalendar` | Future half-open physical reservations and action identities. |
 | `boundaries_` | `map<Tick, Boundary>` | Scheduled starts, ends and result-ready IDs. |
 | `active_` | `map<Id, PhysicalAction>` | Operations currently occupying physical intervals. |
-| `last_tick_, processed_tick_` | `global ticks` | Last evolution point and guard against repeated physical processing. |
+| `last_tick_, processed_tick_` | global ticks | Last evolution point and guard against repeated physical processing. |
 
-accept resolves launch tick plus delay into physical intervals, preflights the whole batch and reserves all intervals. process at a due boundary evolves prior active drives once, samples ending acquisitions, ends old actions, applies new ideal gates and activates new intervals. Ready results are published last. Reset clears future/active work and reinitializes the backend.
+[C++ API](../api.md#devicehpp).
 
-[Current C++ declarations](../api.md#devicehpp).
+## Reset and errors
 
-## Implementation and verification
+All action durations must be positive. Exclusive-resource conflicts and
+unsupported same-target sampling collisions fail before quantum state changes.
+A backend failure stops the run; already performed numerical work is not rolled
+back or retried.
 
-ResourceCalendar checks future half-open intervals. DeviceRuntime schedules starts and ends under one chronological owner.
+Reset aborts active actions, clears future boundaries and reservations, and
+initializes the backend for the new epoch. Global time continues from the
+reset tick.
 
-- Implementation: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
+## Implementation and tests
+
+Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
 
 **CTest:** `protocol.calendar`, `protocol.sample_collision`, `protocol.reset`.
 
-Checks interval conflicts, same-target sampling collisions and cancellation of in-flight device work.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests check overlapping resource intervals, unsupported sampling collisions
+and cancellation of active device work during reset.

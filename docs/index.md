@@ -1,52 +1,71 @@
-# Understand the machine. Follow its time.
+# qsbit-sim documentation
 
-**qsbit-sim** models an RV32I quantum controller with SystemC scheduling,
-QuMA-style timing queues, physical output channels and replaceable quantum backends.
+qsbit-sim simulates an RV32I quantum controller. It executes a program, schedules
+quantum operations at specified times, and returns measurement results to the
+program. You can use it to study instruction timing, control queues and
+measurement feedback with a scripted or numerical quantum backend.
 
-Start with the [interactive architecture](architecture.md). Click a module to inspect
-its objects, inputs, outputs and state transitions. Then [play a real execution](execution.md)
-to follow instructions through admission, label firing, device output and measurement feedback.
+The simulator uses C++20 and SystemC. Its timing control unit follows QuMA's
+separation of command preparation from timed output. The CPU pipeline, instruction
+adapter and quantum backend have separate interfaces.
 
-| Explore | What you will find |
+## Start here
+
+[Run your first simulation](quickstart.md) to build the controller, execute a
+measurement-feedback program and inspect its result. The default scripted backend
+requires no Python quantum packages.
+
+To understand the model, read the [architecture overview](high-level-design.md),
+then [follow an execution](execution.md). The [architecture diagram](architecture.md)
+links to each module's inputs, outputs, state and behavior.
+
+| You want to… | Read |
 | --- | --- |
-| [Architecture](architecture.md) | Clickable modules grouped by owner and clock domain. |
-| [Execution player](execution.md) | Scripted Bell and feedback programs with exact recorded timestamps. |
-| [Build and run](building.md) | Required tools, CMake options and optional backends. |
-| [Module contracts](modules/README.md) | Local behavior, state ownership and executable verification. |
-| [C++ API](api.md) | Classes, records and members extracted from the current headers. |
-| [Glossary](glossary.md) | Cursor, group, admission, firing, crossing and simulation time. |
+| Install tools or change build options | [Prerequisites](prerequisites.md) and [building](building.md) |
+| Use Aer, pulses or a custom backend | [Quantum backends](backends.md) |
+| Write a run configuration or interpret a trace | [Program and file formats](interfaces.md) |
+| Check a timing or ordering rule | [Control protocol](module-architecture.md) |
+| Find a class or replace the CPU model | [C++ interfaces](cpp-interfaces.md) and [API reference](api.md) |
+| Run tests or edit the website | [Testing](engineering-and-testing.md) and [website development](website.md) |
 
 ```{toctree}
-:maxdepth: 2
-:caption: Explore
+:maxdepth: 1
+:caption: Get started
 
-architecture
+quickstart
 execution
-modules/README
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: Use the simulator
+:caption: Guides
 
 prerequisites
 building
 backends
-interfaces
-glossary
+engineering-and-testing
+website
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: Develop and verify
+:caption: Understand the controller
 
 high-level-design
-module-architecture
-implementation
-cpp-interfaces
-api
-engineering-and-testing
-website
+architecture
 decisions/0001-initial-implementation
 decisions/0002-reference-comparison-scope
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Reference
+
+module-architecture
+modules/README
+implementation
+interfaces
+cpp-interfaces
+api
+glossary
 ```

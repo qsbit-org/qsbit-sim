@@ -1,18 +1,15 @@
 # Trace Recorder and Stop Controller
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`Trace` records what the simulator has done. `Simulator` decides when a run
+has completed or failed. Together they provide the event history and final
+status used to inspect a run.
 
-## Responsibility and neighbors
+## Connections
 
-Two separate logical responsibilities documented together: trace is observation-only; the stop controller owns completion and fatal termination.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | CPU retirement, group admission, label fire, physical output, measurement delivery, END marker and typed faults. |
-| Downstream outputs | Versioned trace file and final stop reason with simulation tick. |
-| State owner and retained state | Ordered TraceEvent records with event-kind-specific IDs; stop controller tracks END, queue drain, physical events and both feedback-path credits. |
-
-## Module diagram
+- **Input:** committed model events, producer closure, drain state and faults.
+- **Output:** JSONL trace records, success or failure status, and a stop tick.
+- **Scheduling:** models emit observations during transitions; the device barrier
+  checks for successful completion after work at the current tick.
 
 ```{graphviz}
 digraph module {
@@ -20,44 +17,57 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Committed domain events"];
   owner [label="Trace / Simulator"];
-  state [label="Trace::events_; Simulator::stopped_ / success_ / fault_; Owner drain predicates"];
+  state [label="Trace::events_\nSimulator::stopped_ / success_ / fault_\nOwner drain predicates"];
   output [label="JSONL / success or typed fault"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Recording and finishing a run
 
-**Activation:** Trace callbacks observe committed transitions. Stop checks after all owners have published effects for the tick.
+Trace events distinguish staging, admission, label firing, physical operation
+starts and ends, sampling, readiness and feedback visibility. Each event has
+a timestamp and kind-specific identities. Recording an event consumes no
+simulated time.
 
-**Transition:** Record producer acceptance, group admission, firing, trigger, physical start/end, result-ready and CPU-visible ticks distinctly. Stable IDs serialize independent same-tick records without imposing hardware order. END closes producer input after its required admission reply; successful simulation completion additionally waits for timing and event queues, physical actions and all enabled feedback deliveries to drain.
+QEND stops CPU production after the producer has flushed and received any
+required admission reply. Simulation continues until the TCU has seen closure,
+queues and physical actions have drained, memory is idle, and every enabled
+feedback message and credit acknowledgment has been delivered.
 
-**Time and visibility:** Trace writing cannot schedule hardware or consume time. CPU halt is not the same as global simulation completion. Watchdog expiry reports incomplete progress.
+A Visible CPU result slot may remain unread at successful stop. It is final
+state, not an outstanding delivery. The barrier emits `SimulationCompleted`
+only when all completion conditions hold.
 
-**Reset and errors:** On fatal fault, stop with typed context and no claimed successful drain. Session reset emits an epoch boundary; stale callback discards remain observable.
+Trace ticks are nondecreasing. Records at the same tick do not represent extra
+hardware cycles; use their event meanings and the protocol to interpret order.
+The [trace reference](../interfaces.md#jsonl-trace) defines fields and ID namespaces.
 
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `Trace::events_` | `vector<TraceEvent>` | Append-only observation records, ordered by nondecreasing tick. |
-| `Simulator::stopped_ / success_ / fault_` | `terminal state` | Distinguishes full drain from fatal failure. |
-| `Owner drain predicates` | `read-only checks` | CPU, producer, TCU, device, scoreboard, links and memory completion. |
+| `Simulator::stopped_ / success_ / fault_` | terminal state | Distinguishes full drain from fatal failure. |
+| Owner drain predicates | read-only checks | CPU, producer, TCU, device, scoreboard, links and memory completion. |
 
-emit appends an observation without advancing simulation time. The barrier declares success only after END and all pending work/deliveries drain. fail records a typed fault and calls sc_stop; watchdog expiry is failure. JSONL serialization writes schema 1 and kind-specific payload; record order within one tick is not an extra hardware cycle.
+[C++ API](../api.md#tracehpp).
 
-[Current C++ declarations](../api.md#tracehpp).
+## Reset and errors
 
-## Implementation and verification
+A fatal fault records its type and explanation, marks the run unsuccessful
+and stops SystemC. Watchdog expiry is a failure to drain. The application writes
+the partial trace and failed summary when the output paths remain usable.
 
-Trace serializes versioned JSONL; Simulator owns drain, watchdog and fatal stop. Trace remains observation-only.
+Reset starts a new epoch in the same trace. Aborted actions and observed stale
+completion discards remain available for diagnosis.
 
-- Implementation: [simulator.cpp](../../src/simulator.cpp) and [trace.hpp](../../include/qsbit/trace.hpp).
+## Implementation and tests
+
+Source: [simulator.cpp](../../src/simulator.cpp) and [trace.hpp](../../include/qsbit/trace.hpp).
 
 **CTest:** `systemc.use_cases`.
 
-Checks complete trace equality under registration reversal, END drain through slow fast-feedback delivery, reset epochs and typed watchdog/fault termination.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests compare complete traces after reversing process registration. They
+also check that END waits for slow fast-feedback delivery, that reset changes
+the epoch, and that watchdog and model faults terminate with the expected type.

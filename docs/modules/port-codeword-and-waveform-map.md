@@ -1,18 +1,17 @@
 # Port Codeword and Waveform Map
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+The port/codeword map defines what a control instruction means for the
+configured device. For example, the default map uses codeword 1 on port 0 for an
+X gate on qubit 0, and codeword 4 for acquisition on that qubit.
 
-## Responsibility and neighbors
+The mapping belongs to the run profile. Programs select entries by source port
+and codeword; the selected actions can address different physical output ports.
 
-Pure immutable lookup used during APPEND and group sealing, before TCU admission.
+## Connections
 
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | Source port and codeword, looked up in the immutable Profile mappings. |
-| Downstream outputs | Action descriptor containing kind, resource IDs, fixed trigger delay, duration and readout association. |
-| State owner and retained state | Mapping table of ActionSpec values and resource declarations; no mutable pulse state. |
-
-## Module diagram
+- **Input:** source port and codeword from an APPEND operation.
+- **Output:** a `Mapping` containing one or more `ActionSpec` values for the lowerer.
+- **Owner:** the immutable `Profile`; lookup has no runtime state.
 
 ```{graphviz}
 digraph module {
@@ -20,44 +19,54 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Port and codeword"];
   owner [label="Profile::mapping"];
-  state [label="Mapping::port / codeword; Mapping::actions; ActionSpec"];
+  state [label="Mapping::port / codeword\nMapping::actions\nActionSpec"];
   output [label="Mapping with ActionSpec values"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="value records / configuration"];
 }
 ```
 
-## Behavior
+## Action descriptors
 
-**Activation:** Lookup when APPEND is proposed; whole-group validation repeats consistency checks at seal.
+An action specifies its kind, physical port, targets, resources, output delay
+and duration. The supported kinds are ideal gate, constant pulse, acquisition
+and discriminator arm. Pulse actions include an axis and amplitude; readout
+actions include discriminator timing.
 
-**Transition:** Decode a digital codeword for its configured port. Supported kinds are IdealGate, Pulse, Acquire and DiscriminatorArm. Declare exclusive physical resources separately from intentionally additive pulse drives. The lowerer preserves source port and codeword in ReservedEvent.
+An action begins at its group's label-fire tick plus its configured delay.
+A zero delay allows firing and physical start at the same tick. Every action
+still has a positive duration, which reserves its port and resources over
+`[start, end)`. An ideal gate changes quantum state at the start of this interval.
 
-**Time and visibility:** Primitive pulse output starts after a fixed configured trigger-to-output delay. Codeword trigger, physical start and physical end are separate trace milestones. Zero trigger-to-output delay allows trigger and start to share a tick; positive pulse duration separates start and end.
+The producer checks backend support when a mapping is requested. A shared
+profile may therefore include unused pulse entries even when the selected
+backend supports only gates. Arbitrary sampled waveforms and oscillator-register
+operations are not implemented.
 
-**Reset and errors:** Unknown codeword, wrong port, unrepresentable delay or unsupported backend capability faults before producer acceptance. Configuration is immutable for the simulation session, including across session resets.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Mapping::port / codeword` | `lookup key` | Source control port and digital codeword. |
+| `Mapping::port / codeword` | lookup key | Source control port and digital codeword. |
 | `Mapping::actions` | `vector<ActionSpec>` | IdealGate, Pulse, Acquire or DiscriminatorArm descriptors. |
-| `ActionSpec` | `immutable descriptor` | Physical port, targets, resources, delay, duration and readout/pulse parameters. |
+| `ActionSpec` | immutable descriptor | Physical port, targets, resources, delay, duration and readout/pulse parameters. |
 
-Lookup returns the configured descriptor list or a typed unknown-port/codeword fault. Producer-side validation checks backend support before acceptance. Pulse descriptors carry one axis and constant amplitude; arbitrary sampled waveforms and oscillator-register operations are not implemented. Mapping values remain unchanged across session reset.
+[C++ API](../api.md#controlhpp).
 
-[Current C++ declarations](../api.md#controlhpp).
+## Reset and errors
 
-## Implementation and verification
+Profile validation rejects malformed or duplicate mappings and invalid timing
+parameters. Lookup rejects unknown ports or codewords. An unsupported requested
+action fails before producer acceptance.
 
-Profile holds immutable gate, constant-drive pulse, acquisition and arm descriptors. Arbitrary sampled waveform storage is outside v1.
+Session reset preserves the map. Select a new profile before constructing a new
+simulator to change these definitions.
 
-- Implementation: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
+## Implementation and tests
+
+Source: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
 
 **CTest:** `control.mapping`, `protocol.readout`.
 
-Checks unknown port/codeword, duplicate mappings, fingerprint changes and incompatible acquisition/arm targets.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests reject unknown port/codeword pairs, duplicate mappings and
+incompatible acquisition/arm targets. They also check that changing a mapping
+changes the profile fingerprint.

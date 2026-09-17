@@ -79,8 +79,8 @@
     $('clocks').replaceChildren();
     const values = [
       ['Global tick', `${event.tick} ns`],
-      ['CPU edge index', event.tick < profile.cpu.phase ? 'Before first edge' : Math.floor((event.tick - profile.cpu.phase) / profile.cpu.period)],
-      ['TCU logical cycle', event.tick < profile.start ? 'Before start' : Math.floor((event.tick - profile.start) / profile.tcu.period)],
+      ['CPU edge index (derived)', event.tick < profile.cpu.phase ? 'Before first edge' : Math.floor((event.tick - profile.cpu.phase) / profile.cpu.period)],
+      ['TCU logical cycle (derived)', event.tick < profile.start ? 'Before start' : Math.floor((event.tick - profile.start) / profile.tcu.period)],
     ];
     values.forEach(([label, value]) => { const card = element('div', undefined, $('clocks'), 'clock-card'); element('span', label, card); element('strong', String(value), card); });
     const observed = new Map();
@@ -137,5 +137,5 @@
     demos.forEach((d, i) => { if (!d.events.length || d.events.some(e => e.schema !== 1)) throw new Error('Unsupported trace schema'); element('option', d.name, $('example')).value = i; });
     root.querySelectorAll('button, select, input').forEach(control => control.disabled = false);
     selectDemo();
-  }).catch(error => { $('status').textContent = `Cannot load execution data: ${error.message}. Serve this site over local HTTP as described in Website development.`; });
+  }).catch(error => { $('status').textContent = `Cannot load execution data: ${error.message}. Serve this site over local HTTP as described in the website build guide.`; });
 })();

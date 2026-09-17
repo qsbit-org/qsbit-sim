@@ -1,12 +1,11 @@
-# Architecture explorer
+# Controller architecture
 
-Click a box to open its behavior contract. The groups name the actual C++ owners;
-the boxes name logical responsibilities. `Simulator` is the SystemC module that
-schedules these owners. Pure helpers and queue substates add no clock stage.
+Follow the command path from the CPU through the producer and TCU to the device
+runtime. Measurement results return through two paths: CPU feedback for QREAD
+and fast history for conditional TCU output.
 
-Solid arrows carry requests, results or direct calls. Dashed arrows denote activation
-or observation. The labels identify the values transferred; mailboxes enforce the
-[strict receiver-edge rule](module-architecture.md#42-crossing-and-tcu-edge-order).
+Click a box to open its module reference. Use the zoom controls to inspect the
+connections, or open the [module list](modules/README.md) for text navigation.
 
 ```{raw} html
 <div class="diagram-controls" aria-label="Architecture diagram controls">
@@ -22,20 +21,29 @@ or observation. The labels identify the values transferred; mailboxes enforce th
 :alt: Clickable qsbit-sim architecture, grouped into setup, CPU, TCU, device and lifecycle owners.
 ```
 
-For a keyboard-accessible list of every box, use the [module index](modules/README.md).
-For a concrete execution, open the [trace player](execution.md).
+## Read the diagram
 
-## Scheduling and ownership
+Groups identify the main C++ owners and scheduling domains. Boxes identify
+logical responsibilities; several boxes can belong to one owner.
+Solid arrows carry values or calls. Dashed arrows show scheduling or observation.
 
-| Owner | Activation | Work committed |
+For example, a `Group` crosses from the producer to the TCU through a timed
+mailbox. Resolving a port/codeword mapping is a direct C++ call inside command
+preparation. Only the former adds the configured crossing delay.
+
+## When each model runs
+
+| Model | Trigger | Work |
 | --- | --- | --- |
-| CPU and producer | `Simulator::cpu_edge`, CPU rising edge | Receive eligible replies; advance the pipeline; execute producer operations. |
-| Memory | `Simulator::memory_edge`, CPU rising edge | Complete old fetch/data transactions and accept eligible requests. |
-| TCU | `Simulator::tcu_edge`, TCU rising edge | Check old queues/history; preflight firing; admit using old capacity; publish launch and replies. |
-| DeviceRuntime | `Simulator::barrier`, when a physical boundary is due | Process that tick after coincident CPU, memory and TCU transitions have completed. |
-| Lifecycle | Reset wakeup, edge callbacks and barrier | Reset takes precedence; successful stop waits for complete drain. |
+| CPU and producer | CPU rising edge | Receive eligible replies, advance the pipeline and execute producer operations. |
+| Memory | CPU rising edge | Complete existing transactions and accept requests into previously idle slots. |
+| TCU | TCU rising edge | Check the due group, admit a candidate using existing capacity, and commit new fast results. |
+| Device runtime | Physical boundary, after coincident clocked work | Evolve state, end and start actions, sample measurements and publish ready results. |
+| Reset and stop control | Edge callbacks, timed wakeup and barrier | Apply reset before ordinary work; stop after complete drain or a fault. |
 
-A diagram arrow is not an additional cycle. `Group` crosses to the TCU through a
-mailbox; resolving a codeword inside the producer is a direct C++ call. The TCU's
-logical cycle is calculated from `(tick - start) / period` after start. The producer
-cursor is separately stored CPU-side state describing the point being prepared.
+`Simulator` connects these models to SystemC. It uses an explicit barrier for
+device work and tick-stamped mailboxes for communication.
+The [protocol reference](module-architecture.md#crossing-and-tcu-edge-order)
+defines exact visibility and ordering.
+
+To see these connections in use, [step through a feedback program](execution.md).

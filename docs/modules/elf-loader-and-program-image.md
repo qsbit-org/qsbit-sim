@@ -1,18 +1,16 @@
 # ELF Loader and Program Image
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map).
+`ProgramImage` loads an RV32 program into simulated memory and records its
+entry address and segment permissions. The memory model takes ownership of this
+image before the CPU starts fetching instructions.
 
-## Responsibility and neighbors
+## Connections
 
-Pure C++ startup component. It has no sensitivity list, `wait()`, or runtime SystemC process.
-
-| Direction | Contract |
-| --- | --- |
-| Upstream inputs | RV32 ELF or test-only raw image, memory map and optional extension manifest. |
-| Downstream outputs | Initialized memory bytes, executable ranges, initial PC and load diagnostics. |
-| State owner and retained state | Load plan and checked segment descriptors exist only during initialization; the memory model owns bytes afterward. |
-
-## Module diagram
+- **Input:** ELF file bytes, RAM base and size; raw input also supplies a load address.
+- **Output:** initialized RAM, mapped segments and the initial PC for `MemoryModel`
+  and the CPU.
+- **Scheduling:** loading runs once during application setup and consumes no
+  simulated time.
 
 ```{graphviz}
 digraph module {
@@ -20,44 +18,48 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="ELF or raw image"];
   owner [label="ProgramImage"];
-  state [label="bytes_; segments_; base_, entry_"];
+  state [label="bytes_\nsegments_\nbase_, entry_"];
   output [label="Validated ProgramImage and entry PC"];
-  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
 
-## Behavior
+## Loading and access checks
 
-**Activation:** Call once before simulation or during an explicitly configured cold-start action.
+`ProgramImage::elf()` checks that the file is a little-endian ELF32 RISC-V
+executable. It validates loadable segment bounds, overlaps, permissions and the
+aligned executable entry. It copies segment data into RAM and zero-fills BSS.
 
-**Transition:** Validate ELF class, machine, endianness, segment bounds, overlaps and entry PC; map loadable bytes and zero-fill required memory; publish the entry PC. For raw input require an explicit base address. The optional manifest can reject a known incompatible extension but cannot replace decoder checks.
+`ProgramImage::raw()` loads a nonempty sequence of 32-bit machine words at the
+specified address. Assembly text must be assembled and linked before loading.
 
-**Time and visibility:** Program loading consumes no simulated cycles in the baseline. A modeled boot loader would be a separate timing profile.
+During execution, reads and writes check address range, alignment and segment
+permissions. Unmapped bytes within configured RAM may hold data, but instruction
+fetches must address executable segments. See [program input](../interfaces.md#program-input)
+for the supported file format.
 
-**Reset and errors:** Reject a malformed image without partially starting simulation. Baseline session reset preserves loaded memory and reuses entry PC; a cold start reloads it.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
-
-## Objects and state transition
+## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `bytes_` | `vector<uint8_t>` | RAM bytes, including loaded segments and zero-filled BSS. |
 | `segments_` | `vector<Segment>` | Mapped ranges and read/write/execute permissions. |
-| `base_, entry_` | `32-bit addresses` | Memory base and initial CPU PC. |
+| `base_, entry_` | 32-bit addresses | Memory base and initial CPU PC. |
 
-elf validates headers, load ranges, permissions and entry before returning a complete image. raw loads uncompressed machine words at the explicit address. Runtime reads and writes check alignment, range and permissions. Loading happens before elaborated execution; MemoryModel later owns and updates the image.
+[C++ API](../api.md#imagehpp).
 
-[Current C++ declarations](../api.md#imagehpp).
+## Reset and errors
 
-## Implementation and verification
+A malformed image fails before simulation starts. Misaligned, out-of-range
+or disallowed runtime accesses return typed faults through the memory model.
+Session reset restores the CPU entry PC and preserves all memory bytes, including
+stores already completed. Reload the image to start with its original contents.
 
-ProgramImage checks ELF32 segments and permissions; the memory owner retains its bytes.
+## Implementation and tests
 
-- Implementation: [image.cpp](../../src/image.cpp) and [image.hpp](../../include/qsbit/image.hpp).
+Source: [image.cpp](../../src/image.cpp) and [image.hpp](../../include/qsbit/image.hpp).
 
 **CTest:** `core.image`, `systemc.use_cases`.
 
-Checks image validation and permissions, raw input, and missing-file diagnostics.
-
-- Numerical profile and supported scope: [Executable implementation](../implementation.md).
+The tests reject malformed images and disallowed accesses, load raw programs,
+and check diagnostics for missing files.
