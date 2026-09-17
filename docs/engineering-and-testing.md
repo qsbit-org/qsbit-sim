@@ -8,8 +8,6 @@ Use C++20, CMake, and a pinned Accellera SystemC release. Keep the RV32I ISA lib
 
 Use `SC_METHOD` only for nonblocking behavior and `SC_THREAD` when `wait()` is required. Document sensitivity, reset, and which edge observes a handshake. Avoid modeling hardware queues with unbounded containers. Do not rely on incidental SystemC delta-cycle order for a hardware-visible result: define and test the same-timestamp sampling, acceptance, state commit, and output-visibility rule. Allow alternate order only for diagnostic events whose order is explicitly outside the contract. Log structured machine-readable trace records for CPU retirement, producer acceptance, group admission, queue changes, label firing, readout, feedback, errors, and stop reason.
 
-These are project conventions informed by the [SystemC reference implementation](https://github.com/accellera-official/systemc) and [Accellera Common Practices](https://github.com/accellera-official/systemc-common-practices); neither is presented as a verbatim style guide for qsbit-sim.
-
 ## Open-source RV32I references
 
 | Project | Relevant use | Integration assessment |

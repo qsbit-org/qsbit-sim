@@ -1,9 +1,8 @@
 # Engineering Rules
 
-These rules govern source code, SystemC models, tests, and repository hygiene. Product behavior and architectural decisions belong in `docs/`; consult the relevant contract there before changing behavior. Write repository content, comments, test names, and commit messages in English.
-
 ## C++ and build
 
+- Write repository content, comments, test names, and commit messages in English.
 - Use C++20, the checked-in `.clang-format`, and the pinned dependency versions. Keep configure and build independent of the network after dependencies are provisioned. Treat compiler warnings as errors; run `clang-tidy` on changed C++ where available.
 - Prefer value types, RAII, `enum class`, `std::span`, fixed-width integers at binary/protocol boundaries, and explicit ownership. Avoid raw owning pointers, hidden global state, and unchecked time or capacity arithmetic.
 - Keep pure transition logic independent of SystemC when practical. Keep scheduler code in SystemC owners and avoid leaking SystemC types into pure interfaces. Give each mutable state object one owner; document reset, overflow, and teardown behavior.
@@ -33,5 +32,4 @@ These rules govern source code, SystemC models, tests, and repository hygiene. P
 
 - Keep review notes, agent reports, audit findings, generated traces, local dependencies, and temporary visualizations out of tracked files. Use ignored local directories or an external workspace. Incorporate accepted findings into the relevant code, test, or `docs/` contract.
 - Put design decisions, timing contracts, instruction semantics, and feature scope in `docs/`, not in this file. Update those documents together with behavior changes.
-
-These SystemC rules are distilled from IEEE Std 1666-2023, especially §§4.3.2, 5.2.10–5.2.15, 5.10.6–5.10.9, 5.11.5, and 6.4.8. The standard defines kernel semantics; the ownership, testing, and repository rules above are project conventions.
+- Write repository documents as direct technical guidance. Omit commentary about how a document was drafted, which source inspired its wording, or whether its rules are project conventions.

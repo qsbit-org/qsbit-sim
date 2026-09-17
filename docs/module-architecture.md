@@ -98,8 +98,6 @@ The [module contract index](modules/README.md) links to one behavior description
 
 ## 4. Baseline protocol and event ordering
 
-This section specifies the handoffs between modules: when an operation counts as accepted, which receiver edge can observe a message, what the TCU may fire on one edge, and when a result or stop becomes visible. These rules make timing independent of SystemC process registration and incidental delta-cycle order. Module-local behavior belongs in [the individual contracts](modules/README.md).
-
 ### 4.1 Producer operations and progress
 
 These semantic operations are encoded by the v1 custom-0 instructions in [ADR 0001](decisions/0001-initial-implementation.md). The producer starts with its cursor at logical TCU cycle zero and no real group yet. If no positive ADVANCE or FLUSH has occurred, the first `APPEND` opens a group at cycle zero. `FLUSH` on the still-empty origin closes it locally; positive `ADVANCE` can also move past it without sending an empty entry. Once the producer has opened a real point, even a point with no events is submitted when sealed: it can represent an intentional wait. At most one sealed group awaits admission at a time.
