@@ -6,24 +6,28 @@ level. Quantum-state backends are selected independently of the control model.
 
 ## Build
 
-Requires a C/C++ toolchain with C++20 support and CMake 3.24 or newer. On Linux:
+Requires a C++20 compiler, Ninja, and CMake 3.24 or newer. The default example
+below selects Clang on Linux:
 
 ```sh
-cmake -S . -B build
+cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++
 cmake --build build --parallel
 ```
 
-The executable is `build/qsbit-sim`. CMake uses an installed C++20 SystemC library
+The executable is `build/qsbit-sim`. For GCC, configure a fresh build directory
+with `-DCMAKE_CXX_COMPILER=g++` instead. Separate `clang-ninja` and `gcc-ninja`
+presets are also available for compiler selection and testing. CMake uses an
+installed C++20 SystemC library
 when available; otherwise it downloads and builds a fixed revision during the
 first configure. Python is optional and is not required for this build.
-See [build options](docs/building.md) for offline builds and external SystemC installations.
+See [build options](docs/building.md) for tests, offline builds, and external SystemC installations.
 
 ## Run an example
 
 Install GNU RISC-V binutils (`binutils-riscv64-unknown-elf` on Debian/Ubuntu), then:
 
 ```sh
-cmake -S . -B build -DQSBIT_BUILD_EXAMPLES=ON
+cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DQSBIT_BUILD_EXAMPLES=ON
 cmake --build build --parallel
 build/qsbit-sim --config examples/runs/scripted.json
 ```
@@ -58,7 +62,8 @@ Choose the `pulse` extra instead of `aer` for the bundled pulse backend, or inst
 With the environment active and Python development headers available:
 
 ```sh
-cmake -S . -B build -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
+cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+  -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build --parallel
 build/qsbit-sim --config examples/runs/bell.json
 ```
@@ -92,9 +97,9 @@ The core tests need Python for test scripts and GNU RISC-V binutils. They do not
 need Python quantum backends.
 
 ```sh
-cmake -S . -B build-test -DBUILD_TESTING=ON
-cmake --build build-test --parallel
-ctest --test-dir build-test --output-on-failure
+cmake --preset clang-ninja -DBUILD_TESTING=ON
+cmake --build --preset clang-ninja --parallel
+ctest --preset clang-ninja
 ```
 
 Backend tests are enabled separately; see [build and test options](docs/building.md).

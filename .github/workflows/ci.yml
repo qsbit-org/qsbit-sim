@@ -10,6 +10,7 @@ jobs:
       matrix:
         include:
           - name: core-sanitizers
+            preset: clang-ninja
             build_type: Debug
             python: '3.12'
             bridge: 'OFF'
@@ -18,6 +19,7 @@ jobs:
             extras: ''
             sanitizers: 'ON'
           - name: bridge-only
+            preset: gcc-ninja
             build_type: Debug
             python: '3.10'
             bridge: 'ON'
@@ -26,6 +28,7 @@ jobs:
             extras: ''
             sanitizers: 'OFF'
           - name: aer
+            preset: clang-ninja
             build_type: Debug
             python: '3.12'
             bridge: 'ON'
@@ -34,6 +37,7 @@ jobs:
             extras: '--extra aer'
             sanitizers: 'OFF'
           - name: pulse
+            preset: gcc-ninja
             build_type: Release
             python: '3.13'
             bridge: 'ON'
@@ -49,7 +53,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install build and test tools
         run: |
-          sudo apt-get update && sudo apt-get install -y binutils-riscv64-unknown-elf
+          sudo apt-get update && sudo apt-get install -y binutils-riscv64-unknown-elf clang ninja-build
           python -m pip install uv==0.12.7
           uv sync --frozen --python "$(command -v python)" --extra dev --extra verification ${{ matrix.extras }}
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
@@ -67,7 +71,7 @@ jobs:
           python -c "import importlib.util; import qsbit_backend; assert all(importlib.util.find_spec(x) is None for x in ('qiskit', 'qiskit_aer', 'numpy', 'scipy'))"
       - name: Configure
         run: |
-          cmake -S . -B build \
+          cmake --preset ${{ matrix.preset }} -B build \
             -DBUILD_TESTING=ON \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DQSBIT_SANITIZERS=${{ matrix.sanitizers }} \

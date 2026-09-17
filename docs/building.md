@@ -3,6 +3,31 @@
 Run commands from the repository root. CMake writes all generated artifacts into
 the selected build directory. Linux is covered by CI.
 
+## Choose a compiler
+
+The checked-in presets use Ninja and keep each compiler in a separate build
+directory. Install CMake 3.24 or newer, Ninja, and either Clang or GCC with
+C++20 support, then choose one:
+
+```sh
+cmake --preset clang-ninja
+cmake --build --preset clang-ninja --parallel
+```
+
+```sh
+cmake --preset gcc-ninja
+cmake --build --preset gcc-ninja --parallel
+```
+
+The resulting executables are `build-clang/qsbit-sim` and
+`build-gcc/qsbit-sim`. Add `-DBUILD_TESTING=ON` to the configure command to
+enable tests, then run `ctest --preset clang-ninja` or
+`ctest --preset gcc-ninja`. Extra CMake options can be passed to either
+configure command. If the compiler executable has a different name or path,
+override it with `-DCMAKE_CXX_COMPILER=/path/to/compiler` in a fresh build
+directory. Plain `cmake -S . -B build` also remains supported and uses CMake's
+default generator and compiler.
+
 ## CMake options
 
 | Option | Default | Effect |
