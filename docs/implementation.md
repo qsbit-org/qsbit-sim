@@ -1,6 +1,6 @@
 # Executable implementation
 
-Version 0.1.0 implements the Phase 1 modules in C++20 and SystemC 3.0.1. The
+Version 0.1.0 implements the Phase 1 modules in C++20 and SystemC. The
 [initial profile decision](decisions/0001-initial-implementation.md) fixes the CPU,
 instruction encodings and default timing. [Reference comparison scope](decisions/0002-reference-comparison-scope.md)
 defines which externally observable times can be compared across different CPUs.
@@ -11,7 +11,9 @@ defines which externally observable times can be compared across different CPUs.
 producer, TCU, feedback and physical-device transitions. It has no SystemC or Python
 link dependency. `qsbit_systemc` wraps these owners in one `Simulator` module;
 `qsbit_python` bridges an optional numerical backend, and `qsbit_config` parses profiles.
-No network fetch occurs during CMake configure or build.
+CMake discovers an installed SystemC or fetches the pinned source during configure.
+The Python bridge and numerical backends are optional; see [building.md](building.md)
+and [backends.md](backends.md).
 
 `Simulator` registers CPU, memory and TCU `SC_METHOD` processes at their positive clock
 edges. A timed wakeup covers physical boundaries, reset and watchdog. A delta notification

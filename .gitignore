@@ -9,3 +9,8 @@ __pycache__/
 *.pyc
 /build-*/
 /tmp/
+/.venv/
+/*.egg-info/
+/python/*.egg-info/
+/dist/
+/CMakeUserPresets.json

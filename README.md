@@ -1,128 +1,108 @@
 # qsbit-sim
 
-qsbit-sim runs RV32I machine-code programs with quantum-control extension instructions. It
-models a cycle-level CPU, timing-control queues, physical operations, measurement, and
-feedback in C++20 and SystemC. Select Qiskit Aer for ideal gates or the small-system
-pulse backend for piecewise-constant Hamiltonian drives.
+A C++20 and SystemC simulator for RV32I programs with quantum-control extensions.
+It models CPU execution, timing-control queues, measurement, and feedback at cycle
+level. Quantum-state backends are selected independently of the control model.
 
-## Requirements
+## Build
 
-Build on Linux from the repository root. Install these system tools first:
-
-| Tool | Used for |
-| --- | --- |
-| C++20 compiler, Git, Python 3.11 with `venv` and development headers | Build SystemC and the simulator; embed Python for the quantum backends. |
-| GNU RISC-V binutils: `riscv64-unknown-elf-as`, `riscv64-unknown-elf-ld`, `riscv64-unknown-elf-objdump` | Assemble and link the example RV32I programs and run tests. The Debian/Ubuntu package is `binutils-riscv64-unknown-elf`. |
-
-`tools/bootstrap.py` installs pinned CMake, formatting and Python packages into the
-virtual environment, then builds the pinned SystemC 3.0.1 installation under
-`tmp/deps/systemc-install`. The Python packages include Qiskit 2.1.2, Qiskit Aer
-0.17.2, NumPy, SciPy, and pybind11. The JSON library is vendored in `third_party/`.
-Provisioning requires network access; the later CMake configure and build do not.
-
-## Build and test
+Requires a C/C++ toolchain with C++20 support and CMake 3.24 or newer. On Linux:
 
 ```sh
-python3.11 -m venv tmp/venv
-tmp/venv/bin/python tools/bootstrap.py
-tmp/venv/bin/cmake -S . -B build \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_PREFIX_PATH="$PWD/tmp/deps/systemc-install" \
-  -DPython3_EXECUTABLE="$PWD/tmp/venv/bin/python"
-tmp/venv/bin/cmake --build build -j 4
-tmp/venv/bin/ctest --test-dir build --output-on-failure
+cmake -S . -B build
+cmake --build build --parallel
 ```
 
-The build creates `build/qsbit-sim` and the four ELF programs in `build/examples/`.
-All files under `tmp/` and `build/` are ignored by Git. Run
-`tmp/venv/bin/python tools/bootstrap.py --architecture-tests` and configure with
-`-DQSBIT_ISA_REFERENCES=ON -DQSBIT_ARCH_TEST_SOURCE="$PWD/tmp/deps/riscv-arch-test"`
-when the optional independent ISA reference suite is needed.
-
-For a build without Python backends, set `-DQSBIT_PYTHON_BACKENDS=OFF`; the scripted
-backend remains available. Set `-DBUILD_TESTING=OFF` to build without the test and
-example targets. A supplied SystemC installation must be version
-3.0.1.20241015, built with C++20.
+The executable is `build/qsbit-sim`. CMake uses an installed C++20 SystemC library
+when available; otherwise it downloads and builds a fixed revision during the
+first configure. Python is optional and is not required for this build.
+See [build options](docs/building.md) for offline builds and external SystemC installations.
 
 ## Run an example
 
-Each file in `examples/runs/` specifies the program, backend, output files, and any
-profile changes. Paths inside a run file are relative to that file. From the repository
-root, run:
+Install GNU RISC-V binutils (`binutils-riscv64-unknown-elf` on Debian/Ubuntu), then:
+
+```sh
+cmake -S . -B build -DQSBIT_BUILD_EXAMPLES=ON
+cmake --build build --parallel
+build/qsbit-sim --config examples/runs/scripted.json
+```
+
+This runs the feedback program with a scripted measurement result. It exercises
+the control pipeline without a quantum-state library. Results are written to
+`build/runs/scripted.json`; timestamped events are in `build/runs/scripted.jsonl`.
+The summary should contain `"success": true` and memory word `"4096": 1`.
+
+## Optional quantum backends
+
+Create and activate a local virtual environment, then install the backend you need:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[aer]'
+```
+
+Alternatively, use uv:
+
+```sh
+uv sync --extra aer
+source .venv/bin/activate
+```
+
+Both workflows use `.venv/`. Dependency requirements live in
+[pyproject.toml](pyproject.toml); uv uses [uv.lock](uv.lock) for reproducible installs.
+Choose the `pulse` extra instead of `aer` for the bundled pulse backend, or install
+`.` without extras for the Python bridge and your own adapter.
+
+With the environment active and Python development headers available:
+
+```sh
+cmake -S . -B build -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
+cmake --build build --parallel
+build/qsbit-sim --config examples/runs/bell.json
+```
+
+CMake discovers the active environment. The Bell example uses Aer and produces
+matching measurement bits at addresses 4096 and 4100 in `build/runs/bell.json`.
+[Other examples](examples/README.md) cover feedback and overlapping pulse drives.
+
+An external Python adapter can be selected as `"backend": "my_package:MyBackend"`
+in the run file. Native C++ adapters implement `IQuantumBackend` and are supplied
+to `Simulator`. See [backend integration](docs/backends.md) for both interfaces.
+
+## Configuration
+
+A JSON run file selects the program, backend, output files, and optional timing
+profile. Relative paths are resolved from the configuration file's directory.
+For example, [bell.json](examples/runs/bell.json) runs with:
 
 ```sh
 build/qsbit-sim --config examples/runs/bell.json
-build/qsbit-sim --config examples/runs/feedback.json
-build/qsbit-sim --config examples/runs/pulse.json
-build/qsbit-sim --config examples/runs/overlap.json
 ```
 
-For example, the Bell run writes `build/runs/bell.json` and
-`build/runs/bell.jsonl`. The JSON summary includes success, stop time, final
-registers, selected memory words, quantum state, and the complete timing profile.
-The JSONL trace contains timestamped instruction and quantum events. Inspect the
-summary with:
+Append `--seed 42` to override the seed for one run. Use
+`--dump-default-profile build/profile.json` to inspect all hardware parameters.
+The [configuration reference](docs/interfaces.md#cli-and-profile) lists fields,
+units, precedence, and output formats. `build/qsbit-sim --help` lists CLI options.
+
+## Test
+
+The core tests need Python for test scripts and GNU RISC-V binutils. They do not
+need Python quantum backends.
 
 ```sh
-tmp/venv/bin/python -m json.tool build/runs/bell.json
+cmake -S . -B build-test -DBUILD_TESTING=ON
+cmake --build build-test --parallel
+ctest --test-dir build-test --output-on-failure
 ```
 
-The Bell measurement bits at addresses 4096 and 4100 must match (00 or 11). Feedback
-deterministically stores 1 at address 4096; the pulse example also stores 1.
-The overlap example drives X and Z on the same qubit simultaneously. See
-[the example walkthrough](examples/README.md) for the programs and expected times.
+Backend tests are enabled separately; see [build and test options](docs/building.md).
 
-## Run configuration
+## Design
 
-`--config FILE` accepts JSON for a complete run. For example:
-
-```json
-{
-  "schema": 1,
-  "program": "../../build/examples/bell.elf",
-  "backend": "aer",
-  "trace": "../../build/runs/bell.jsonl",
-  "summary": "../../build/runs/bell.json",
-  "inspect": [4096, 4100],
-  "profile": {
-    "cpu": {"period": 5, "phase": 0},
-    "tcu": {"period": 20, "phase": 0},
-    "start": 1000
-  }
-}
-```
-
-This example assumes the file is stored in `examples/runs/`. `profile` is an
-optional inline timing and mapping overlay; omitted fields retain defaults.
-`profile_file` loads a separate JSON overlay relative to the run file, as in
-[the overlap run](examples/runs/overlap.json). The run file also accepts
-`memory_base`, `memory_size`, `raw_base`, `resets`, `outcomes`, `memory_dump`,
-`python_path`, and `reverse_registration`. Unknown keys and invalid values fail
-before simulation starts. Output parent directories are created automatically.
-
-The existing CLI remains useful for temporary overrides. Options are applied from
-left to right, so a later option wins:
-
-```sh
-build/qsbit-sim --config examples/runs/bell.json --seed 42
-build/qsbit-sim --program build/examples/bell.elf --backend aer \
-  --trace build/runs/custom.jsonl --summary build/runs/custom.json \
-  --inspect 4096 --inspect 4100
-```
-
-`--profile FILE` applies a JSON timing overlay without changing the program or
-output paths. `--dump-default-profile FILE` writes the complete default timing
-profile. `build/qsbit-sim --help` lists all CLI options. Time values are integer
-nanoseconds. Exit code 0 means the simulation drained successfully; 1 means a
-simulation fault; 2 means invalid input, configuration, or setup.
-
-## Design and verification
-
-- [Executable implementation](docs/implementation.md): ownership, numerical profile, and backend limits.
-- [Architecture](docs/module-architecture.md) and [module contracts](docs/modules/README.md): timing and component behavior.
-- [Program, configuration, and trace interfaces](docs/interfaces.md): instruction encoding and output schema.
-- [Engineering and tests](docs/engineering-and-testing.md): validation layers and test commands.
-- [Glossary](docs/glossary.md): SystemC and control-timing terms.
-
-External CACTUS comparisons and their scope are recorded in
-[ADR 0002](docs/decisions/0002-reference-comparison-scope.md).
+- [Module architecture](docs/module-architecture.md) and [module contracts](docs/modules/README.md)
+- [Executable implementation](docs/implementation.md)
+- [Program and trace interfaces](docs/interfaces.md)
+- [Verification](docs/engineering-and-testing.md) and [CACTUS comparison scope](docs/decisions/0002-reference-comparison-scope.md)
+- [Glossary](docs/glossary.md)

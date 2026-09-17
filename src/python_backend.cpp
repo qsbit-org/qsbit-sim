@@ -55,6 +55,11 @@ PythonBackend::PythonBackend(const std::string &module, const std::string &class
     : impl_(std::make_unique<Impl>()) {
   try {
     impl_->backend = py::module_::import(module.c_str()).attr(class_name.c_str())();
+    for (const char *method : {"validate", "reset", "evolve", "apply", "measure", "state"}) {
+      require(py::hasattr(impl_->backend, method) &&
+                  PyCallable_Check(impl_->backend.attr(method).ptr()),
+              ErrorCode::BackendFailure, std::string("backend requires callable ") + method);
+    }
   } catch (const py::error_already_set &e) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }

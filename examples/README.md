@@ -1,9 +1,22 @@
 # Executable examples
 
-CMake assembles these sources into `build/examples/*.elf` using GNU RISC-V binutils.
+With `QSBIT_BUILD_EXAMPLES=ON` or `BUILD_TESTING=ON`, CMake assembles these sources into `build/examples/*.elf` using GNU RISC-V binutils.
 `quantum.inc` uses `.insn`; the simulator never parses assembly. `link.ld` provides a
 bare-metal entry at zero and writable data at 0x1000. All instructions are RV32I or
 custom-0; compressed instructions and relaxation are disabled.
+
+## Control-only run
+
+The default C++ build can execute a scripted feedback scenario without Python:
+
+```sh
+build/qsbit-sim --config examples/runs/scripted.json
+```
+
+Results are in `build/runs/scripted.json` and `build/runs/scripted.jsonl`.
+For the remaining examples, enable the Python bridge and install the selected
+[backend extra](../docs/backends.md). The run files target the `build/` directory;
+for another build tree, override `--program` with that tree's ELF path.
 
 ## Bell pair
 

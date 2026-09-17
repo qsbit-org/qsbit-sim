@@ -91,7 +91,7 @@ int sc_main(int argc, char **argv) {
         std::cout
             << "qsbit-sim --config FILE | --program FILE [options]\n"
                "  --config FILE (JSON run configuration; paths relative to config file)\n"
-               "  --raw-base ADDRESS --backend scripted|aer|pulse\n"
+               "  --raw-base ADDRESS --backend scripted|aer|pulse|MODULE:CLASS\n"
                "  --profile FILE --trace FILE --summary FILE --seed INTEGER --start TICK\n"
                "  --memory-base ADDRESS --memory-size BYTES --outcomes 0,1,...\n"
                "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"
@@ -234,12 +234,25 @@ int sc_main(int argc, char **argv) {
     if (backend_name == "scripted")
       backend = std::make_unique<ScriptedBackend>(outcomes);
     else {
-      require(backend_name == "aer" || backend_name == "pulse", ErrorCode::InvalidOperand,
-              "unknown backend");
+      std::string module, class_name;
+      if (backend_name == "aer") {
+        module = "qsbit_backend.aer";
+        class_name = "AerBackend";
+      } else if (backend_name == "pulse") {
+        module = "qsbit_backend.pulse";
+        class_name = "PulseBackend";
+      } else {
+        const auto separator = backend_name.find(':');
+        require(separator != std::string::npos && separator > 0 &&
+                    separator + 1 < backend_name.size() &&
+                    backend_name.find(':', separator + 1) == std::string::npos,
+                ErrorCode::InvalidOperand, "backend must be scripted, aer, pulse, or MODULE:CLASS");
+        module = backend_name.substr(0, separator);
+        class_name = backend_name.substr(separator + 1);
+      }
 #ifdef QSBIT_HAS_PYTHON
       python = std::make_unique<PythonSession>(module_directory);
-      backend = std::make_unique<PythonBackend>(
-          "qsbit_backend", backend_name == "aer" ? "AerBackend" : "PulseBackend");
+      backend = std::make_unique<PythonBackend>(module, class_name);
 #else
       throw Fault(ErrorCode::UnsupportedCapability, "this build has no Python backends");
 #endif

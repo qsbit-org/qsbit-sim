@@ -46,7 +46,7 @@ Provide either `--config FILE` or `--program FILE`. Useful options:
 | Option | Meaning |
 | --- | --- |
 | `--config FILE` | Load a complete JSON run configuration; paths in it are relative to that file. |
-| `--backend scripted|aer|pulse` | Select numerical capability; default scripted. |
+| `--backend scripted|aer|pulse|MODULE:CLASS` | Select a bundled or external adapter; default scripted. See [backends](backends.md). |
 | `--profile FILE` | Apply a strict JSON profile overlay to the current defaults. |
 | `--dump-default-profile FILE` | Write the complete current profile and exit. |
 | `--seed N`, `--start TICK` | Override seed or epoch startup offset. |

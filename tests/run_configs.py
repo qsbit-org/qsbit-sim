@@ -9,17 +9,21 @@ import subprocess
 parser = argparse.ArgumentParser()
 parser.add_argument('--simulator', type=Path, required=True)
 parser.add_argument('--source', type=Path, required=True)
+parser.add_argument('--build', type=Path, required=True)
+parser.add_argument('--scenarios', nargs='+', required=True)
 args = parser.parse_args()
 
-for name in ('bell', 'feedback', 'pulse', 'overlap'):
+for name in args.scenarios:
     config_path = args.source / 'examples' / 'runs' / f'{name}.json'
     config = json.loads(config_path.read_text())
-    result = subprocess.run([str(args.simulator), '--config', str(config_path)],
+    summary_path = args.build / 'config-examples' / f'{name}.json'
+    trace_path = args.build / 'config-examples' / f'{name}.jsonl'
+    result = subprocess.run([str(args.simulator), '--config', str(config_path),
+                             '--program', str(args.build / 'examples' / f'{name}.elf'),
+                             '--summary', str(summary_path), '--trace', str(trace_path)],
                             cwd=args.source / 'examples', capture_output=True, text=True,
                             timeout=30)
     assert result.returncode == 0, (name, result.stdout, result.stderr)
-    summary_path = (config_path.parent / config['summary']).resolve()
-    trace_path = (config_path.parent / config['trace']).resolve()
     summary = json.loads(summary_path.read_text())
     trace = [json.loads(line) for line in trace_path.read_text().splitlines()]
     assert summary['success'] and trace[-1]['kind'] == 'SimulationCompleted', name
@@ -31,4 +35,4 @@ for name in ('bell', 'feedback', 'pulse', 'overlap'):
     else:
         assert len([event for event in trace if event['kind'] == 'OperationStart']) == 2, name
 
-print('PASS four JSON-configured numerical examples')
+print(f'PASS {len(args.scenarios)} JSON-configured numerical examples')

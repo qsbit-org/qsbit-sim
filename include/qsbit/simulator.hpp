@@ -12,7 +12,7 @@ namespace qsbit {
 class Simulator final : public sc_core::sc_module {
 public:
   using CpuFactory = std::function<std::unique_ptr<ICpuCycleModel>(Clock, std::uint32_t, Trace &)>;
-  SC_HAS_PROCESS(Simulator);
+  using sc_core::sc_module::trace;
   Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage image,
             std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets = {},
             bool reverse_registration = false, CpuFactory cpu_factory = {});

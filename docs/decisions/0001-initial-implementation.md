@@ -68,14 +68,15 @@ selects its own explicit numerical configuration through this generic interface.
 
 ## Backend and scheduling
 
-Use SystemC 3.0.1 compiled as C++20. The CPU, memory and TCU own pure transition objects.
+Use SystemC compiled as C++20. The CPU, memory and TCU own pure transition objects.
 Committed tick-stamped mailboxes enforce visibility independently of runnable order.
 Device boundary collection has an explicit per-tick barrier after the TCU transition,
 including zero-delay launches. The quantum backend never advances SystemC time.
 
 Provide a scripted backend for deterministic protocol tests, a live Python adapter to
-Qiskit Aer 0.17.2 with Qiskit 2.1.2, and a small-system piecewise-constant Hamiltonian
-backend using SciPy 1.16.2. The latter jointly integrates active drives, rather than
+Qiskit Aer, and a small-system piecewise-constant Hamiltonian
+backend using SciPy. Dependency constraints are in [pyproject.toml](../../pyproject.toml).
+The latter jointly integrates active drives, rather than
 claiming pulse support from ideal-gate replay. Python calls are synchronous host work;
 all physical times and result publication remain controlled by DeviceRuntime.
 

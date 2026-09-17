@@ -8,14 +8,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(QSBIT_COVERAGE "Instrument project code for gcov coverage" OFF)
 option(QSBIT_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
 option(QSBIT_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
-option(QSBIT_PYTHON_BACKENDS "Build live Python numerical backend adapters" ON)
+option(QSBIT_PYTHON_BACKENDS "Build the optional Python backend bridge" OFF)
+option(QSBIT_BUILD_EXAMPLES "Assemble the example programs" OFF)
+option(BUILD_TESTING "Build and register tests" OFF)
+option(QSBIT_TEST_AER "Run tests requiring the Aer extra" OFF)
+option(QSBIT_TEST_PULSE "Run tests requiring the pulse extra" OFF)
 option(QSBIT_ISA_REFERENCES "Run optional independent RV32I reference tests" OFF)
 set(QSBIT_ARCH_TEST_SOURCE "" CACHE PATH "Provisioned, pinned riscv-arch-test checkout")
 
-find_package(SystemCLanguage 3.0.1.20241015 EXACT CONFIG REQUIRED)
-if(NOT SystemC_CXX_STANDARD EQUAL 20)
-  message(FATAL_ERROR "SystemC must be built with CMAKE_CXX_STANDARD=20")
-endif()
+include(cmake/SystemC.cmake)
 
 add_library(qsbit_warnings INTERFACE)
 target_compile_options(qsbit_warnings INTERFACE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
@@ -35,25 +36,26 @@ if(QSBIT_SANITIZERS)
 endif()
 
 # No SystemC or Python dependency is attached to the pure transition library.
-add_library(qsbit_core src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp
+add_library(qsbit_core STATIC src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp
   src/control.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/producer.cpp src/cpu.cpp
   src/backend.cpp src/device.cpp src/defaults.cpp)
 target_include_directories(qsbit_core PUBLIC include)
 target_link_libraries(qsbit_core PUBLIC qsbit_warnings)
-add_library(qsbit_systemc src/simulator.cpp)
+add_library(qsbit_systemc STATIC src/simulator.cpp)
 target_link_libraries(qsbit_systemc PUBLIC qsbit_core SystemC::systemc)
 if(QSBIT_PYTHON_BACKENDS)
-  find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter Development)
+  set(Python3_FIND_VIRTUALENV FIRST)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
   execute_process(COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
     OUTPUT_VARIABLE PYBIND11_CMAKE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-  find_package(pybind11 3.0.1 EXACT CONFIG REQUIRED PATHS "${PYBIND11_CMAKE_DIR}" NO_DEFAULT_PATH)
-  add_library(qsbit_python src/python_backend.cpp)
+  find_package(pybind11 3 CONFIG REQUIRED PATHS "${PYBIND11_CMAKE_DIR}" NO_DEFAULT_PATH)
+  add_library(qsbit_python STATIC src/python_backend.cpp)
   set_target_properties(qsbit_python PROPERTIES CXX_VISIBILITY_PRESET hidden)
   target_compile_definitions(qsbit_python PRIVATE QSBIT_PYTHON_EXECUTABLE="${Python3_EXECUTABLE}")
   target_link_libraries(qsbit_python PUBLIC qsbit_core PRIVATE pybind11::embed)
 endif()
 
-add_library(qsbit_config src/config_json.cpp)
+add_library(qsbit_config STATIC src/config_json.cpp)
 target_include_directories(qsbit_config SYSTEM PUBLIC third_party/nlohmann_json)
 target_link_libraries(qsbit_config PUBLIC qsbit_core)
 add_executable(qsbit_sim src/main.cpp)
@@ -63,6 +65,28 @@ target_compile_definitions(qsbit_sim PRIVATE QSBIT_PYTHON_MODULE_DIRECTORY="${CM
 if(QSBIT_PYTHON_BACKENDS)
   target_link_libraries(qsbit_sim PRIVATE qsbit_python)
   target_compile_definitions(qsbit_sim PRIVATE QSBIT_HAS_PYTHON=1)
+endif()
+
+if(QSBIT_TEST_AER OR QSBIT_TEST_PULSE)
+  if(NOT BUILD_TESTING OR NOT QSBIT_PYTHON_BACKENDS)
+    message(FATAL_ERROR "Backend tests require BUILD_TESTING and QSBIT_PYTHON_BACKENDS")
+  endif()
+endif()
+if(QSBIT_BUILD_EXAMPLES OR BUILD_TESTING)
+  find_program(RISCV_AS NAMES riscv64-unknown-elf-as REQUIRED)
+  find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples")
+  foreach(example bell feedback pulse overlap)
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf"
+      COMMAND "${RISCV_AS}" -march=rv32i -mabi=ilp32 -mno-relax
+        -I "${CMAKE_CURRENT_SOURCE_DIR}/examples" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.o"
+        "${CMAKE_CURRENT_SOURCE_DIR}/examples/${example}.S"
+      COMMAND "${RISCV_LD}" -m elf32lriscv --no-relax -T "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld"
+        -o "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf" "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.o"
+      DEPENDS "examples/${example}.S" examples/quantum.inc examples/link.ld VERBATIM)
+    list(APPEND EXAMPLE_IMAGES "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf")
+  endforeach()
+  add_custom_target(example_images ALL DEPENDS ${EXAMPLE_IMAGES})
 endif()
 
 include(CTest)
@@ -93,24 +117,12 @@ if(BUILD_TESTING)
   find_program(RISCV_AS NAMES riscv64-unknown-elf-as REQUIRED)
   find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
   find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump REQUIRED)
-  find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME systemc.use_cases COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/use_cases.py" --simulator "$<TARGET_FILE:qsbit_sim>"
     --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"
     --source "${CMAKE_CURRENT_SOURCE_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/use-cases")
   set_tests_properties(systemc.use_cases PROPERTIES TIMEOUT 120 LABELS "fast;integration")
-  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples")
-  foreach(example bell feedback pulse overlap)
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf"
-      COMMAND "${RISCV_AS}" -march=rv32i -mabi=ilp32 -mno-relax
-        -I "${CMAKE_CURRENT_SOURCE_DIR}/examples" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.o"
-        "${CMAKE_CURRENT_SOURCE_DIR}/examples/${example}.S"
-      COMMAND "${RISCV_LD}" -m elf32lriscv --no-relax -T "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld"
-        -o "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf" "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.o"
-      DEPENDS "examples/${example}.S" examples/quantum.inc examples/link.ld VERBATIM)
-    list(APPEND EXAMPLE_IMAGES "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf")
-  endforeach()
-  add_custom_target(example_images ALL DEPENDS ${EXAMPLE_IMAGES})
   add_executable(adapter_tests tests/adapter_tests.cpp)
   target_link_libraries(adapter_tests PRIVATE qsbit_systemc)
   foreach(scenario normal reset)
@@ -121,7 +133,7 @@ if(BUILD_TESTING)
   target_link_libraries(system_tests PRIVATE qsbit_systemc)
   add_dependencies(system_tests example_images)
   if(QSBIT_ISA_REFERENCES)
-    find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME reference.rv32_random COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/random_isa.py" --assembler "${RISCV_AS}" --linker "${RISCV_LD}"
       --script "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld" --simulator "$<TARGET_FILE:qsbit_sim>"
@@ -146,15 +158,32 @@ if(BUILD_TESTING)
     endforeach()
   endforeach()
   if(QSBIT_PYTHON_BACKENDS)
+    add_test(NAME python.plugin COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/python_plugin.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+      --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")
+    set_tests_properties(python.plugin PROPERTIES TIMEOUT 30 LABELS "fast;integration")
+  endif()
+  if(QSBIT_TEST_AER OR QSBIT_TEST_PULSE)
+    set(NUMERICAL_SCENARIOS "")
+    set(CLI_SCENARIOS "")
+    if(QSBIT_TEST_AER)
+      list(APPEND NUMERICAL_SCENARIOS bell feedback capability)
+      list(APPEND CLI_SCENARIOS bell feedback)
+    endif()
+    if(QSBIT_TEST_PULSE)
+      list(APPEND NUMERICAL_SCENARIOS pulse overlap joint)
+      list(APPEND CLI_SCENARIOS pulse overlap)
+    endif()
     add_test(NAME cli.examples COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
-      --source "${CMAKE_CURRENT_SOURCE_DIR}")
+      --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}"
+      --scenarios ${CLI_SCENARIOS})
     set_tests_properties(cli.examples PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
     add_executable(numerical_tests tests/numerical_tests.cpp)
     target_link_libraries(numerical_tests PRIVATE qsbit_systemc qsbit_python)
     target_compile_definitions(numerical_tests PRIVATE QSBIT_PYTHON_MODULE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/python")
     add_dependencies(numerical_tests example_images)
-    foreach(scenario bell feedback pulse overlap joint capability)
+    foreach(scenario IN LISTS NUMERICAL_SCENARIOS)
       add_test(NAME numerical.${scenario} COMMAND numerical_tests "${scenario}"
         "${CMAKE_CURRENT_BINARY_DIR}/examples/${scenario}.elf")
       set_tests_properties(numerical.${scenario} PROPERTIES TIMEOUT 120 LABELS "numerical;integration")

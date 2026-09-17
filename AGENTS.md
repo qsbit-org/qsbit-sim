@@ -3,7 +3,7 @@
 ## C++ and build
 
 - Write repository content, comments, test names, and commit messages in English.
-- Use C++20, the checked-in `.clang-format`, and the pinned dependency versions. Keep configure and build independent of the network after dependencies are provisioned. Treat compiler warnings as errors; run `clang-tidy` on changed C++ where available.
+- Use C++20, the checked-in `.clang-format`, and the pinned dependency versions. Use standard CMake dependency discovery and pinned fallback sources. Keep builds offline once dependencies are provisioned. Treat compiler warnings as errors; run `clang-tidy` on changed C++ where available.
 - Prefer value types, RAII, `enum class`, `std::span`, fixed-width integers at binary/protocol boundaries, and explicit ownership. Avoid raw owning pointers, hidden global state, and unchecked time or capacity arithmetic.
 - Keep pure transition logic independent of SystemC when practical. Keep scheduler code in SystemC owners and avoid leaking SystemC types into pure interfaces. Give each mutable state object one owner; document reset, overflow, and teardown behavior.
 - Use bounded storage for modeled hardware resources. Make backpressure and capacity faults observable instead of silently dropping work.
@@ -33,3 +33,14 @@
 - Keep review notes, agent reports, audit findings, generated traces, local dependencies, and temporary visualizations out of tracked files. Use ignored local directories or an external workspace. Incorporate accepted findings into the relevant code, test, or `docs/` contract.
 - Put design decisions, timing contracts, instruction semantics, and feature scope in `docs/`, not in this file. Update those documents together with behavior changes.
 - Write repository documents as direct technical guidance. Omit commentary about how a document was drafted, which source inspired its wording, or whether its rules are project conventions.
+
+## Documentation and dependency management
+
+- Lead README with the shortest supported build and a runnable example. Put advanced options, backend contracts, and contributor workflows in linked documents.
+- Use ordinary CMake configure, build, and CTest commands. Keep custom provisioning scripts and machine-specific paths out of the normal user workflow.
+- Separate required build tools, test tools, and optional runtime backends. A default C++ build must not install or require Python quantum packages.
+- Use a local `.venv` for optional Python dependencies, created with Python venv or uv. Discover the user's interpreter; do not hard-code a Python minor version or temporary environment path.
+- Keep package requirements and compatibility constraints in dependency manifests, and reproducible resolutions in lock files. Link those files instead of duplicating dependency/version lists in prose.
+- Provide explicit opt-in installation for each backend. Import optional adapters lazily and allow external adapters through documented interfaces.
+- Keep examples copyable from a stated working directory, identify their output files and expected results, and verify them using the current build tree.
+- Document only implemented behavior. Update examples, CLI help, configuration contracts, and build instructions together when their interfaces change.

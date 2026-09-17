@@ -20,7 +20,6 @@ struct TimingHarness : sc_module {
   std::vector<Tick> intervals;
   std::string failure;
   bool complete = false;
-  SC_HAS_PROCESS(TimingHarness);
   TimingHarness(sc_module_name name, Tick start, std::vector<Tick> values)
       : sc_module(name), profile(), tcu(profile, trace), requests(1, profile.tcu),
         replies(1, profile.cpu), closure(1, profile.tcu), clock("tcu_clock", 20, SC_NS),

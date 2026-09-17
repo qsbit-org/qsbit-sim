@@ -1,10 +1,10 @@
 # Engineering and Verification Plan
 
-**Status:** executable verification suite, 2026-09-17. Dependency versions are pinned; [implementation.md](implementation.md) describes the implemented profile. [ADR 0002](decisions/0002-reference-comparison-scope.md) records reference limitations.
+**Status:** executable verification suite, 2026-09-17. Dependency versions are recorded in the manifests and lock file; [implementation.md](implementation.md) describes the implemented profile. [ADR 0002](decisions/0002-reference-comparison-scope.md) records reference limitations.
 
 ## Coding and SystemC rules
 
-Use C++20, CMake, and a pinned Accellera SystemC release. Keep the RV32I ISA library free of SystemC dependencies and isolate pure state transitions from scheduling processes. Represent architectural values with fixed-width integers and simulated event times with checked integer ticks or `sc_time` at the SystemC boundary. Give each mutable state object one owner; define construction, reset, overflow, and teardown behavior. Use the checked-in `.clang-format`, enable compiler warnings as errors in CI, and run `clang-tidy` on changed C++ where available.
+Use C++20 and CMake with the SystemC dependency declared in `cmake/SystemC.cmake`. Keep the RV32I ISA library free of SystemC dependencies and isolate pure state transitions from scheduling processes. Represent architectural values with fixed-width integers and simulated event times with checked integer ticks or `sc_time` at the SystemC boundary. Give each mutable state object one owner; define construction, reset, overflow, and teardown behavior. Use the checked-in `.clang-format`, enable compiler warnings as errors in CI, and run `clang-tidy` on changed C++ where available.
 
 Use `SC_METHOD` only for nonblocking behavior and `SC_THREAD` when `wait()` is required. Document sensitivity, reset, and which edge observes a handshake. Avoid modeling hardware queues with unbounded containers. Do not rely on incidental SystemC delta-cycle order for a hardware-visible result: define and test the same-timestamp sampling, acceptance, state commit, and output-visibility rule. Allow alternate order only for diagnostic events whose order is explicitly outside the contract. Log structured machine-readable trace records for CPU retirement, producer acceptance, group admission, queue changes, label firing, readout, feedback, errors, and stop reason.
 
@@ -82,6 +82,6 @@ The initial CI gate builds Debug and Release, checks formatting, treats warnings
 
 The architecture-test adapter replaces platform entry and exit, and uses RV32I NOP padding in the upstream address-load helper. It does not modify generated instruction-test bodies. The source revision is pinned in the runner. Artifacts stay in the build tree.
 
-Run Debug and Release suites with Python backends, plus a Python-free ASan/UBSan build. Leak detection is disabled for the SystemC process lifecycle; address and undefined-behavior errors remain fatal. The CI workflow preserves failure traces. No CACTUS tooling is part of this workflow.
+Run Debug and Release suites with explicitly selected backend tests, a bridge-only suite without numerical packages, and a Python-free ASan/UBSan build. Build commands and opt-in flags are in [building.md](building.md). Leak detection is disabled for the SystemC process lifecycle; address and undefined-behavior errors remain fatal. The CI workflow preserves failure traces. No CACTUS tooling is part of this workflow.
 
 For focused line and branch evidence, configure a separate build with `-DQSBIT_COVERAGE=ON`, run its CTest suite, then run `python tools/coverage.py --build BUILD_DIRECTORY`. The generated gcov JSON and summary remain in that build directory. Coverage reports complement architectural assertions; no line-coverage percentage proves timing correctness.
