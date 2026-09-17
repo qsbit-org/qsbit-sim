@@ -14,12 +14,16 @@ Optional TCU-domain history plus its own result crossing; it does not share CPU 
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Discriminator result mailbox"] --> P["TCU-edge history update"]
-    S[("validity; predicate history")] <--> P
-    P --> D["committed condition snapshot"]
-    K["Activation: TCU edge after crossing"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Discriminator result mailbox"];
+  owner [label="FastHistory"];
+  state [label="history_; Profile::history_depth"];
+  output [label="Predicate result / delivered credit"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,17 @@ flowchart LR
 **Reset and errors:** Missing required history faults. Conditional measurement is unsupported in the baseline to avoid leaving a token pending after cancellation. Reset clears history and old deliveries.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `history_` | `vector<deque<Completion>>` | Bounded per-target history of exact measurement tokens/results. |
+| `Profile::history_depth` | `per-target bound` | Evicts the oldest entry after an accepted new result. |
+
+evaluate requires an exact token match and compares its bit with the predicate. commit rejects same-target duplicates/out-of-order IDs, appends a valid completion and enforces depth. TCU decisions evaluate the previously committed history; same-edge incoming results become usable on a later TCU edge. Reset clears all histories.
+
+[Current C++ declarations](../api.md#feedbackhpp).
 
 ## Implementation and verification
 

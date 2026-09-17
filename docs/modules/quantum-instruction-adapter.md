@@ -14,12 +14,16 @@ Pure mapping called from the authorized CPU commit path. It does not introduce i
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Authorized decoded operation"] --> P["pure ISA-to-producer mapping"]
-    S[("immutable extension profile")] <--> P
-    P --> D["APPEND, ADVANCE, FLUSH or result read"]
-    K["Activation: Called by CPU commit path"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Authorized decoded operation"];
+  owner [label="adapt_quantum"];
+  state [label="rv32::Decoded; ProducerOperation"];
+  output [label="ProducerOperation"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,17 @@ flowchart LR
 **Reset and errors:** Reject unsupported operation, port or operand before irreversible acceptance. No mutable state to clear on reset; stale-epoch requests are rejected.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `rv32::Decoded` | `input record` | Validated custom-0 encoding. |
+| `ProducerOperation` | `output record` | Instruction ID, operation kind, operands, predicate handle and expected bit. |
+
+The CPU calls adapt_quantum only for its oldest quantum instruction. funct3 selects Append, Advance, Flush, ReadResult, End, ConditionalAppend or Synchronize. Captured register values become operation operands. The adapter retains no state; TimelineProducer keeps a blocked operation identity. Synchronize reaches the explicit unsupported fault.
+
+[Current C++ declarations](../api.md#producerhpp).
 
 ## Implementation and verification
 

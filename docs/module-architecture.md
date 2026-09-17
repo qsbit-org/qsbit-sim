@@ -12,47 +12,7 @@ This is **not an eQASM implementation**. The executable is RV32I machine code wi
 
 ## 2. Architecture and paths
 
-```mermaid
-flowchart LR
-  TOOL[Separate RISC-V assembler] --> LOAD[ELF loader]
-  LOAD --> MEM[Memory model]
-  LOAD --> CPU[RV32I cycle engine]
-  MEM <--> CPU
-  ISA[ISA semantics] --> CPU
-  CPU --> DEC[Quantum instruction adapter]
-  DEC --> RES[Timeline producer and staging]
-  RES --> MAP[Port-action mapping and device distribution]
-  MAP --> PLAN[Resolved port action group]
-  PLAN --> CDC[Group crossing]
-  CDC --> ADMIT[Atomic TCU admission]
-  ADMIT --> TQ[Timing queue with member manifests]
-  ADMIT --> EQ[Per-port event queues]
-  ADMIT -. group acknowledgment .-> RES
-  RES -. producer acknowledgment .-> CPU
-  TQ --> TIMER[TCU timer and label broadcaster]
-  TIMER --> EQ
-  EQ --> LAUNCH[Condition gate and launch preflight]
-  LAUNCH --> OUT[Device runtime and resource calendar]
-  OUT -. committed resource snapshot .-> LAUNCH
-  OUT --> QB[Single quantum-state service]
-  OUT --> READ[Acquisition and discrimination]
-  QB --> READ
-  RES -. allocate measurement token .-> FB[Measurement scoreboard]
-  READ --> CROSS[CPU feedback crossing]
-  CROSS --> FB
-  FB --> CPU
-  READ --> COND[Independent fast-condition crossing]
-  COND --> LAUNCH
-  DEC -. QSYNC .-> REJECT[UnsupportedSynchronization fault]
-  CPU -.-> TRACE[Generic event trace]
-  ADMIT -.-> TRACE
-  LAUNCH -.-> TRACE
-  READ -.-> TRACE
-  TRACE -. public interface .-> EXT[Disposable external CACTUS validator]
-  CLOCK[SystemC clocks and timed events] -. wakeup .-> CPU
-  CLOCK -. wakeup .-> TIMER
-  CLOCK -. wakeup .-> OUT
-```
+See the [clickable architecture](architecture.md) for logical modules, concrete owners and typed connections.
 
 
 The solid path carries modeled hardware requests, events, and results. The dashed clock links mean that SystemC schedules the owners' processes. Trace links are observation only: trace consumption cannot affect simulation timing. The external CACTUS validator owns its own probes, eQASM translation, fixtures, comparator, and results. It is not a source or build dependency of this repository.
@@ -138,14 +98,14 @@ A start with an empty queue is observable but not immediately fatal: the produce
 
 ### 4.4 Device batches, feedback and reset
 
-A DeviceRuntime wrapper collects all architectural events assigned to tick t, including zero-delay actions from that tick's TCU transition, before one physical-state evaluation. This explicit phase barrier must not depend on how many arbitrary SystemC deltas happened to run. Before any evolution or collapse, validate the entire physical boundary batch for resource, target, sampling-order and backend-capability conflicts. No prefix may mutate state before a later member is found invalid. Pulse and acquisition intervals have positive duration in the baseline; explicitly instantaneous action kinds schedule no same-tick end event. Each valid batch follows this order:
+A DeviceRuntime wrapper collects all architectural events assigned to tick t, including zero-delay actions from that tick's TCU transition, before one physical-state evaluation. This explicit phase barrier must not depend on how many arbitrary SystemC deltas happened to run. Before any evolution or collapse, validate the entire physical boundary batch for resource, target, sampling-order and backend-capability conflicts. No prefix may mutate state before a later member is found invalid. Every configured action has positive occupancy duration in the baseline. Ideal gates mutate quantum state at their start tick while retaining their configured channel interval. Each valid batch follows this order:
 
 1. Evolve quantum state to t once under the previously active drives over the half-open preceding interval.
 2. End channels and acquisition windows due at t; perform their configured measurement samples and collapse. Concurrent samples on disjoint targets may be batched; ambiguous same-target state actions fault before any mutation.
 3. Apply instantaneous ideal-gate actions and establish new pulse or acquisition intervals beginning at t. A measured target and a new instantaneous gate on it at exactly t are unsupported in the baseline; schedule distinct ticks or use a future explicit measurement-instrument profile.
 4. Schedule discriminator results and any later end events. Publish ready completions to the two feedback paths with their actual tick; even zero discriminator delay cannot bypass a crossing's strict-edge rule.
 
-Exclusive instantaneous control writes are also checked for same-tick conflicts; a zero-duration action cannot evade checks by having an empty interval. Resource conflicts are checked before state mutation; backend failure terminates the run as invalid and does not require rollback. Control metadata can arrive at the same tick as a physical boundary, but CPU and TCU clocked consumers read their prior committed inputs. They do not see a newly completed measurement on that edge.
+Configuration validation rejects zero-duration actions; resource checks apply to the complete positive-duration occupancy interval. Resource conflicts are checked before state mutation; backend failure terminates the run as invalid and does not require rollback. Control metadata can arrive at the same tick as a physical boundary, but CPU and TCU clocked consumers read their prior committed inputs. They do not see a newly completed measurement on that edge.
 
 The baseline reset operation is explicitly a **simulator session reset**, not a physical controller-reset signal. It is a global epoch boundary processed before other work at that tick. It invalidates pending messages and scheduled physical callbacks, clears CPU and producer state, queue banks, timer, resource calendar, measurement slots and fast-condition history, and initializes the backend to the declared initial state. Active actions receive reset-abort records. A future controller-only reset must separately specify pulse abort and preserve or evolve quantum state; it may not reuse session reset to prepare qubits implicitly. CPU PC returns to the loaded entry. The new TCU cycle-zero tick is the first TCU edge at or after reset tick plus the immutable `start` offset. Baseline reset preserves loaded memory; reloading is a separate cold-start action. Old-epoch callbacks are ignored and traced, even if already queued in the kernel. Reset does not rewind `sc_time_stamp()` or permit ID reuse within an epoch. Label, cycle and ID overflow faults rather than wrapping silently.
 

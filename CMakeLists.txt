@@ -13,6 +13,7 @@ option(QSBIT_BUILD_EXAMPLES "Assemble the example programs" OFF)
 option(BUILD_TESTING "Build and register tests" OFF)
 option(QSBIT_TEST_AER "Run tests requiring the Aer extra" OFF)
 option(QSBIT_TEST_PULSE "Run tests requiring the pulse extra" OFF)
+option(QSBIT_TEST_WEBSITE "Build and browser-test the documentation website" OFF)
 option(QSBIT_ISA_REFERENCES "Run optional independent RV32I reference tests" OFF)
 set(QSBIT_ARCH_TEST_SOURCE "" CACHE PATH "Provisioned, pinned riscv-arch-test checkout")
 
@@ -76,6 +77,9 @@ if(QSBIT_PYTHON_BACKENDS)
   target_compile_definitions(qsbit_sim PRIVATE QSBIT_HAS_PYTHON=1)
 endif()
 
+if(QSBIT_TEST_WEBSITE AND NOT BUILD_TESTING)
+  message(FATAL_ERROR "Website tests require BUILD_TESTING")
+endif()
 if(QSBIT_TEST_AER OR QSBIT_TEST_PULSE)
   if(NOT BUILD_TESTING OR NOT QSBIT_PYTHON_BACKENDS)
     message(FATAL_ERROR "Backend tests require BUILD_TESTING and QSBIT_PYTHON_BACKENDS")
@@ -138,6 +142,18 @@ if(BUILD_TESTING)
   add_test(NAME docs.checker COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/documentation.py")
   set_tests_properties(docs.contracts docs.checker PROPERTIES TIMEOUT 30 LABELS "fast;documentation")
+  if(QSBIT_TEST_WEBSITE)
+    add_test(NAME docs.website_build COMMAND "${Python3_EXECUTABLE}" -m sphinx
+      -n -W --keep-going -b html -D "qsbit_build=${CMAKE_CURRENT_BINARY_DIR}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/docs" "${CMAKE_CURRENT_BINARY_DIR}/docs/html")
+    add_test(NAME docs.website_browser COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/website.py"
+      --site "${CMAKE_CURRENT_BINARY_DIR}/docs/html")
+    set_tests_properties(docs.website_build PROPERTIES TIMEOUT 300 LABELS "website"
+      FIXTURES_SETUP documentation_site)
+    set_tests_properties(docs.website_browser PROPERTIES TIMEOUT 120 LABELS "website"
+      FIXTURES_REQUIRED documentation_site)
+  endif()
   add_test(NAME systemc.use_cases COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/use_cases.py" --simulator "$<TARGET_FILE:qsbit_sim>"
     --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"

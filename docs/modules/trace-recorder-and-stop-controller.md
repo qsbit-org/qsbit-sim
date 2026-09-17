@@ -14,12 +14,16 @@ Two separate logical responsibilities documented together: trace is observation-
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Committed domain events"] --> P["trace observer and stop predicate"]
-    S[("END; queues; credits; event IDs")] <--> P
-    P --> D["trace and final stop status"]
-    K["Activation: Committed event or stop check"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Committed domain events"];
+  owner [label="Trace / Simulator"];
+  state [label="Trace::events_; Simulator::stopped_ / success_ / fault_; Owner drain predicates"];
+  output [label="JSONL / success or typed fault"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,18 @@ flowchart LR
 **Reset and errors:** On fatal fault, stop with typed context and no claimed successful drain. Session reset emits an epoch boundary; stale callback discards remain observable.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `Trace::events_` | `vector<TraceEvent>` | Append-only observation records, ordered by nondecreasing tick. |
+| `Simulator::stopped_ / success_ / fault_` | `terminal state` | Distinguishes full drain from fatal failure. |
+| `Owner drain predicates` | `read-only checks` | CPU, producer, TCU, device, scoreboard, links and memory completion. |
+
+emit appends an observation without advancing simulation time. The barrier declares success only after END and all pending work/deliveries drain. fail records a typed fault and calls sc_stop; watchdog expiry is failure. JSONL serialization writes schema 1 and kind-specific payload; record order within one tick is not an extra hardware cycle.
+
+[Current C++ declarations](../api.md#tracehpp).
 
 ## Implementation and verification
 

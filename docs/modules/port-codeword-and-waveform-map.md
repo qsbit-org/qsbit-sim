@@ -14,12 +14,16 @@ Pure immutable lookup used during APPEND and group sealing, before TCU admission
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Port and codeword"] --> P["pure configured lookup"]
-    S[("mapping and resource table")] <--> P
-    P --> D["resolved action descriptor"]
-    K["Activation: Called at APPEND or seal"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Port and codeword"];
+  owner [label="Profile::mapping"];
+  state [label="Mapping::port / codeword; Mapping::actions; ActionSpec"];
+  output [label="Mapping with ActionSpec values"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,18 @@ flowchart LR
 **Reset and errors:** Unknown codeword, wrong port, unrepresentable delay or unsupported backend capability faults before producer acceptance. Configuration is immutable for the simulation session, including across session resets.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `Mapping::port / codeword` | `lookup key` | Source control port and digital codeword. |
+| `Mapping::actions` | `vector<ActionSpec>` | IdealGate, Pulse, Acquire or DiscriminatorArm descriptors. |
+| `ActionSpec` | `immutable descriptor` | Physical port, targets, resources, delay, duration and readout/pulse parameters. |
+
+Lookup returns the configured descriptor list or a typed unknown-port/codeword fault. Producer-side validation checks backend support before acceptance. Pulse descriptors carry one axis and constant amplitude; arbitrary sampled waveforms and oscillator-register operations are not implemented. Mapping values remain unchanged across session reset.
+
+[Current C++ declarations](../api.md#controlhpp).
 
 ## Implementation and verification
 

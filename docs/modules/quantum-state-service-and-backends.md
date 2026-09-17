@@ -14,12 +14,16 @@ One chronological service is the sole caller of a replaceable quantum-state back
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Physical event batch and drives"] --> P["single chronological state service"]
-    S[("backend state; last tick")] <--> P
-    P --> D["measurement and capability status"]
-    K["Activation: Called by DeviceRuntime"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Physical event batch and drives"];
+  owner [label="IQuantumBackend / DeviceRuntime"];
+  state [label="IQuantumBackend; ScriptedBackend; PythonBackend"];
+  output [label="Evolution / sampled bits / state"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,19 @@ flowchart LR
 **Reset and errors:** Unsupported capability fails before partial execution; a numerical backend failure terminates the run as invalid. Session reset creates declared initial quantum state; controller-only reset is a different future operation.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `IQuantumBackend` | `replaceable interface` | validate, reset, evolve, apply, measure and state. |
+| `ScriptedBackend` | `deterministic outcomes` | Returns configured measurement bits; no quantum statevector. |
+| `PythonBackend` | `optional bridge` | Calls a selected Python adapter; Aer/pulse packages are optional. |
+| `DeviceRuntime::active_` | `drive source` | Provides the joint drive set for the preceding interval. |
+
+DeviceRuntime validates the boundary before backend mutations, evolves [last_tick,t), measures ending acquisitions, then applies beginning gates. Pulse evolution receives all simultaneously active drives. Backend wall time never changes simulated tick. Python failures terminate the run. reset initializes a new backend state and seed.
+
+[Current C++ declarations](../api.md#backendhpp).
 
 ## Implementation and verification
 

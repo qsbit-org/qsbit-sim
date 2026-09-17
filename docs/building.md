@@ -41,6 +41,7 @@ supported and uses CMake's default generator and compiler.
 | `BUILD_TESTING` | OFF | Build core tests and examples; requires a Python interpreter and RISC-V binutils. |
 | `QSBIT_TEST_AER` | OFF | Register Aer numerical tests; requires the `aer` extra. |
 | `QSBIT_TEST_PULSE` | OFF | Register pulse numerical tests; requires the `pulse` extra. |
+| `QSBIT_TEST_WEBSITE` | OFF | Build and browser-test the website; requires `BUILD_TESTING`, Doxygen, Graphviz, `docs` and `docs-test` extras, and Chromium. |
 | `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests; requires the `verification` extra. |
 | `QSBIT_ARCH_TEST_SOURCE` | empty | Path to the pinned RISC-V architecture-test checkout. |
 | `QSBIT_SANITIZERS` | OFF | Enable address and undefined-behavior sanitizers. |

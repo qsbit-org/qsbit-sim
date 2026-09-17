@@ -14,12 +14,16 @@ The mailbox holds one sealed group crossing from the CPU domain; the TCU-domain 
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Sealed group mailbox"] --> P["TCU-edge atomic admission"]
-    S[("held request; reply ID")] <--> P
-    P --> D["timing and event queues plus ACK"]
-    K["Activation: TCU edge after crossing"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Sealed group mailbox"];
+  owner [label="ControlLinks / TcuCycleModel"];
+  state [label="groups, replies, closure; Envelope; TcuCycleModel::last_label_"];
+  output [label="Queue insertion / GroupReply"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,19 @@ flowchart LR
 **Reset and errors:** Reject stale epoch, duplicate group, impossible total capacity and late due cycle. Session reset clears mailboxes; old callbacks remain barred by epoch.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `groups, replies, closure` | `Mailbox<Group / GroupReply / EndOfStream>` | One-slot crossings between producer and TCU. |
+| `Envelope` | `published, eligible, epoch, value` | Durable payload and computed receiver visibility. |
+| `TcuCycleModel::last_label_` | `last admitted label` | Enforces ordered, nonduplicate submission. |
+| `timing_, events_` | `TCU queues` | Admission checks old occupancy before inserting all members. |
+
+publish computes eligibility from the first receiver edge strictly after publication. peek leaves a blocked group in its mailbox. A successful TCU transition returns admitted=true; Simulator takes the group and publishes GroupReply. Temporary occupancy stalls; impossible capacity, stale identity or a missed deadline raises a fault.
+
+[Current C++ declarations](../api.md#producerhpp).
 
 ## Implementation and verification
 

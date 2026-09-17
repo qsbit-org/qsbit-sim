@@ -14,25 +14,43 @@ CPU-domain substate that prepares groups of operations for one planned TCU cycle
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Ordered producer operations"] --> P["staging and seal state machine"]
-    S[("cursor; open group; sealed group")] <--> P
-    P --> D["GroupRequest and producer reply"]
-    K["Activation: Called within CPU edge"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Ordered producer operations"];
+  owner [label="TimelineProducer"];
+  state [label="cursor_, last_admitted_due_; open_events_, open_, flushed_; sealed_"];
+  output [label="Group / EndOfStream / CPU completion"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
 
 **Activation:** Advance on CPU edges through semantic operations; group replies arrive via a committed mailbox.
 
-**Transition:** APPEND places an event in the open group at the producer cursor and retires on `ProducerAccepted`; a second APPEND may join the same group. ADVANCE(0) changes nothing. Positive ADVANCE freezes a real open group, waits for its matching `GroupAdmitted` reply, then moves the cursor by the requested number of logical TCU cycles. An untouched initial origin needs no submission. FLUSH seals without moving the cursor, so APPEND there remains invalid until a positive ADVANCE. READ_RESULT flushes before waiting; END flushes before closing production.
+**Transition:** APPEND places an event in the open group at the producer cursor and retires on `ProducerAccepted`; a second APPEND may join the same group. ADVANCE(0) changes nothing. Positive ADVANCE freezes a real open group, waits for its matching `GroupReply` acknowledgment, then moves the cursor by the requested number of logical TCU cycles. An untouched initial origin needs no submission. FLUSH seals without moving the cursor, so APPEND there remains invalid until a positive ADVANCE. READ_RESULT flushes before waiting; END flushes before closing production.
 
 **Time and visibility:** The group interval is the current producer cursor minus the preceding sealed point’s due cycle, using logical origin zero for the first point; it is not measured from CPU execution or host time. A sealed group remains immutable while its crossing request is held. Admission confirms queue insertion, not physical firing.
 
 **Reset and errors:** Impossible staging or per-port total capacity faults immediately. Reset discards the open and sealed group and returns to the implicit origin with a new epoch.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `cursor_, last_admitted_due_` | `logical TCU cycles` | Point being prepared and preceding acknowledged point; their difference is the next interval. |
+| `open_events_, open_, flushed_` | `open-group state` | Staged events and whether the point remains appendable. |
+| `sealed_` | `optional Group` | One immutable submission awaiting the matching label reply. |
+| `held_` | `optional ProducerOperation` | Preserves the identity/operands of an incomplete CPU operation. |
+| `last_label_, next_event_, closed_` | `identity and lifecycle` | Monotone labels/events and END closure. |
+
+APPEND validates and stages events, then returns a result to retire the instruction. Sealing assigns the next label, publishes Group and returns incomplete. receive consumes GroupReply, clears sealed/open contents and marks the point flushed. The held ADVANCE then moves cursor; held FLUSH completes; held READ waits for its visible slot; held END publishes closure. ADVANCE(0) completes without sealing or moving cursor.
+
+[Current C++ declarations](../api.md#producerhpp).
 
 ## Implementation and verification
 

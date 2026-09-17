@@ -14,12 +14,16 @@ Bounded queue bank owned by the same TCU cycle model as the timing queue and bro
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["TCU atomic event admission"] --> P["manifest match by label"]
-    S[("per-port FIFO bank")] <--> P
-    P --> D["complete due candidate batch"]
-    K["Activation: Called within TCU edge"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="TCU atomic event admission"];
+  owner [label="TcuCycleModel::events_"];
+  state [label="events_; ReservedEvent::label / id; Profile::event_capacity / firing_width"];
+  output [label="Matching-label event members"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,18 @@ flowchart LR
 **Reset and errors:** Past or extra same-label entries fault with the whole group before launch. Reset clears every FIFO and invalidates old epoch entries.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `events_` | `vector<deque<ReservedEvent>>` | One FIFO per physical output port. |
+| `ReservedEvent::label / id` | `group/member identities` | Matches queued members to the timing-head manifest. |
+| `Profile::event_capacity / firing_width` | `bounds` | Storage and same-point output limits per port. |
+
+Atomic admission places each event in action.port. On firing, matching-label prefixes are gathered and checked against the timing manifest. Future-label members stay queued. After preflight succeeds, all members of the fired label are removed together; false-condition events are consumed but omitted from the launch batch.
+
+[Current C++ declarations](../api.md#tcuhpp).
 
 ## Implementation and verification
 

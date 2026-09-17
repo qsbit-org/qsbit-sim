@@ -14,12 +14,16 @@ Token and slot state belongs to the CPU-domain producer and scoreboard; a separa
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Acquisition acceptance and completion"] --> P["scoreboard plus CPU crossing"]
-    S[("tokens; slots; CPU credits")] <--> P
-    P --> D["visible token and read result"]
-    K["Activation: CPU edge and producer acceptance"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Acquisition acceptance and completion"];
+  owner [label="Scoreboard"];
+  state [label="slots_; generations_; fast_pending_"];
+  output [label="Token / visible result / released slot"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,19 @@ flowchart LR
 **Reset and errors:** Unknown, consumed, wrong-generation or wrong-epoch reads fault. Old-epoch completion cannot refill a reused slot. Session reset invalidates all generations.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `slots_` | `vector<Slot>` | Each slot has Free, Pending or Visible state, token and result bit. |
+| `generations_` | `per-slot generation` | Persists across reset so a reused slot does not revive an old handle. |
+| `fast_pending_` | `map<measurement ID, Token>` | Independent fast-delivery credits, released by acknowledgment. |
+| `next_measurement_` | `checked ID` | Next measurement identity within the epoch. |
+
+reserve changes Free to Pending and allocates a checked handle/token. deliver validates the complete token and changes Pending to Visible. consume returns incomplete for Pending; Visible becomes Free and returns its bit. Fast credit may remain pending after CPU consumption. Reset clears slots/credits and restarts measurement IDs in a new epoch, retaining slot generations.
+
+[Current C++ declarations](../api.md#feedbackhpp).
 
 ## Implementation and verification
 

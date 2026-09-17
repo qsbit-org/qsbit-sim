@@ -111,3 +111,35 @@ jobs:
             ${{ matrix.build_dir }}/plugin-test/
             ${{ matrix.build_dir }}/random-isa/report.json
             ${{ matrix.build_dir }}/architecture-isa/report.json
+
+  documentation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install documentation and example tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz ninja-build binutils-riscv64-unknown-elf
+          python -m pip install uv==0.12.7
+          uv sync --frozen --extra docs --extra docs-test
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          .venv/bin/python -m playwright install --with-deps chromium
+      - name: Build simulator and examples
+        run: |
+          cmake --preset gcc-ninja -DBUILD_TESTING=ON -DQSBIT_TEST_WEBSITE=ON
+          cmake --build --preset gcc-ninja --parallel 2
+      - name: Verify documentation and browser behavior
+        run: ctest --test-dir build-gcc -L 'fast|website' --output-on-failure
+      - name: Preserve local website and browser captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: documentation-site
+          path: |
+            build-gcc/docs/html/
+            build-gcc/docs/*.png
+            build-gcc/Testing/Temporary/

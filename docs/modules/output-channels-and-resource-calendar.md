@@ -14,12 +14,16 @@ DeviceRuntime is the sole owner of physical channel occupancy and future interva
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Immutable TCU launch batch"] --> P["boundary scheduler and calendar"]
-    S[("future intervals; active channels")] <--> P
-    P --> D["physical event batch"]
-    K["Activation: Physical boundary event"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Immutable TCU launch batch"];
+  owner [label="DeviceRuntime"];
+  state [label="calendar_; boundaries_; active_"];
+  output [label="Physical actions / backend calls / Completion"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,19 @@ flowchart LR
 **Reset and errors:** Unsupported conflict rejects the whole batch. Session reset aborts active actions and invalidates scheduled old-epoch callbacks. Positive pulse and acquisition duration is required.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `calendar_` | `ResourceCalendar` | Future half-open physical reservations and action identities. |
+| `boundaries_` | `map<Tick, Boundary>` | Scheduled starts, ends and result-ready IDs. |
+| `active_` | `map<Id, PhysicalAction>` | Operations currently occupying physical intervals. |
+| `last_tick_, processed_tick_` | `global ticks` | Last evolution point and guard against repeated physical processing. |
+
+accept resolves launch tick plus delay into physical intervals, preflights the whole batch and reserves all intervals. process at a due boundary evolves prior active drives once, samples ending acquisitions, ends old actions, applies new ideal gates and activates new intervals. Ready results are published last. Reset clears future/active work and reinitializes the backend.
+
+[Current C++ declarations](../api.md#devicehpp).
 
 ## Implementation and verification
 

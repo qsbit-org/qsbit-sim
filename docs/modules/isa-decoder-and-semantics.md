@@ -14,12 +14,16 @@ Pure C++ library called by the CPU owner. It does not own the PC, GPRs or a Syst
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Instruction word and operands"] --> P["pure decode and semantics call"]
-    S[("immutable ISA tables")] <--> P
-    P --> D["decoded effect or fault"]
-    K["Activation: Called by CPU pipeline"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Instruction word and operands"];
+  owner [label="rv32::decode / evaluate"];
+  state [label="Decoded; Effect"];
+  output [label="Decoded / Effect or typed fault"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="value records / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,17 @@ flowchart LR
 **Reset and errors:** Unknown or disabled encodings return illegal instruction. Reset does not change immutable decode tables.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `Decoded` | `value record` | Operation, original word, register fields, immediate and register-use flags. |
+| `Effect` | `value record` | Next PC, result, memory request parameters and branch outcome. |
+
+decode maps one machine word to Decoded or raises IllegalInstruction. evaluate takes Decoded plus PC and operand values, and returns Effect. It does not store registers, update the CPU PC, access memory or consume simulated time. Quantum instructions take the producer-adapter path in the CPU.
+
+[Current C++ declarations](../api.md#isahpp).
 
 ## Implementation and verification
 

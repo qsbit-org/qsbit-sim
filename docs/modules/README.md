@@ -30,4 +30,30 @@ The [high-level design](../high-level-design.md) states project goals. Start wit
 
 The standalone CACTUS comparison project remains outside this repository. It consumes the generic public trace and does not add simulator module code.
 
-In module diagrams, solid arrows carry data, dashed arrows indicate activation, and cylinders hold state or configuration. They do not introduce additional SystemC processes. **CTest** entries name executable regression tests and describe their assertions. Optional backend tests are identified separately.
+In module diagrams, solid arrows carry data, dashed arrows identify their labeled state or activation dependencies. State/configuration boxes list values used by the behavior. They do not introduce additional SystemC processes. **CTest** entries name executable regression tests and describe their assertions. Optional backend tests are identified separately.
+
+```{toctree}
+:hidden:
+
+platform-and-clock-adapter
+elf-loader-and-program-image
+isa-decoder-and-semantics
+cpu-cycle-model
+memory-and-response-model
+quantum-instruction-adapter
+operation-lowerer-and-device-distributor
+timeline-reservation-manager
+command-crossing-and-admission
+timing-queue
+per-port-event-queues
+tcu-timer-and-label-broadcaster
+condition-gate-and-launch-preflight
+port-codeword-and-waveform-map
+output-channels-and-resource-calendar
+quantum-state-service-and-backends
+acquisition-and-discrimination
+measurement-scoreboard-and-cpu-feedback
+fast-condition-history
+trace-recorder-and-stop-controller
+future-synchronization-adapter
+```

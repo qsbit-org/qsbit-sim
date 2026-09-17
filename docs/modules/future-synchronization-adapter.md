@@ -19,12 +19,23 @@ There is no synchronization process, peer-link state, or TCU pause/resume path.
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    CPU[CPU executes QSYNC] --> P[TimelineProducer]
-    P --> E[UnsupportedSynchronization]
-    E --> STOP[Simulator records fault and stops]
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="QSYNC"];
+  owner [label="TimelineProducer rejection"];
+  state [label="No retained synchronization state"];
+  output [label="UnsupportedSynchronization"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
+
+## Objects and state transition
+
+QSYNC decodes to ProducerKind::Synchronize and execute raises UnsupportedSynchronization. There is no synchronization-specific object, peer-link queue or TCU pause state.
+
+[Current C++ declarations](../api.md#producerhpp).
 
 ## Implementation and verification
 

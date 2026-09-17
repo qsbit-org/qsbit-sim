@@ -10,7 +10,7 @@ Use **open group** while the producer can append events and **sealed group** aft
 
 ## Start with one example
 
-Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` and `APPEND(B)` put two operations into an **open group** for that cycle. `ADVANCE(3)` **seals** the group and waits for the `GroupAdmitted` reply confirming that the TCU **admitted** all of its entries; it then moves the producer cursor to cycle 7. The TCU **fires** the group when its own timer reaches cycle 4, provided admission happened before that cycle's due edge. These are different milestones: staging, admission, and firing do not occur simply because the producer cursor changes.
+Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` and `APPEND(B)` put two operations into an **open group** for that cycle. `ADVANCE(3)` **seals** the group and waits for the `GroupReply` acknowledgment confirming that the TCU **admitted** all of its entries; it then moves the producer cursor to cycle 7. The TCU **fires** the group when its own timer reaches cycle 4, provided admission happened before that cycle's due edge. These are different milestones: staging, admission, and firing do not occur simply because the producer cursor changes.
 
 ## Time and SystemC
 
@@ -54,7 +54,7 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | **Interval** | The number of TCU logical cycles from the preceding sealed point to the next one, using logical origin zero for the first point. A cumulative interval determines a due cycle; admission time does not shift that due cycle. |
 | **Member manifest** | The timing point's exact list of expected event IDs and per-port counts. It lets the TCU check that all members are present before any member fires. An empty manifest is a valid wait-only point. |
 | **`ProducerAccepted`** | Acknowledgment that an `APPEND` event and any required measurement slot have entered bounded CPU-side staging. It does not mean that the TCU has accepted or fired the group. |
-| **Atomic admission / `GroupAdmitted`** | Atomic admission inserts one sealed timing entry and all its required per-port event entries together, or none. `GroupAdmitted` is the reply generated after that insertion. Firing is later than insertion, but may precede the reply reaching the CPU if the return crossing is slow. |
+| **Atomic admission / `GroupAdmitted`** | Atomic admission inserts one sealed timing entry and all its required per-port event entries together, or none. The `GroupAdmitted` trace records insertion; the `GroupReply` mailbox carries its acknowledgment. Firing is later than insertion, but may precede the reply reaching the CPU if the return crossing is slow. |
 | **Crossing / receiver-edge latency** | Transfer between clock-domain owners through a committed mailbox. A message published at tick `p` is first eligible on a receiver edge strictly after `p`; configured latency `N >= 1` counts receiver edges from there. It does not rely on incidental delta-cycle order. |
 | **Backpressure** | A request remains pending because a bounded resource is temporarily full. An intrinsically oversized group instead produces a typed error; waiting cannot make it fit. |
 | **Timing queue** | Bounded TCU FIFO of ordered intervals, labels, and manifests. It preserves planned logical timing rather than rescheduling a point from its arrival tick. |

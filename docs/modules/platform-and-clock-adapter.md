@@ -14,17 +14,21 @@ Platform setup owns the immutable timing profile; a session coordinator owns res
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Validated profile and reset request"] --> P["SystemC setup and reset coordinator"]
-    S[("clock phase; start tick; epoch")] <--> P
-    P --> D["CPU, TCU and device owners"]
-    K["Activation: Setup or session reset"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Validated profile and reset request"];
+  owner [label="Simulator"];
+  state [label="profile_; cpu_clock_, tcu_clock_; wake_, barrier_"];
+  output [label="Clock edges / reset / physical wakeup"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
 
-**Activation:** Validate and construct before elaboration. A scheduled session-reset callback runs before other work at its tick; clock edges wake their respective domain owners.
+**Activation:** Validate and construct before elaboration. Each edge callback and timed wakeup checks reset before ordinary work; the first callback applies it once for that tick. Clock edges wake their respective domain owners.
 
 **Transition:** Check that every period, phase and device delay maps exactly to global ticks; create separate CPU and TCU clocks; publish a single read-only profile snapshot to all owners. Configure start independently of CPU progress so admission backpressure cannot prevent timer start.
 
@@ -33,6 +37,20 @@ flowchart LR
 **Reset and errors:** Reject unrepresentable or inconsistent parameters before sc_start. Session reset preserves the immutable timing profile, increments the epoch, invalidates old callbacks and initializes the backend; a future controller-only reset needs a different contract.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `profile_` | `const Profile` | Validated clocks, capacities, mappings and delays; immutable across reset. |
+| `cpu_clock_, tcu_clock_` | `sc_clock` | CPU/memory and TCU rising-edge activation. |
+| `wake_, barrier_` | `sc_event` | Timed wakeup and zero-time barrier activation; payload lives in owners. |
+| `cpu_done_, memory_done_, tcu_done_` | `optional tick` | Marks which coincident edge transitions have completed. |
+| `epoch_, resets_, last_reset_` | `session state` | Applies a reset once per requested tick and invalidates old work. |
+
+On an edge, reset is applied first. Otherwise the owning model advances and records its done tick. The barrier waits for all clock edges due at that tick, then processes a due device boundary. schedule_wakeup selects the next physical boundary, reset or watchdog; it cancels the prior wake notification before scheduling another.
+
+[Current C++ declarations](../api.md#simulatorhpp).
 
 ## Implementation and verification
 

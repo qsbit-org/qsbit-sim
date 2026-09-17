@@ -14,12 +14,16 @@ Bounded FIFO substate of one TCU cycle model. It has no separate `SC_METHOD` or 
 
 ## Module diagram
 
-```mermaid
-flowchart LR
-    U["Atomic TimingPoint admission"] --> P["FIFO head inspection"]
-    S[("interval; label; manifest")] <--> P
-    P --> D["due label and capacity"]
-    K["Activation: Called within TCU edge"] -.-> P
+```{graphviz}
+digraph module {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
+  input [label="Atomic TimingPoint admission"];
+  owner [label="TcuCycleModel::timing_"];
+  state [label="Point::point; Point::due; last_due_"];
+  output [label="Head TimingPoint and cumulative due cycle"];
+  input -> owner [label="input / call"]; owner -> output [label="result / effect"]; state -> owner [style=dashed, label="owned state / configuration"];
+}
 ```
 
 ## Behavior
@@ -33,6 +37,18 @@ flowchart LR
 **Reset and errors:** Late admission faults; a manifested missing member causes ManifestMismatch at firing. Reset empties the FIFO and invalidates its epoch.
 
 Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
+
+## Objects and state transition
+
+| Object or member | Representation | Role |
+| --- | --- | --- |
+| `Point::point` | `TimingPoint` | Epoch, label, interval and exact event-ID manifest. |
+| `Point::due` | `logical TCU cycle` | Cumulative due cycle calculated during admission. |
+| `last_due_` | `logical TCU cycle` | Last admitted due cycle, retained even when the FIFO empties. |
+
+Admission computes new_due = last_due + interval and appends one Point. At its due edge the TCU validates the complete group before popping the timing head. Empty gaps leave last_due unchanged, so later arrivals cannot rebase the timeline. A firing edge uses old occupancy for candidate admission.
+
+[Current C++ declarations](../api.md#tcuhpp).
 
 ## Implementation and verification
 

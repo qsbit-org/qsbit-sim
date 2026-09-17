@@ -115,3 +115,9 @@ Backend tests are enabled separately; see [build and test options](docs/building
 - [Program and trace interfaces](docs/interfaces.md)
 - [Verification](docs/engineering-and-testing.md) and [CACTUS comparison scope](docs/decisions/0002-reference-comparison-scope.md)
 - [Glossary](docs/glossary.md)
+
+## Documentation website
+
+The local website includes a clickable architecture, module objects and behavior,
+C++ API references, and a player for recorded simulator executions. See
+[build and preview the website](docs/website.md).
