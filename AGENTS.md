@@ -1,46 +1,37 @@
-# Agent Instructions
+# Engineering Rules
 
-## Language and scope
+These rules govern source code, SystemC models, tests, and repository hygiene. Product behavior and architectural decisions belong in `docs/`; consult the relevant contract there before changing behavior. Write repository content, comments, test names, and commit messages in English.
 
-- Write all repository content, code comments, tests, commit messages, and issue text in English.
-- Treat `docs/high-level-design.md` as a proposal until its open decisions are resolved. Record a decision in that document or a dedicated architecture decision record before changing an architectural contract.
-- Implement a C++20 and SystemC simulator. The initial classical engine must implement RV32I instruction semantics and a cycle-level pipeline. Keep its integration boundary independent of its concrete implementation so another RISC-V simulator can replace it later.
-- Preserve QuMA's timing queue, per-port label-tagged event queues, deterministic-domain timer, and label-broadcast trigger semantics; see `docs/module-architecture.md`. Do not replace them with an absolute-time priority queue. Follow the timing-control principles described in the QuMA literature. Do not copy CACTUS internals as an architectural constraint. Phase 1 must compare independently executed equivalent workloads against CACTUS at the quantum-control boundary with zero common-grid-tick time difference.
-- Keep every CACTUS-specific comparator, probe, translation script, workload, fixture, configuration, and result artifact in a separate disposable validation project. The simulator may expose a generic versioned trace through its public interface, but it must have no CACTUS-specific code path or build dependency. Removing the validation project must not require editing this repository.
-- Treat MMIO-only and single-lane demonstrations as M0 smoke tests, not Phase 1 completion. Phase 1 uses RV32I extension instructions and validates both circuit-level and small-system pulse-level backend adapters.
+## C++ and build
 
-## Source and dependency discipline
+- Use C++20, the checked-in `.clang-format`, and the pinned dependency versions. Keep configure and build independent of the network after dependencies are provisioned. Treat compiler warnings as errors; run `clang-tidy` on changed C++ where available.
+- Prefer value types, RAII, `enum class`, `std::span`, fixed-width integers at binary/protocol boundaries, and explicit ownership. Avoid raw owning pointers, hidden global state, and unchecked time or capacity arithmetic.
+- Keep pure transition logic independent of SystemC when practical. Keep scheduler code in SystemC owners and avoid leaking SystemC types into pure interfaces. Give each mutable state object one owner; document reset, overflow, and teardown behavior.
+- Use bounded storage for modeled hardware resources. Make backpressure and capacity faults observable instead of silently dropping work.
 
-- Prefer the RISC-V unprivileged ISA specification and Accellera SystemC documentation for behavior. Use third-party simulators as references or optional adapters, and review license, maintenance, and API stability before importing source.
-- Pin dependency versions. Keep the core build independent of a network connection after dependencies are provisioned.
-- The simulator loads RV32 ELF or explicit raw machine code; it does not parse assembly text. Use an existing assembler with `.insn` for custom instructions. Manage assembler integration separately and share a versioned ISA encoding and semantics contract.
-- Do not expose SystemC types in the RV32I ISA library or public CPU adapter contract. Keep SystemC in simulation modules and adapters.
-- Use fixed-width integer types at ISA and protocol boundaries. Define time units, byte order, reset behavior, overflow behavior, and queue capacity explicitly.
+## SystemC processes and time
 
-## C++20 and SystemC implementation
+- Register processes during elaboration. Put `sensitive`, `dont_initialize()`, and any reset declaration immediately after the process they configure. Document what triggers each process, whether it runs during initialization, and how it resets.
+- Use `SC_METHOD` for work that completes on each trigger. It must return without `wait()`; persist state in an owned object, not in method-local variables. Use `next_trigger()` only when dynamic sensitivity is intentional and documented.
+- Use `SC_THREAD` when a process needs to suspend with `wait()` and resume with its call stack and local variables intact. Every continuing thread path must eventually wait; an infinite loop without `wait()` prevents the nonpreemptive kernel from running other processes. Use `SC_CTHREAD` only for a single-clock process that needs its clocked `wait()` semantics; it cannot wait on arbitrary events or time intervals.
+- Set the global time resolution before constructing any nonzero `sc_time`, and check it at the simulation boundary. Use `sc_time` or checked integer ticks for simulated time; host execution time and delta-cycle count are not hardware cycles.
+- Treat `notify()` as immediate, `notify(SC_ZERO_TIME)` as next-delta, and `notify(nonzero_time)` as a future simulation-time event. An `sc_event` carries no payload and has at most one pending notification; repeated timed notifications do not form a queue. Keep queued data in an owned channel or container and wake consumers separately.
+- Remember that `sc_signal::write()` commits in the update phase: a read in the same evaluation phase sees the old value. Specify the edge and delta at which a consumer can observe a change. Use signals for signal semantics, and explicit bounded mailboxes when a multi-item transaction protocol is required.
+- Never make externally visible behavior depend on which runnable process executes first at one simulation time. Define sampling, state commit, notification, and output visibility across coincident clock edges; use an explicit barrier or equivalent protocol where shared work needs all owners to finish. Test with altered process registration order when this risk exists.
+- Keep reset and cancellation rules explicit. A reset must invalidate pending work or identify it by epoch; `sc_event::cancel()` removes a pending notification, not an already delivered one. Do not assume that `sc_stop()` permits another simulation run in the same process.
+- Keep processes small. A synchronous C++ or Python backend call holds the SystemC scheduler; keep its host duration outside simulated timing and document where that call occurs. `wait()` advances simulation scheduling, not the host computation.
 
-- Apply the checked-in `.clang-format`; enable compiler warnings and treat new warnings as errors in CI. Use `clang-tidy` for changed C++ code where available.
-- Prefer value types, RAII, `enum class`, `std::span`, and explicit ownership. Avoid raw owning pointers and hidden global state.
-- Keep each SystemC process small and assign one clear owner to each piece of mutable state. Do not call `wait()` from `SC_METHOD`. Use `SC_THREAD` for blocking protocol behavior and `SC_METHOD` for nonblocking combinational or clocked state transitions. Logical substages within a clock-domain owner do not each require a separate process. Document process sensitivity and reset behavior.
-- Model externally visible event times with `sc_time` and an explicit simulation time resolution. Do not infer hardware timing from host wall-clock time or delta cycles.
-- Distinguish producer-operation acceptance from atomic TCU group admission; follow the sealing, strict-edge visibility, empty-stream, backend batching, and epoch-reset rules in `docs/module-architecture.md`.
-- Use bounded queues where hardware backpressure matters. Make overflow and underflow observable. Specify same-time event order, cross-domain visibility, exact acceptance and one-time side effects; do not let SystemC delta-cycle order decide hardware behavior. Log structured trace events for instruction retirement, queue operations, feedback, and timed output.
+## Tests and diagnostics
 
-## Testing requirements
+- Add a focused test for every behavior change and a regression test for every bug fix. Test pure transitions without SystemC where possible; add an integration test when behavior crosses an owner or clock boundary.
+- Run each independent SystemC scenario in a fresh executable or child process. Do not assume that elaboration or simulation time can be reset in an ordinary C++ test fixture.
+- Assert simulated timestamps, event order where specified, boundary state, final state, and stop or fault reason. Process exit status alone is insufficient. Cover same-timestamp events, reset, queue limits, and reordered process registration where relevant.
+- Use deterministic seeds and report the seed and first divergent event on failure. Register tests with CTest and set timeouts. Keep fast tests separate from longer randomized or numerical tests.
+- Before reporting a change complete, run the affected tests and the fast CTest suite; run formatting and relevant sanitizer or integration checks when the change touches their boundary. Preserve reproducible failure inputs and traces outside tracked source.
 
-- Every behavior change needs a focused unit test and, where it crosses a component boundary, an integration or use-case test. A bug fix needs a regression test that fails before the fix.
-- Keep pure RV32I decode and instruction semantics tests independent of SystemC. Test pipeline hazards and retirement separately from ISA correctness.
-- Run each SystemC scenario in a fresh test executable or process. Do not assume simulation time or elaborated module state can be reset in the same process.
-- Assert event order, timestamps, queue state, final architectural state, and stop reason. A successful process exit alone is insufficient.
-- Use deterministic seeds and print the seed on failure. Keep fast unit tests separate from longer randomized and RISC-V architecture tests.
-- Register tests with CTest. Core CI must run formatting, build, unit tests, component tests, use-case tests, and sanitizer jobs where supported. Run CACTUS differential acceptance from the separate validation project.
-- Do not claim a feature complete until the tests in `docs/engineering-and-testing.md` for that feature pass. Phase 1 timing claims require the CACTUS differential gate; adapter-extensibility claims require both circuit-level and pulse-level contract tests.
+## Repository hygiene
 
-## Change workflow
+- Keep review notes, agent reports, audit findings, generated traces, local dependencies, and temporary visualizations out of tracked files. Use ignored local directories or an external workspace. Incorporate accepted findings into the relevant code, test, or `docs/` contract.
+- Put design decisions, timing contracts, instruction semantics, and feature scope in `docs/`, not in this file. Update those documents together with behavior changes.
 
-Keep review working notes, agent review reports, audit findings, and review checklists out of tracked repository content. Store local review artifacts under the ignored `docs/reviews/` directory or outside this repository. Incorporate accepted findings into the relevant design document, decision record, code, or tests; do not link committed documents to ignored review artifacts.
-
-1. Read the relevant architecture contract and cite the exact behavior being implemented.
-2. Make the smallest coherent change with tests.
-3. Run the affected tests, then the full fast CTest suite before reporting completion.
-4. State what changed, what was tested, and any remaining limitation.
+These SystemC rules are distilled from IEEE Std 1666-2023, especially §§4.3.2, 5.2.10–5.2.15, 5.10.6–5.10.9, 5.11.5, and 6.4.8. The standard defines kernel semantics; the ownership, testing, and repository rules above are project conventions.
