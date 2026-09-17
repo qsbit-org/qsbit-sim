@@ -18,6 +18,14 @@ set(QSBIT_ARCH_TEST_SOURCE "" CACHE PATH "Provisioned, pinned riscv-arch-test ch
 
 include(cmake/SystemC.cmake)
 
+if(BUILD_TESTING OR QSBIT_PYTHON_BACKENDS)
+  if(DEFINED ENV{VIRTUAL_ENV} AND NOT Python3_EXECUTABLE)
+    find_program(Python3_EXECUTABLE NAMES python python3
+      PATHS "$ENV{VIRTUAL_ENV}/bin" "$ENV{VIRTUAL_ENV}/Scripts"
+      NO_DEFAULT_PATH REQUIRED)
+  endif()
+endif()
+
 add_library(qsbit_warnings INTERFACE)
 target_compile_options(qsbit_warnings INTERFACE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 if(QSBIT_WARNINGS_AS_ERRORS)
@@ -48,6 +56,7 @@ if(QSBIT_PYTHON_BACKENDS)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
   execute_process(COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
     OUTPUT_VARIABLE PYBIND11_CMAKE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+  set(pybind11_DIR "${PYBIND11_CMAKE_DIR}")
   find_package(pybind11 3 CONFIG REQUIRED PATHS "${PYBIND11_CMAKE_DIR}" NO_DEFAULT_PATH)
   add_library(qsbit_python STATIC src/python_backend.cpp)
   set_target_properties(qsbit_python PROPERTIES CXX_VISIBILITY_PRESET hidden)
