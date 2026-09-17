@@ -132,6 +132,12 @@ if(BUILD_TESTING)
   find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
   find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump REQUIRED)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME docs.contracts COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_docs.py" --build "${CMAKE_CURRENT_BINARY_DIR}"
+    --ctest "${CMAKE_CTEST_COMMAND}")
+  add_test(NAME docs.checker COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/documentation.py")
+  set_tests_properties(docs.contracts docs.checker PROPERTIES TIMEOUT 30 LABELS "fast;documentation")
   add_test(NAME systemc.use_cases COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/use_cases.py" --simulator "$<TARGET_FILE:qsbit_sim>"
     --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"

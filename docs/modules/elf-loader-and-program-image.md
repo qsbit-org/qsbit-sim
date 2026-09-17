@@ -1,6 +1,6 @@
 # ELF Loader and Program Image
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: Before simulation starts"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Call once before simulation or during an explicitly configured cold-start action.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Reject a malformed image without partially starting simulation. Baseline session reset preserves loaded memory and reuses entry PC; a cold start reloads it.
 
-**Focused verification:** Check malformed ELF fields, overlapping segments, zero-filled memory, legal entry, and raw-image base address.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 ProgramImage checks ELF32 segments and permissions; the memory owner retains its bytes.
 
 - Implementation: [image.cpp](../../src/image.cpp) and [image.hpp](../../include/qsbit/image.hpp).
-- Focused verification: [core_tests.cpp](../../tests/core_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `core.image`, `systemc.use_cases`.
+
+Checks image validation and permissions, raw input, and missing-file diagnostics.
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).

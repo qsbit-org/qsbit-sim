@@ -1,6 +1,6 @@
 # Memory and Response Model
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -9,7 +9,7 @@ Clocked memory owner for runtime requests. ELF loading initializes its storage b
 | Direction | Contract |
 | --- | --- |
 | Upstream inputs | Load-plan bytes, one stable CPU request with ID, and configured memory clock edge (initially the CPU clock). |
-| Downstream outputs | Bounded response mailbox with ID, value or access fault; M0 MMIO may feed the same producer protocol. |
+| Downstream outputs | Bounded response mailbox with ID, value or access fault. |
 | State owner and retained state | Byte storage, pending request slots, configured latency counters and response state. |
 
 ## Module diagram
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: Memory clock edge"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Wake on a configured memory clock edge, initially the CPU clock. Read a committed request; publish a later response according to the profile.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Out-of-range and misaligned accesses produce typed faults. Baseline session reset clears in-flight transactions but preserves loaded bytes; cold start reloads them.
 
-**Focused verification:** Test response latency, held request, one-time store, load-after-store profile behavior, reset during a request and M0 MMIO conversion.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 MemoryModel owns one pending fetch and one pending data transaction; both responses use strict-edge mailboxes.
 
 - Implementation: [memory.cpp](../../src/memory.cpp) and [memory.hpp](../../include/qsbit/memory.hpp).
-- Focused verification: [core_tests.cpp](../../tests/core_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `core.memory`, `systemc.use_cases`.
+
+Checks memory service and latency-dependent execution, load/store hazards and older access faults.
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).

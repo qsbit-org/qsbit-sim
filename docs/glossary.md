@@ -62,7 +62,7 @@ Suppose the CPU-side **producer cursor** is at logical TCU cycle 4. `APPEND(A)` 
 | **Firing / label broadcast** | On a due TCU edge, the timer announces the label and the TCU checks the complete matching group for launch. A group admitted on that same edge cannot fire then. |
 | **Launch preflight** | Checks the full due group, conditions, supported actions, and physical resource reservations before any physical side effect. A fatal conflict rejects the whole batch. |
 | **Empty stream / wait-only point** | An empty queue means no currently admitted point is ready; the TCU timer continues. A wait-only point is an actual admitted timing entry with no port events, used to preserve an intentional interval. |
-| **`APPEND`, `ADVANCE`, `FLUSH`** | Proposed producer operations: add an event to the open group; move the planned cursor after sealing a real open group; or seal without moving the cursor. `ADVANCE(0)` neither seals nor moves. See [the exact completion rules](module-architecture.md#41-producer-operations-and-progress). |
+| **`APPEND`, `ADVANCE`, `FLUSH`** | Producer operations: add an event to the open group; move the planned cursor after sealing a real open group; or seal without moving the cursor. `ADVANCE(0)` neither seals nor moves. See [the exact completion rules](module-architecture.md#41-producer-operations-and-progress). |
 
 ## Device actions and feedback
 

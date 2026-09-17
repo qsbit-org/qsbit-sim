@@ -43,8 +43,7 @@ flowchart LR
   FB --> CPU
   READ --> COND[Independent fast-condition crossing]
   COND --> LAUNCH
-  TIMER -. sync event .-> SYNC[Future synchronization adapter]
-  SYNC -. pause and resume .-> TIMER
+  DEC -. QSYNC .-> REJECT[UnsupportedSynchronization fault]
   CPU -.-> TRACE[Generic event trace]
   ADMIT -.-> TRACE
   LAUNCH -.-> TRACE
@@ -58,18 +57,22 @@ flowchart LR
 
 The solid path carries modeled hardware requests, events, and results. The dashed clock links mean that SystemC schedules the owners' processes. Trace links are observation only: trace consumption cannot affect simulation timing. The external CACTUS validator owns its own probes, eQASM translation, fixtures, comparator, and results. It is not a source or build dependency of this repository.
 
-### Suggested C++ boundaries
+### Implemented C++ boundaries
 
-- `IsaDecoder` and `IsaSemantics`: pure C++ functions, independent of SystemC.
-- `CpuCycleModel`: `step(CpuCycleInput) -> CpuCycleOutput`, with a replaceable implementation and an explicit timing-profile identifier.
-- `TimelineProducer`: holds the bounded group being planned at the producer cursor and at most one sealed group awaiting TCU admission; it produces `TimingPoint` and `ReservedEvent` records without advancing the TCU clock.
-- `TcuCycleModel`: `step(TcuCycleInput) -> TcuCycleOutput`, containing the timing queue, event queues, timer, and launch state.
-- `DeviceRuntime`: owns physical resource reservations and the sole caller of `IQuantumBackend`; batches all actions at a physical timestamp before evolving shared quantum state. The backend cannot advance the SystemC clock.
-- Small SystemC wrappers: call these models on the appropriate edges, own the ports and events, and apply the same-time publication rule.
+- `rv32::decode` and `rv32::evaluate` implement ISA decoding and architectural effects without SystemC.
+- `ICpuCycleModel::step(Tick, Epoch, CpuPorts&)` advances one CPU edge. `CpuCycleModel` implements the three-stage pipeline.
+- `TimelineProducer` owns the producer cursor, bounded open group and at most one sealed group awaiting admission.
+- `TcuCycleModel::step` takes the current tick, epoch, candidate group, incoming completions and preflight callback; it returns `TcuOutput` with admission, launch and fast-delivery results.
+- `DeviceRuntime` owns physical reservations and calls `IQuantumBackend` at complete physical boundaries.
+- `Simulator` is the SystemC wrapper. Its clock methods call the CPU, memory and TCU models; its device barrier collects coincident work before physical execution.
 
-These are logical module boundaries, not one SystemC process per box. A SystemC channel is a communication object; a device output channel is a modeled physical resource. Neither term by itself implies a separate process. A CPU-domain owner contains the pipeline, producer, and measurement scoreboard; a TCU-domain owner contains admission, queue state, timer, and launch preflight. Pure helper calls within either owner do not add a cycle. DeviceRuntime owns timed physical events and quantum state access. Communication between owners uses committed channels as defined in Section 4.
+The [C++ interface reference](cpp-interfaces.md) contains the current declarations. These are logical responsibilities; a diagram box does not imply a separate SystemC process or clock stage. A SystemC channel is a communication object; a device output channel is a modeled physical resource.
 
-The public records use fixed-width integers and a versioned serialization. At minimum, `TimingPoint` has an epoch, monotone label, interval in TCU cycles, and an expected-event manifest; `ReservedEvent` has that epoch and label, stable event and instruction IDs, port, codeword, a resolved immutable action descriptor, and optional condition and measurement tokens; `TraceEvent` has global integer tick, clock domain and local cycle, event kind, identity, and status. Group descriptors also carry a configuration hash and per-port event counts. `EndOfStream` carries the epoch, stream ID and last admitted label (absent for an empty stream); the receiver checks that ordering before closing input. It has no hardware timing label of its own. Replies distinguish `ProducerAccepted`, `GroupAdmitted`, `CpuResultVisible`, and typed rejection. An optional derived global fire tick is valid only while the future TCU run state is known; it does not replace the timing queue and label-matched event queues. A deferred synchronization extension must invalidate predictions beyond an unresolved pause.
+`TimingPoint` carries epoch, label, interval in logical TCU cycles and a manifest of event IDs. `ReservedEvent` carries event and instruction IDs, source port/codeword, resolved action, and optional measurement and condition tokens. `Group::configuration` stores the profile fingerprint; per-port counts are computed from its events during admission.
+
+`EndOfStream` contains only `last_label`, with zero representing an empty stream. Its mailbox envelope carries epoch and publication/eligibility ticks. There is one stream per simulator instance; no stream-ID field exists. `GroupReply` contains the admitted label. `ProducerAccepted`, `GroupAdmitted` and `CpuResultVisible` are distinct trace milestones, not variants of a shared reply type.
+
+`TraceEvent` contains tick, epoch, kind, IDs, cycle and event-specific payload. Event kind determines how to interpret the cycle and payload; there are no dedicated clock-domain or status fields. JSONL serialization adds `schema: 1`; the in-memory records do not share a versioned wire format. See the [trace contract](interfaces.md#jsonl-trace).
 
 ### Timing terms used below
 
@@ -85,7 +88,7 @@ For example, with producer cursor 4, `APPEND(A)` and `APPEND(B)` place two opera
 
 ## 3. Module map
 
-The [module contract index](modules/README.md) links to one behavior description and diagram per logical module. These are logical responsibilities, not necessarily separate `sc_module` instances or extra clock stages. Each module page owns its local inputs, outputs, state, activation, errors and focused verification. Section 4 owns the cross-module timing and visibility protocol; if a module page and Section 4 disagree, resolve the discrepancy before implementation.
+The [module contract index](modules/README.md) links to one behavior description and diagram per logical module. These are logical responsibilities, not necessarily separate `sc_module` instances or extra clock stages. Each module page owns its local inputs, outputs, state, activation, errors and executable verification. Section 4 owns the cross-module timing and visibility protocol; if a module page and Section 4 disagree, correct the discrepancy and its regression coverage.
 
 | Implementation area | Logical modules |
 | --- | --- |

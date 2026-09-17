@@ -1,6 +1,6 @@
 # Measurement Scoreboard and CPU Feedback
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: CPU edge and producer acceptance"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Allocate at producer acceptance; crossing completion becomes eligible on a later CPU edge; READ_RESULT acts through CPU commit path.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Unknown, consumed, wrong-generation or wrong-epoch reads fault. Old-epoch completion cannot refill a reused slot. Session reset invalidates all generations.
 
-**Focused verification:** Test stale earlier result, two outstanding generations, reversed completions, blocked read, capacity exhaustion and late fast delivery after CPU consumption.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 Scoreboard owns CPU slots, generations and independent fast delivery credits; TimelineProducer receives CPU completions.
 
 - Implementation: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
-- Focused verification: [protocol_tests.cpp](../../tests/protocol_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `control.scoreboard`, `protocol.readout`.
+
+Checks slot reuse, generations, duplicate/stale results, consumption and independent delivery credits.
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).

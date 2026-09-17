@@ -1,6 +1,6 @@
 # CPU Cycle Model
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: CPU rising edge"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Wake on each CPU rising edge. A separate adapter call inside this transition adds no clock cycle.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Reset clears pipeline and register state and restores loaded entry PC. A later protocol failure terminates the run as a simulator fault; it cannot retroactively turn a retired operation into a precise CPU trap.
 
-**Focused verification:** Test branch flush, older memory fault, forwarding, stalls, duplicate acknowledgment, two APPENDs followed by ADVANCE, and registration-order invariance.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 CpuCycleModel implements the three-stage pipeline; Simulator accepts an ICpuCycleModel factory for replacement. adapter_tests.cpp exercises this injection and reset.
 
 - Implementation: [cpu.cpp](../../src/cpu.cpp) and [cpu.hpp](../../include/qsbit/cpu.hpp).
-- Focused verification: [random_isa.py](../../tests/random_isa.py); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `systemc.use_cases`, `adapter.normal`, `adapter.reset`.
+
+Checks hazards, branch flush, older faults, unique retirement IDs and replaceable CPU construction/reset.
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).

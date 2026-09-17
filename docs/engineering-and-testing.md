@@ -74,7 +74,7 @@ The initial CI gate builds Debug and Release, checks formatting, treats warnings
 - `core.*`: RV32I arithmetic and control, encoding validation, ELF and raw memory, strict-edge mailboxes and memory service.
 - `control.*`: atomic manifests and queue credits, empty-stream deadlines, scoreboard and fast predicates.
 - `protocol.*`: held producer operations, staging and slot limits, resource conflicts, delayed discriminator arm, overflow rollback, reset and exact-token history.
-- `systemc.*`: ELF use cases, registration-order invariance and 51 fresh-process pipeline, reset, clock, feedback and CLI scenarios.
+- `systemc.*`: ELF use cases, registration-order invariance and fresh-process pipeline, reset, clock, feedback and CLI scenarios. `systemc.use_cases` reports its executed scenario count.
 - `adapter.*`: CPU factory injection through ICpuCycleModel, including session reset.
 - `numerical.*`: real Aer Bell-state correlation and feedback, pulse inversion, full-device simultaneous drives, analytic simultaneous noncommuting drives and unsupported-capability rejection.
 - `reference.rv32_random`: 32 deterministic seeds; compare every retired register state and PC plus final memory against Unicorn 2.1.4.
@@ -85,3 +85,27 @@ The architecture-test adapter replaces platform entry and exit, and uses RV32I N
 Run Debug and Release suites with explicitly selected backend tests, a bridge-only suite without numerical packages, and a Python-free ASan/UBSan build. Build commands and opt-in flags are in [building.md](building.md). Leak detection is disabled for the SystemC process lifecycle; address and undefined-behavior errors remain fatal. The CI workflow preserves failure traces. No CACTUS tooling is part of this workflow.
 
 For focused line and branch evidence, configure a separate build with `-DQSBIT_COVERAGE=ON`, run its CTest suite, then run `python tools/coverage.py --build BUILD_DIRECTORY`. The generated gcov JSON and summary remain in that build directory. Coverage reports complement architectural assertions; no line-coverage percentage proves timing correctness.
+
+## Documentation checks
+
+With `BUILD_TESTING=ON`, CTest registers `docs.contracts` and `docs.checker` in the
+`fast` and `documentation` labels. CI runs them with the simulator suite.
+
+```sh
+ctest --test-dir build -L documentation --output-on-failure
+```
+
+`docs.contracts` checks local Markdown links and headings, compares C++ excerpts to
+headers, and validates each module's **CTest** references against the configured
+CTest registry. Optional backend tests are described separately from required baseline
+evidence. To refresh excerpts after reviewing an interface change:
+
+```sh
+python tools/check_docs.py --build build --write
+```
+
+Review the resulting diff and update the behavior descriptions and relevant regression
+assertions in the same change. Excerpt and link checks detect structural drift; timing,
+reset and admission claims require tests that assert their observable behavior.
+Use `ctest --test-dir build -N` for the configured test inventory and verbose test
+output for scenario counts. Build options determine which optional tests are registered.

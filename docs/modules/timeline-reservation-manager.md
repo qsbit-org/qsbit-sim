@@ -1,6 +1,6 @@
 # Timeline Reservation Manager
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: Called within CPU edge"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Advance on CPU edges through semantic operations; group replies arrive via a committed mailbox.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Impossible staging or per-port total capacity faults immediately. Reset discards the open and sealed group and returns to the implicit origin with a new epoch.
 
-**Focused verification:** Test same-point APPEND progress, zero wait, initial empty start, wait-only point, append after flush, final-group sealing and oversized-group rejection.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 TimelineProducer owns cursor, bounded open events, one sealed group and held operation identity.
 
 - Implementation: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
-- Focused verification: [protocol_tests.cpp](../../tests/protocol_tests.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `protocol.producer`, `protocol.capacity`, `systemc.use_cases`.
+
+Checks held operation identity, one submission, acknowledgment before cursor movement, staging bounds, and coalescing APPENDs across ADVANCE(0).
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).

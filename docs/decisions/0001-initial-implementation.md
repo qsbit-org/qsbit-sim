@@ -92,7 +92,7 @@ device operations and supported measurement feedback. Different internal structu
 do not require identical private queue occupancy or speculative CPU activity.
 Unavailable reference features are explicit coverage limitations, never passing tests.
 Public trace events provide operation identity, epoch, physical tick, local cycle,
-operation, targets, status and relevant queue counts. No per-event time alignment is
+operation, targets and event-specific payload, including fault detail or queue occupancy. No per-event time alignment is
 permitted. The first release must carry evidence for its supported comparisons.
 
 ## CPU construction boundary

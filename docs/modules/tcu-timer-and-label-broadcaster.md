@@ -1,6 +1,6 @@
 # TCU Timer and Label Broadcaster
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: TCU rising edge"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Wake on TCU rising edge; an external configured start enables it independently of CPU progress.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Baseline rejects pause and sync requests. Reset stops the timer and clears epoch state without rewinding SystemC time; overflow faults.
 
-**Focused verification:** Test S+nP arithmetic, cycle-zero prefill, empty queue, zero waits, future point after feedback and reset on a due edge.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 TcuCycleModel computes logical cycles from the epoch start and broadcasts the due label. Empty gaps preserve cumulative time.
 
 - Implementation: [tcu.cpp](../../src/tcu.cpp) and [tcu.hpp](../../include/qsbit/tcu.hpp).
-- Focused verification: [tcu_trace.cpp](../../tests/tcu_trace.cpp); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `control.empty`, `systemc.tcu_trace`.
+
+`control.empty` asserts cumulative launch ticks across empty gaps and late-admission rejection. `systemc.tcu_trace` checks that its clocked harness drains and writes the label trace.
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).

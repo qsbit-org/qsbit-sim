@@ -2,7 +2,7 @@
 
 Each page describes one **logical module** in the Phase 1 architecture. A logical module is not automatically a separate `sc_module` or `SC_METHOD`. The CPU domain, TCU domain and DeviceRuntime are the principal clocked or timed owners; pure libraries and queue substates run inside those owners. Adding a SystemC process or a clock edge between two logical boxes would change the timing contract.
 
-The [high-level design](../high-level-design.md) states project goals. Start with the [glossary](../glossary.md) if producer cursor, open group, admission, firing, or SystemC scheduling is unfamiliar. The [architecture overview](../module-architecture.md) defines cross-module protocol, especially producer sealing, strict receiver-edge visibility, TCU edge order, device batching and END drain. These pages own each module's local behavior and implementation contract; the selected values and encodings are fixed in [ADR 0001](../decisions/0001-initial-implementation.md). Every module page links to its implementation and focused tests. The [verification plan](../engineering-and-testing.md) gives regression scenarios.
+The [high-level design](../high-level-design.md) states project goals. Start with the [glossary](../glossary.md) if producer cursor, open group, admission, firing, or SystemC scheduling is unfamiliar. The [architecture overview](../module-architecture.md) defines cross-module protocol, especially producer sealing, strict receiver-edge visibility, TCU edge order, device batching and END drain. These pages own each module's local behavior and implementation contract; the selected values and encodings are fixed in [ADR 0001](../decisions/0001-initial-implementation.md). Every module page links to its implementation and focused tests. The [verification guide](../engineering-and-testing.md) gives regression scenarios.
 
 | Module | Implementation boundary |
 | --- | --- |
@@ -29,3 +29,5 @@ The [high-level design](../high-level-design.md) states project goals. Start wit
 | [21. Future Synchronization Adapter](future-synchronization-adapter.md) | Extension boundary only. |
 
 The standalone CACTUS comparison project remains outside this repository. It consumes the generic public trace and does not add simulator module code.
+
+In module diagrams, solid arrows carry data, dashed arrows indicate activation, and cylinders hold state or configuration. They do not introduce additional SystemC processes. **CTest** entries name executable regression tests and describe their assertions. Optional backend tests are identified separately.

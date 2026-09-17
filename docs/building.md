@@ -47,8 +47,8 @@ supported and uses CMake's default generator and compiler.
 | `QSBIT_COVERAGE` | OFF | Generate gcov coverage; use a separate build from sanitizers. |
 
 Backend test options require both `BUILD_TESTING` and `QSBIT_PYTHON_BACKENDS`.
-Enabling the bridge alone registers an external-adapter test that uses no numerical
-packages. An explicitly enabled backend test fails if its dependencies are missing.
+With `BUILD_TESTING=ON`, enabling the bridge also registers `python.plugin`, an
+external-adapter test that uses no numerical packages. An explicitly enabled backend test fails if its dependencies are missing.
 
 ## SystemC
 

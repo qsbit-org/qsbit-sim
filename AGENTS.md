@@ -44,3 +44,6 @@
 - Provide explicit opt-in installation for each backend. Import optional adapters lazily and allow external adapters through documented interfaces.
 - Keep examples copyable from a stated working directory, identify their output files and expected results, and verify them using the current build tree.
 - Document only implemented behavior. Update examples, CLI help, configuration contracts, and build instructions together when their interfaces change.
+- Keep C++ declarations in the source-excerpt blocks in `docs/cpp-interfaces.md`; refresh them with `python tools/check_docs.py --build BUILD_DIRECTORY --write` after interface changes. Do not invent fields or signatures in prose.
+- Give each module page a `**CTest:**` entry naming registered baseline tests and describe what their assertions establish. Identify optional tests and unsupported features explicitly. Do not substitute planned tests for implemented coverage or hard-code aggregate test counts.
+- Treat documentation checks as required tests. Run `ctest --test-dir BUILD_DIRECTORY -L documentation --output-on-failure`; update behavioral assertions whenever a timing or protocol contract changes. Passing link and excerpt checks does not establish behavioral correctness.

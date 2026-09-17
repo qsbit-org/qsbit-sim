@@ -1,6 +1,6 @@
 # ISA Decoder and Semantics
 
-**Architecture position:** [Module map](../module-architecture.md#3-module-map). **Status:** implemented in v0.1.0; future-only capabilities are identified below.
+**Architecture position:** [Module map](../module-architecture.md#3-module-map).
 
 ## Responsibility and neighbors
 
@@ -22,8 +22,6 @@ flowchart LR
     K["Activation: Called by CPU pipeline"] -.-> P
 ```
 
-The dashed edge shows what invokes this behavior; it does not add a clock stage. Solid arrows show data flow. The cylinder shows state or read-only configuration used by the behavior, not another SystemC process.
-
 ## Behavior
 
 **Activation:** Call when the CPU model reaches its decode or execute stage, according to the selected pipeline profile.
@@ -34,14 +32,16 @@ The dashed edge shows what invokes this behavior; it does not add a clock stage.
 
 **Reset and errors:** Unknown or disabled encodings return illegal instruction. Reset does not change immutable decode tables.
 
-**Focused verification:** Cover every RV32I class, overflow and alignment edge cases, and each custom encoding including rejected masks.
-
-Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering). A future profile that changes an applicable rule must state the replacement rule and its tests.
+Cross-module timing and visibility follow the [baseline protocol](../module-architecture.md#4-baseline-protocol-and-event-ordering).
 
 ## Implementation and verification
 
 rv32::decode and rv32::evaluate implement RV32I and custom-0 validation without SystemC.
 
 - Implementation: [isa.cpp](../../src/isa.cpp) and [isa.hpp](../../include/qsbit/isa.hpp).
-- Focused verification: [architecture_isa.py](../../tests/architecture_isa.py); cross-module cases also run through [use_cases.py](../../tests/use_cases.py).
+
+**CTest:** `core.isa_arithmetic`, `core.isa_control`, `core.isa_decode`.
+
+Checks RV32I effects, control flow and legal/illegal instruction encodings.
+
 - Numerical profile and supported scope: [Executable implementation](../implementation.md).
