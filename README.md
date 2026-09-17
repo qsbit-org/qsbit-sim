@@ -7,7 +7,8 @@ level. Quantum-state backends are selected independently of the control model.
 ## Build
 
 Requires a C++20 compiler, Ninja, and CMake 3.24 or newer. The default example
-below selects Clang on Linux:
+below selects Clang on Linux. See [install build prerequisites](docs/prerequisites.md)
+for installation commands and checks:
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
@@ -24,7 +25,8 @@ See [build options](docs/building.md) for tests, offline builds, and external Sy
 
 ## Run an example
 
-Install GNU RISC-V binutils (`binutils-riscv64-unknown-elf` on Debian/Ubuntu), then:
+Install [GNU RISC-V binutils](docs/prerequisites.md#ubuntu)
+(`binutils-riscv64-unknown-elf` on Ubuntu), then:
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang \
@@ -95,7 +97,7 @@ units, precedence, and output formats. `build/qsbit-sim --help` lists CLI option
 ## Test
 
 The core tests need Python for test scripts and GNU RISC-V binutils. They do not
-need Python quantum backends.
+need Python quantum backends. See [test prerequisites](docs/prerequisites.md).
 
 ```sh
 cmake --preset clang-ninja -DBUILD_TESTING=ON

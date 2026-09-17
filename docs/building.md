@@ -1,7 +1,8 @@
 # Build and test options
 
 Run commands from the repository root. CMake writes all generated artifacts into
-the selected build directory. Linux is covered by CI.
+the selected build directory. Linux is covered by CI. See
+[install build prerequisites](prerequisites.md) for system packages and tool checks.
 
 ## Choose a compiler
 
