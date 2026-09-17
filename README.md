@@ -1,74 +1,128 @@
 # qsbit-sim
 
-C++20 and SystemC architecture simulator for RV32I programs with quantum-control
-extensions. Version 0.1.0 implements a three-stage classical pipeline, QuMA-style
-timing and per-port event queues, physical resource scheduling, measurement and
-feedback, and live Qiskit Aer and small-system pulse backends.
+qsbit-sim runs RV32I machine-code programs with quantum-control extension instructions. It
+models a cycle-level CPU, timing-control queues, physical operations, measurement, and
+feedback in C++20 and SystemC. Select Qiskit Aer for ideal gates or the small-system
+pulse backend for piecewise-constant Hamiltonian drives.
 
-The simulator loads ELF32 or explicit raw machine code. GNU RISC-V assembler macros
-encode the quantum instructions. The CPU model, instruction semantics, SystemC
-scheduler and quantum-state backend have separate interfaces. TQEC integration and
-distributed synchronization are reserved for later phases.
+## Requirements
 
-## Build
+Build on Linux from the repository root. Install these system tools first:
 
-Linux prerequisites: Python 3.11 with development headers, a C++20 compiler, Git,
-GNU Make, and GNU RISC-V binutils (`riscv64-unknown-elf-as`, `ld`, `objdump`). On Debian
-or Ubuntu the assembler package is `binutils-riscv64-unknown-elf`. Tests use the
-uncompressed RV32I target and disable relaxation.
+| Tool | Used for |
+| --- | --- |
+| C++20 compiler, Git, Python 3.11 with `venv` and development headers | Build SystemC and the simulator; embed Python for the quantum backends. |
+| GNU RISC-V binutils: `riscv64-unknown-elf-as`, `riscv64-unknown-elf-ld`, `riscv64-unknown-elf-objdump` | Assemble and link the example RV32I programs and run tests. The Debian/Ubuntu package is `binutils-riscv64-unknown-elf`. |
 
-Provision pinned dependencies once; subsequent configure and build work offline:
+`tools/bootstrap.py` installs pinned CMake, formatting and Python packages into the
+virtual environment, then builds the pinned SystemC 3.0.1 installation under
+`tmp/deps/systemc-install`. The Python packages include Qiskit 2.1.2, Qiskit Aer
+0.17.2, NumPy, SciPy, and pybind11. The JSON library is vendored in `third_party/`.
+Provisioning requires network access; the later CMake configure and build do not.
+
+## Build and test
 
 ```sh
 python3.11 -m venv tmp/venv
-tmp/venv/bin/python tools/bootstrap.py --architecture-tests
+tmp/venv/bin/python tools/bootstrap.py
 tmp/venv/bin/cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_PREFIX_PATH="$PWD/tmp/deps/systemc-install" \
-  -DPython3_EXECUTABLE="$PWD/tmp/venv/bin/python" \
-  -DQSBIT_ISA_REFERENCES=ON \
-  -DQSBIT_ARCH_TEST_SOURCE="$PWD/tmp/deps/riscv-arch-test"
+  -DPython3_EXECUTABLE="$PWD/tmp/venv/bin/python"
 tmp/venv/bin/cmake --build build -j 4
 tmp/venv/bin/ctest --test-dir build --output-on-failure
 ```
 
-Keep local dependencies outside version control; add `/tmp/` to `.git/info/exclude`
-when using the commands above. A supplied SystemC install must be version 3.0.1,
-built as C++20. `-DQSBIT_PYTHON_BACKENDS=OFF` builds without Python embedding;
-`-DBUILD_TESTING=OFF` removes test and assembler requirements. No reference simulator
-is a source, runtime, build or CI dependency.
+The build creates `build/qsbit-sim` and the four ELF programs in `build/examples/`.
+All files under `tmp/` and `build/` are ignored by Git. Run
+`tmp/venv/bin/python tools/bootstrap.py --architecture-tests` and configure with
+`-DQSBIT_ISA_REFERENCES=ON -DQSBIT_ARCH_TEST_SOURCE="$PWD/tmp/deps/riscv-arch-test"`
+when the optional independent ISA reference suite is needed.
 
-## Run
+For a build without Python backends, set `-DQSBIT_PYTHON_BACKENDS=OFF`; the scripted
+backend remains available. Set `-DBUILD_TESTING=OFF` to build without the test and
+example targets. A supplied SystemC installation must be version
+3.0.1.20241015, built with C++20.
+
+## Run an example
+
+Each file in `examples/runs/` specifies the program, backend, output files, and any
+profile changes. Paths inside a run file are relative to that file. From the repository
+root, run:
 
 ```sh
-mkdir -p out
-build/qsbit-sim --program build/examples/bell.elf --backend aer \
-  --trace out/bell.jsonl --summary out/bell.json --inspect 4096 --inspect 4100
-build/qsbit-sim --program build/examples/feedback.elf --backend aer \
-  --trace out/feedback.jsonl --summary out/feedback.json --inspect 4096
-build/qsbit-sim --program build/examples/pulse.elf --backend pulse \
-  --trace out/pulse.jsonl --summary out/pulse.json --inspect 4096
+build/qsbit-sim --config examples/runs/bell.json
+build/qsbit-sim --config examples/runs/feedback.json
+build/qsbit-sim --config examples/runs/pulse.json
+build/qsbit-sim --config examples/runs/overlap.json
 ```
 
-The Bell example produces correlated measurement bits; feedback prepares `|11>`;
-the pulse example performs an X inversion using Hamiltonian evolution. See
-[examples/README.md](examples/README.md) for instruction walkthroughs and timing.
-`--help` lists CLI options. Profiles are JSON; generate the full default with
-`--dump-default-profile out/profile.json`. Simulation ticks are nanoseconds.
+For example, the Bell run writes `build/runs/bell.json` and
+`build/runs/bell.jsonl`. The JSON summary includes success, stop time, final
+registers, selected memory words, quantum state, and the complete timing profile.
+The JSONL trace contains timestamped instruction and quantum events. Inspect the
+summary with:
+
+```sh
+tmp/venv/bin/python -m json.tool build/runs/bell.json
+```
+
+The Bell measurement bits at addresses 4096 and 4100 must match (00 or 11). Feedback
+deterministically stores 1 at address 4096; the pulse example also stores 1.
+The overlap example drives X and Z on the same qubit simultaneously. See
+[the example walkthrough](examples/README.md) for the programs and expected times.
+
+## Run configuration
+
+`--config FILE` accepts JSON for a complete run. For example:
+
+```json
+{
+  "schema": 1,
+  "program": "../../build/examples/bell.elf",
+  "backend": "aer",
+  "trace": "../../build/runs/bell.jsonl",
+  "summary": "../../build/runs/bell.json",
+  "inspect": [4096, 4100],
+  "profile": {
+    "cpu": {"period": 5, "phase": 0},
+    "tcu": {"period": 20, "phase": 0},
+    "start": 1000
+  }
+}
+```
+
+This example assumes the file is stored in `examples/runs/`. `profile` is an
+optional inline timing and mapping overlay; omitted fields retain defaults.
+`profile_file` loads a separate JSON overlay relative to the run file, as in
+[the overlap run](examples/runs/overlap.json). The run file also accepts
+`memory_base`, `memory_size`, `raw_base`, `resets`, `outcomes`, `memory_dump`,
+`python_path`, and `reverse_registration`. Unknown keys and invalid values fail
+before simulation starts. Output parent directories are created automatically.
+
+The existing CLI remains useful for temporary overrides. Options are applied from
+left to right, so a later option wins:
+
+```sh
+build/qsbit-sim --config examples/runs/bell.json --seed 42
+build/qsbit-sim --program build/examples/bell.elf --backend aer \
+  --trace build/runs/custom.jsonl --summary build/runs/custom.json \
+  --inspect 4096 --inspect 4100
+```
+
+`--profile FILE` applies a JSON timing overlay without changing the program or
+output paths. `--dump-default-profile FILE` writes the complete default timing
+profile. `build/qsbit-sim --help` lists all CLI options. Time values are integer
+nanoseconds. Exit code 0 means the simulation drained successfully; 1 means a
+simulation fault; 2 means invalid input, configuration, or setup.
 
 ## Design and verification
 
-- [Executable implementation](docs/implementation.md): ownership, numerical profile, limits and backend units.
-- [High-level design](docs/high-level-design.md) and [module architecture](docs/module-architecture.md): extensibility and shared protocol.
-- [Module contracts](docs/modules/README.md): all logical modules, diagrams, source and test links.
-- [ISA and trace interface](docs/interfaces.md): machine encodings, CLI and output schema.
-- [Engineering and tests](docs/engineering-and-testing.md): deterministic tests, independent ISA references and CI.
-- [Glossary](docs/glossary.md): SystemC, cursor, staging, admission, token and timing terminology.
+- [Executable implementation](docs/implementation.md): ownership, numerical profile, and backend limits.
+- [Architecture](docs/module-architecture.md) and [module contracts](docs/modules/README.md): timing and component behavior.
+- [Program, configuration, and trace interfaces](docs/interfaces.md): instruction encoding and output schema.
+- [Engineering and tests](docs/engineering-and-testing.md): validation layers and test commands.
+- [Glossary](docs/glossary.md): SystemC and control-timing terms.
 
-External CACTUS acceptance compares independently executed workloads at supported
-quantum boundaries with zero tick tolerance. Original and corrected reference variants
-are distinguished; reference defects and unavailable probes are documented in
-[ADR 0002](docs/decisions/0002-reference-comparison-scope.md). All comparison tools and
-artifacts live in a separate disposable project. Removing it leaves this repository
-unchanged. Timing claims do not imply identical classical pipelines or reference
-termination behavior.
+External CACTUS comparisons and their scope are recorded in
+[ADR 0002](docs/decisions/0002-reference-comparison-scope.md).

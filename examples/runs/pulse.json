@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "program": "../../build/examples/pulse.elf",
+  "backend": "pulse",
+  "trace": "../../build/runs/pulse.jsonl",
+  "summary": "../../build/runs/pulse.json",
+  "inspect": [4096]
+}

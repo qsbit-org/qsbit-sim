@@ -12,8 +12,7 @@ point. Two QAPPEND instructions complete the measurement group before it is seal
 QREAD returns the live results and stores them at addresses 4096 and 4100.
 
 ```sh
-build/qsbit-sim --program build/examples/bell.elf --backend aer \
-  --trace out/bell.jsonl --summary out/bell.json --inspect 4096 --inspect 4100
+build/qsbit-sim --config examples/runs/bell.json
 ```
 
 The ideal result is 00 or 11 with equal probability; both bits must agree. Qubit 0 is
@@ -27,8 +26,7 @@ branch. Result one schedules X on qubit 1; result zero schedules Z. Aer determin
 returns one for this preparation, yielding `|11>`. Scripted runs cover both branches:
 
 ```sh
-build/qsbit-sim --program build/examples/feedback.elf --backend scripted --outcomes 0 \
-  --trace out/feedback-zero.jsonl --summary out/feedback-zero.json --inspect 4096
+build/qsbit-sim --config examples/runs/feedback.json --backend scripted --outcomes 0
 ```
 
 The branch computes future control while the TCU timer continues. Its long explicit
@@ -42,8 +40,7 @@ The result is one, stored at 4096. Selecting the Aer circuit backend for this pr
 fails with `UnsupportedCapability` before pulse execution.
 
 ```sh
-build/qsbit-sim --program build/examples/pulse.elf --backend pulse \
-  --trace out/pulse.jsonl --summary out/pulse.json --inspect 4096
+build/qsbit-sim --config examples/runs/pulse.json
 ```
 
 ## Default-profile event times
@@ -70,6 +67,5 @@ sum for 20 ns. The expected state is `-i (|0> + |1>) / sqrt(2)` on qubit 0; qubi
 remains zero. Sequentially replaying the two rotations would give a different result.
 
 ```sh
-build/qsbit-sim --program build/examples/overlap.elf --backend pulse \
-  --profile examples/overlap.json --trace out/overlap.jsonl --summary out/overlap.json
+build/qsbit-sim --config examples/runs/overlap.json
 ```

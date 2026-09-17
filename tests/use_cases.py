@@ -169,6 +169,38 @@ r = subprocess.run([str(a.simulator), '--program', str(raw), '--raw-base', '0', 
 assert r.returncode == 0, r.stderr
 assert json.loads((a.output / 'raw.json').read_text())['registers'][1] == 7
 count += 1
+run_config = a.output / 'raw-run.json'
+run_config.write_text(json.dumps({
+    'schema': 1, 'program': 'raw.bin', 'raw_base': 0,
+    'trace': 'nested/raw.jsonl', 'summary': 'nested/raw.json', 'inspect': [0],
+    'profile': {'seed': 17}
+}))
+r = subprocess.run([str(a.simulator), '--config', str(run_config)],
+                   capture_output=True, text=True)
+assert r.returncode == 0, r.stderr
+configured = json.loads((a.output / 'nested/raw.json').read_text())
+assert configured['registers'][1] == 7 and configured['configuration']['seed'] == 17
+assert configured['memory']['0'] == 0x00700093
+assert (a.output / 'nested/raw.jsonl').is_file()
+count += 1
+r = subprocess.run([str(a.simulator), '--config', str(run_config), '--seed', '23'],
+                   capture_output=True, text=True)
+assert r.returncode == 0, r.stderr
+assert json.loads((a.output / 'nested/raw.json').read_text())['configuration']['seed'] == 23
+count += 1
+for bad in [
+    {'schema': 2, 'program': 'raw.bin'},
+    {'schema': 1, 'program': 'raw.bin', 'unexpected': 1},
+    {'schema': 1, 'program': 'raw.bin', 'inspect': [-1]},
+    {'schema': 1, 'program': 'raw.bin', 'outcomes': [1]},
+    {'schema': 1, 'program': 'raw.bin', 'profile': {'unexpected': 1}}
+]:
+    config = a.output / 'bad-run.json'
+    config.write_text(json.dumps(bad))
+    r = subprocess.run([str(a.simulator), '--config', str(config)],
+                       capture_output=True, text=True)
+    assert r.returncode == 2 and 'InvalidProfile' in r.stderr, r.stderr
+    count += 1
 for bad in [{'unexpected': 1}, {'cpu_result_latency': 0}, {'ports': -1}, {'seed': 2**32}, {'start': 1}]:
     config = a.output / 'bad.json'
     config.write_text(json.dumps(bad))

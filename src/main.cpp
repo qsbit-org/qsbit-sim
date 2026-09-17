@@ -4,10 +4,12 @@
 #ifdef QSBIT_HAS_PYTHON
 #include "qsbit/python_backend.hpp"
 #endif
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <limits>
+#include <set>
 #include <sstream>
 
 using namespace qsbit;
@@ -26,7 +28,40 @@ std::uint32_t word(const std::string &text) {
           "argument exceeds uint32");
   return static_cast<std::uint32_t>(value);
 }
+std::uint64_t json_number(const Json &value, const std::string &key) {
+  require(value.is_number_integer() &&
+              (value.is_number_unsigned() || value.get<std::int64_t>() >= 0),
+          ErrorCode::InvalidProfile, key + " must be a nonnegative integer");
+  return value.get<std::uint64_t>();
+}
+std::uint32_t json_word(const Json &value, const std::string &key) {
+  const auto result = json_number(value, key);
+  require(result <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::InvalidProfile,
+          key + " exceeds uint32");
+  return static_cast<std::uint32_t>(result);
+}
+std::string json_string(const Json &value, const std::string &key) {
+  require(value.is_string(), ErrorCode::InvalidProfile, key + " must be a string");
+  return value.get<std::string>();
+}
+Json read_json(const std::filesystem::path &path) {
+  std::ifstream stream(path);
+  require(bool(stream), ErrorCode::InvalidProfile, "cannot read " + path.string());
+  Json value;
+  stream >> value;
+  return value;
+}
+std::string relative_to(const std::filesystem::path &base, const Json &value,
+                        const std::string &key) {
+  return (base / json_string(value, key)).lexically_normal().string();
+}
+void ensure_parent(const std::string &path) {
+  const auto parent = std::filesystem::path(path).parent_path();
+  if (!parent.empty())
+    std::filesystem::create_directories(parent);
+}
 void write_json(const std::string &path, const Json &value) {
+  ensure_parent(path);
   std::ofstream stream(path);
   require(bool(stream), ErrorCode::InvalidOperand, "cannot open " + path);
   stream << value.dump(2) << '\n';
@@ -54,7 +89,9 @@ int sc_main(int argc, char **argv) {
       };
       if (argument == "--help") {
         std::cout
-            << "qsbit-sim --program FILE [--raw-base ADDRESS] [--backend scripted|aer|pulse]\n"
+            << "qsbit-sim --config FILE | --program FILE [options]\n"
+               "  --config FILE (JSON run configuration; paths relative to config file)\n"
+               "  --raw-base ADDRESS --backend scripted|aer|pulse\n"
                "  --profile FILE --trace FILE --summary FILE --seed INTEGER --start TICK\n"
                "  --memory-base ADDRESS --memory-size BYTES --outcomes 0,1,...\n"
                "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"
@@ -63,7 +100,78 @@ int sc_main(int argc, char **argv) {
       }
       if (argument == "--program")
         program = value();
-      else if (argument == "--backend")
+      else if (argument == "--config") {
+        const std::filesystem::path path = value();
+        const Json config = read_json(path);
+        require(config.is_object(), ErrorCode::InvalidProfile, "run config must be an object");
+        const std::set<std::string> allowed{
+            "schema",       "program",     "backend",     "profile",
+            "profile_file", "trace",       "summary",     "memory_dump",
+            "python_path",  "memory_base", "memory_size", "raw_base",
+            "resets",       "inspect",     "outcomes",    "reverse_registration"};
+        for (const auto &[key, ignored] : config.items()) {
+          (void)ignored;
+          require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown run key: " + key);
+        }
+        require(config.contains("schema") && config["schema"] == 1, ErrorCode::InvalidProfile,
+                "unsupported run schema");
+        const auto base = std::filesystem::absolute(path).parent_path();
+        if (config.contains("program"))
+          program = relative_to(base, config["program"], "program");
+        if (config.contains("backend"))
+          backend_name = json_string(config["backend"], "backend");
+        if (config.contains("profile_file"))
+          apply_profile(profile,
+                        read_json(relative_to(base, config["profile_file"], "profile_file")));
+        if (config.contains("profile"))
+          apply_profile(profile, config["profile"]);
+        if (config.contains("trace"))
+          trace_path = relative_to(base, config["trace"], "trace");
+        if (config.contains("summary"))
+          summary_path = relative_to(base, config["summary"], "summary");
+        if (config.contains("memory_dump"))
+          memory_dump = relative_to(base, config["memory_dump"], "memory_dump");
+        if (config.contains("python_path"))
+          module_directory = relative_to(base, config["python_path"], "python_path");
+        if (config.contains("memory_base"))
+          memory_base = json_word(config["memory_base"], "memory_base");
+        if (config.contains("memory_size"))
+          memory_size = json_word(config["memory_size"], "memory_size");
+        if (config.contains("raw_base")) {
+          raw = true;
+          raw_base = json_word(config["raw_base"], "raw_base");
+        }
+        if (config.contains("resets")) {
+          require(config["resets"].is_array(), ErrorCode::InvalidProfile,
+                  "resets must be an array");
+          resets.clear();
+          for (const auto &tick : config["resets"])
+            resets.push_back(json_number(tick, "reset tick"));
+        }
+        if (config.contains("inspect")) {
+          require(config["inspect"].is_array(), ErrorCode::InvalidProfile,
+                  "inspect must be an array");
+          inspect.clear();
+          for (const auto &address : config["inspect"])
+            inspect.push_back(json_word(address, "inspect address"));
+        }
+        if (config.contains("outcomes")) {
+          require(config["outcomes"].is_array(), ErrorCode::InvalidProfile,
+                  "outcomes must be an array");
+          outcomes.clear();
+          Id id = 1;
+          for (const auto &outcome : config["outcomes"]) {
+            require(outcome.is_boolean(), ErrorCode::InvalidProfile,
+                    "outcomes must contain booleans");
+            outcomes[id++] = outcome.get<bool>();
+          }
+        }
+        if (config.contains("reverse_registration")) {
+          require(config["reverse_registration"].is_boolean(), ErrorCode::InvalidProfile,
+                  "reverse_registration must be a boolean");
+          reverse = config["reverse_registration"].get<bool>();
+        }
+      } else if (argument == "--backend")
         backend_name = value();
       else if (argument == "--trace")
         trace_path = value();
@@ -140,6 +248,7 @@ int sc_main(int argc, char **argv) {
     sc_core::sc_start(
         sc_core::sc_time::from_value(checked_add(profile.watchdog, profile.tcu.period)));
     {
+      ensure_parent(trace_path);
       std::ofstream trace(trace_path);
       require(bool(trace), ErrorCode::InvalidOperand, "cannot open trace output");
       sim.trace().write_jsonl(trace);
@@ -171,6 +280,7 @@ int sc_main(int argc, char **argv) {
                                           {"value", slot.value}});
     write_json(summary_path, result);
     if (!memory_dump.empty()) {
+      ensure_parent(memory_dump);
       std::ofstream dump(memory_dump, std::ios::binary);
       const auto data = sim.memory().bytes();
       dump.write(reinterpret_cast<const char *>(data.data()),

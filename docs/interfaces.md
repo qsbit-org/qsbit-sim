@@ -41,10 +41,11 @@ compatibility with Distributed-HISQ or eQASM is claimed.
 
 ## CLI and profile
 
-Required: `--program FILE`. Useful options:
+Provide either `--config FILE` or `--program FILE`. Useful options:
 
 | Option | Meaning |
 | --- | --- |
+| `--config FILE` | Load a complete JSON run configuration; paths in it are relative to that file. |
 | `--backend scripted|aer|pulse` | Select numerical capability; default scripted. |
 | `--profile FILE` | Apply a strict JSON profile overlay to the current defaults. |
 | `--dump-default-profile FILE` | Write the complete current profile and exit. |
@@ -59,10 +60,19 @@ Required: `--program FILE`. Useful options:
 | `--reverse-registration` | Diagnostic process-registration permutation. |
 | `--python-path DIRECTORY` | Python module search directory for the selected adapter. |
 
-Arguments apply from left to right; a later profile can override an earlier individual
-option. Unknown options and profile keys reject. Exit status is 0 for complete drain,
+Arguments apply from left to right; later CLI values override a run file, and a later
+profile can override an earlier individual option. Unknown options and configuration keys
+reject. Exit status is 0 for complete drain,
 1 for an in-simulation fault, and 2 for invalid input, configuration or construction.
 A run-time fault writes its partial trace and a failed summary when output paths work.
+
+Run configuration schema 1 accepts `program`, `backend`, `profile` (inline object),
+`profile_file` (separate JSON overlay), `trace`, `summary`, `memory_dump`,
+`python_path`, `memory_base`, `memory_size`, `raw_base`, `resets` (integer ticks),
+`inspect` (32-bit addresses), `outcomes` (booleans indexed by measurement issue ID),
+and `reverse_registration` (boolean). `schema: 1` is required. The separate profile
+is applied before the inline profile. Program, profile, output, and Python-module paths
+resolve relative to the run file. Output parent directories are created if needed.
 
 Profile schema 1 includes `cpu` and `tcu` period/phase objects; `start`, `watchdog`;
 `memory_latency`, `command_latency`, `reply_latency`, `cpu_result_latency`,

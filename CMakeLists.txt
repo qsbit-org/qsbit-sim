@@ -146,6 +146,10 @@ if(BUILD_TESTING)
     endforeach()
   endforeach()
   if(QSBIT_PYTHON_BACKENDS)
+    add_test(NAME cli.examples COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+      --source "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(cli.examples PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
     add_executable(numerical_tests tests/numerical_tests.cpp)
     target_link_libraries(numerical_tests PRIVATE qsbit_systemc qsbit_python)
     target_compile_definitions(numerical_tests PRIVATE QSBIT_PYTHON_MODULE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/python")
