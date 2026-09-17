@@ -108,6 +108,21 @@ ctest --preset clang-ninja
 
 Backend tests are enabled separately; see [build and test options](docs/building.md).
 
+## Timing control
+
+The CPU prepares quantum operations ahead of time. A timing control unit (TCU)
+buffers those operations and releases them at their scheduled cycles. Measurement
+results return to the CPU or feed conditional TCU output.
+
+Architectural references for this control model are:
+
+- [QuMA: An Experimental Microarchitecture for a Superconducting Quantum Processor](https://arxiv.org/abs/1708.07677) — codeword-triggered output and queue-based timing control.
+- [eQASM: An Executable Quantum Instruction Set Architecture](https://arxiv.org/abs/1808.02449) — explicit operation timing, parallel execution and measurement feedback.
+- [Distributed-HISQ: A Distributed Quantum Control Architecture](https://arxiv.org/abs/2509.04798) — RISC-V quantum-control extensions and distributed control.
+
+See the [architecture overview](docs/high-level-design.md) for the implemented
+control path and [timing protocol](docs/module-architecture.md) for its exact rules.
+
 ## Design
 
 - [Module architecture](docs/module-architecture.md) and [module contracts](docs/modules/README.md)
