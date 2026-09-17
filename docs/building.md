@@ -24,9 +24,11 @@ The resulting executables are `build-clang/qsbit-sim` and
 enable tests, then run `ctest --preset clang-ninja` or
 `ctest --preset gcc-ninja`. Extra CMake options can be passed to either
 configure command. If the compiler executable has a different name or path,
-override it with `-DCMAKE_CXX_COMPILER=/path/to/compiler` in a fresh build
-directory. Plain `cmake -S . -B build` also remains supported and uses CMake's
-default generator and compiler.
+override both `-DCMAKE_C_COMPILER=/path/to/c-compiler` and
+`-DCMAKE_CXX_COMPILER=/path/to/cxx-compiler` in a fresh build directory.
+SystemC builds C and assembly sources as well as C++ sources, so the two
+compiler selections must agree. Plain `cmake -S . -B build` also remains
+supported and uses CMake's default generator and compiler.
 
 ## CMake options
 
