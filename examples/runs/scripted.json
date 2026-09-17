@@ -1,9 +1,0 @@
-{
-  "schema": 1,
-  "program": "../../build/examples/feedback.elf",
-  "backend": "scripted",
-  "outcomes": [true],
-  "inspect": [4096],
-  "trace": "../../build/runs/scripted.jsonl",
-  "summary": "../../build/runs/scripted.json"
-}

@@ -1,8 +1,0 @@
-{
-  "schema": 1,
-  "program": "../../build/examples/bell.elf",
-  "backend": "aer",
-  "trace": "../../build/runs/bell.jsonl",
-  "summary": "../../build/runs/bell.json",
-  "inspect": [4096, 4100]
-}

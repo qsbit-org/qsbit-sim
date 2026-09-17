@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "program": "../feedback.elf",
+  "backend": "aer",
+  "trace": "../../runs/feedback.jsonl",
+  "summary": "../../runs/feedback.json",
+  "inspect": [4096]
+}

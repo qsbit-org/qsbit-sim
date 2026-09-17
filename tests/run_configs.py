@@ -8,27 +8,26 @@ import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--simulator', type=Path, required=True)
-parser.add_argument('--source', type=Path, required=True)
 parser.add_argument('--build', type=Path, required=True)
 parser.add_argument('--scenarios', nargs='+', required=True)
 args = parser.parse_args()
 
 for name in args.scenarios:
-    config_path = args.source / 'examples' / 'runs' / f'{name}.json'
+    config_path = args.build / 'examples' / 'runs' / f'{name}.json'
     config = json.loads(config_path.read_text())
-    summary_path = args.build / 'config-examples' / f'{name}.json'
-    trace_path = args.build / 'config-examples' / f'{name}.jsonl'
-    result = subprocess.run([str(args.simulator), '--config', str(config_path),
-                             '--program', str(args.build / 'examples' / f'{name}.elf'),
-                             '--summary', str(summary_path), '--trace', str(trace_path)],
-                            cwd=args.source / 'examples', capture_output=True, text=True,
+    summary_path = args.build / 'runs' / f'{name}.json'
+    trace_path = args.build / 'runs' / f'{name}.jsonl'
+    result = subprocess.run([str(args.simulator), '--config', str(config_path)],
+                            cwd=args.build, capture_output=True, text=True,
                             timeout=30)
     assert result.returncode == 0, (name, result.stdout, result.stderr)
     summary = json.loads(summary_path.read_text())
     trace = [json.loads(line) for line in trace_path.read_text().splitlines()]
     assert summary['success'] and trace[-1]['kind'] == 'SimulationCompleted', name
     assert summary['backend'] == config['backend'], name
-    if name == 'bell':
+    if name == 'scripted':
+        assert summary['memory']['4096'] == 1, summary
+    elif name == 'bell':
         assert summary['memory']['4096'] == summary['memory']['4100'], summary
     elif name in ('feedback', 'pulse'):
         assert summary['memory']['4096'] == 1, summary

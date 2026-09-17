@@ -223,7 +223,7 @@ int sc_main(int argc, char **argv) {
     require(!program.empty(), ErrorCode::InvalidOperand, "--program is required");
     profile.validate();
     std::ifstream input(program, std::ios::binary);
-    require(bool(input), ErrorCode::InvalidImage, "cannot read program");
+    require(bool(input), ErrorCode::InvalidImage, "cannot read program: " + program);
     const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(input), {}};
     auto image = raw ? ProgramImage::raw(bytes, raw_base, memory_base, memory_size)
                      : ProgramImage::elf(bytes, memory_base, memory_size);

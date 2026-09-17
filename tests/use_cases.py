@@ -169,6 +169,11 @@ r = subprocess.run([str(a.simulator), '--program', str(raw), '--raw-base', '0', 
 assert r.returncode == 0, r.stderr
 assert json.loads((a.output / 'raw.json').read_text())['registers'][1] == 7
 count += 1
+missing = a.output / 'missing.elf'
+r = subprocess.run([str(a.simulator), '--program', str(missing)],
+                   capture_output=True, text=True)
+assert r.returncode == 2 and f'InvalidImage: cannot read program: {missing}' in r.stderr, r.stderr
+count += 1
 run_config = a.output / 'raw-run.json'
 run_config.write_text(json.dumps({
     'schema': 1, 'program': 'raw.bin', 'raw_base': 0,

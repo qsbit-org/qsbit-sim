@@ -1,6 +1,8 @@
 # Executable examples
 
-With `QSBIT_BUILD_EXAMPLES=ON` or `BUILD_TESTING=ON`, CMake assembles these sources into `build/examples/*.elf` using GNU RISC-V binutils.
+With `QSBIT_BUILD_EXAMPLES=ON` or `BUILD_TESTING=ON`, CMake assembles these sources
+into `<build-dir>/examples/*.elf` using GNU RISC-V binutils and copies the run
+configurations into `<build-dir>/examples/runs/`.
 `quantum.inc` uses `.insn`; the simulator never parses assembly. `link.ld` provides a
 bare-metal entry at zero and writable data at 0x1000. All instructions are RV32I or
 custom-0; compressed instructions and relaxation are disabled.
@@ -10,13 +12,14 @@ custom-0; compressed instructions and relaxation are disabled.
 The default C++ build can execute a scripted feedback scenario without Python:
 
 ```sh
-build/qsbit-sim --config examples/runs/scripted.json
+build/qsbit-sim --config build/examples/runs/scripted.json
 ```
 
 Results are in `build/runs/scripted.json` and `build/runs/scripted.jsonl`.
 For the remaining examples, enable the Python bridge and install the selected
-[backend extra](../docs/backends.md). The run files target the `build/` directory;
-for another build tree, override `--program` with that tree's ELF path.
+[backend extra](../docs/backends.md). Run each configuration with the simulator
+from the same build directory. For example, a `clang-ninja` preset build uses
+`build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json`.
 
 ## Bell pair
 
@@ -25,7 +28,7 @@ point. Two QAPPEND instructions complete the measurement group before it is seal
 QREAD returns the live results and stores them at addresses 4096 and 4100.
 
 ```sh
-build/qsbit-sim --config examples/runs/bell.json
+build/qsbit-sim --config build/examples/runs/bell.json
 ```
 
 The ideal result is 00 or 11 with equal probability; both bits must agree. Qubit 0 is
@@ -39,7 +42,7 @@ branch. Result one schedules X on qubit 1; result zero schedules Z. Aer determin
 returns one for this preparation, yielding `|11>`. Scripted runs cover both branches:
 
 ```sh
-build/qsbit-sim --config examples/runs/feedback.json --backend scripted --outcomes 0
+build/qsbit-sim --config build/examples/runs/feedback.json --backend scripted --outcomes 0
 ```
 
 The branch computes future control while the TCU timer continues. Its long explicit
@@ -53,7 +56,7 @@ The result is one, stored at 4096. Selecting the Aer circuit backend for this pr
 fails with `UnsupportedCapability` before pulse execution.
 
 ```sh
-build/qsbit-sim --config examples/runs/pulse.json
+build/qsbit-sim --config build/examples/runs/pulse.json
 ```
 
 ## Default-profile event times
@@ -80,5 +83,5 @@ sum for 20 ns. The expected state is `-i (|0> + |1>) / sqrt(2)` on qubit 0; qubi
 remains zero. Sequentially replaying the two rotations would give a different result.
 
 ```sh
-build/qsbit-sim --config examples/runs/overlap.json
+build/qsbit-sim --config build/examples/runs/overlap.json
 ```

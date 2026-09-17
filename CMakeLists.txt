@@ -85,6 +85,11 @@ if(QSBIT_BUILD_EXAMPLES OR BUILD_TESTING)
   find_program(RISCV_AS NAMES riscv64-unknown-elf-as REQUIRED)
   find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
   file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples")
+  foreach(run bell feedback overlap pulse scripted)
+    configure_file("examples/runs/${run}.json.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/examples/runs/${run}.json" COPYONLY)
+  endforeach()
+  configure_file(examples/overlap.json "${CMAKE_CURRENT_BINARY_DIR}/examples/overlap.json" COPYONLY)
   foreach(example bell feedback pulse overlap)
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf"
       COMMAND "${RISCV_AS}" -march=rv32i -mabi=ilp32 -mno-relax
@@ -132,6 +137,10 @@ if(BUILD_TESTING)
     --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"
     --source "${CMAKE_CURRENT_SOURCE_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/use-cases")
   set_tests_properties(systemc.use_cases PROPERTIES TIMEOUT 120 LABELS "fast;integration")
+  add_test(NAME cli.scripted COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+    --build "${CMAKE_CURRENT_BINARY_DIR}" --scenarios scripted)
+  set_tests_properties(cli.scripted PROPERTIES TIMEOUT 30 LABELS "fast;integration")
   add_executable(adapter_tests tests/adapter_tests.cpp)
   target_link_libraries(adapter_tests PRIVATE qsbit_systemc)
   foreach(scenario normal reset)
@@ -185,7 +194,7 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME cli.examples COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
-      --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}"
+      --build "${CMAKE_CURRENT_BINARY_DIR}"
       --scenarios ${CLI_SCENARIOS})
     set_tests_properties(cli.examples PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
     add_executable(numerical_tests tests/numerical_tests.cpp)

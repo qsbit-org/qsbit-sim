@@ -32,7 +32,7 @@ Install [GNU RISC-V binutils](docs/prerequisites.md#ubuntu)
 cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang \
   -DCMAKE_CXX_COMPILER=clang++ -DQSBIT_BUILD_EXAMPLES=ON
 cmake --build build --parallel
-build/qsbit-sim --config examples/runs/scripted.json
+build/qsbit-sim --config build/examples/runs/scripted.json
 ```
 
 This runs the feedback program with a scripted measurement result. It exercises
@@ -68,7 +68,7 @@ With the environment active and Python development headers available:
 cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
   -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build --parallel
-build/qsbit-sim --config examples/runs/bell.json
+build/qsbit-sim --config build/examples/runs/bell.json
 ```
 
 CMake discovers the active environment. The Bell example uses Aer and produces
@@ -83,10 +83,11 @@ to `Simulator`. See [backend integration](docs/backends.md) for both interfaces.
 
 A JSON run file selects the program, backend, output files, and optional timing
 profile. Relative paths are resolved from the configuration file's directory.
-For example, [bell.json](examples/runs/bell.json) runs with:
+With examples enabled, CMake generates run files in the selected build tree.
+For example, the [Bell run template](examples/runs/bell.json.in) runs with:
 
 ```sh
-build/qsbit-sim --config examples/runs/bell.json
+build/qsbit-sim --config build/examples/runs/bell.json
 ```
 
 Append `--seed 42` to override the seed for one run. Use

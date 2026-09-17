@@ -11,6 +11,7 @@ jobs:
         include:
           - name: core-sanitizers
             preset: clang-ninja
+            build_dir: build-clang
             build_type: Debug
             python: '3.12'
             bridge: 'OFF'
@@ -20,6 +21,7 @@ jobs:
             sanitizers: 'ON'
           - name: bridge-only
             preset: gcc-ninja
+            build_dir: build-gcc
             build_type: Debug
             python: '3.10'
             bridge: 'ON'
@@ -29,6 +31,7 @@ jobs:
             sanitizers: 'OFF'
           - name: aer
             preset: clang-ninja
+            build_dir: build-clang
             build_type: Debug
             python: '3.12'
             bridge: 'ON'
@@ -38,6 +41,7 @@ jobs:
             sanitizers: 'OFF'
           - name: pulse
             preset: gcc-ninja
+            build_dir: build-gcc
             build_type: Release
             python: '3.13'
             bridge: 'ON'
@@ -71,7 +75,7 @@ jobs:
           python -c "import importlib.util; import qsbit_backend; assert all(importlib.util.find_spec(x) is None for x in ('qiskit', 'qiskit_aer', 'numpy', 'scipy'))"
       - name: Configure
         run: |
-          cmake --preset ${{ matrix.preset }} -B build \
+          cmake --preset ${{ matrix.preset }} \
             -DBUILD_TESTING=ON \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DQSBIT_SANITIZERS=${{ matrix.sanitizers }} \
@@ -81,22 +85,29 @@ jobs:
             -DQSBIT_ISA_REFERENCES=ON \
             -DQSBIT_ARCH_TEST_SOURCE="$PWD/build/riscv-arch-test"
       - name: Build
-        run: cmake --build build --parallel 2
+        run: cmake --build --preset ${{ matrix.preset }} --parallel 2
+      - name: Run scripted example
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          ./${{ matrix.build_dir }}/qsbit-sim --config ${{ matrix.build_dir }}/examples/runs/scripted.json
+          python -c "import json; from pathlib import Path; result = json.loads(Path('${{ matrix.build_dir }}/runs/scripted.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
       - name: Test
         env:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --preset ${{ matrix.preset }}
       - name: Preserve diagnostic artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: traces-${{ matrix.name }}
           path: |
-            build/Testing/Temporary/
-            build/*.jsonl
-            build/use-cases/
-            build/plugin-test/
-            build/config-examples/
-            build/random-isa/report.json
-            build/architecture-isa/report.json
+            ${{ matrix.build_dir }}/Testing/Temporary/
+            ${{ matrix.build_dir }}/*.jsonl
+            ${{ matrix.build_dir }}/runs/
+            ${{ matrix.build_dir }}/use-cases/
+            ${{ matrix.build_dir }}/plugin-test/
+            ${{ matrix.build_dir }}/random-isa/report.json
+            ${{ matrix.build_dir }}/architecture-isa/report.json

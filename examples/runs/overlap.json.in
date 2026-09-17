@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "program": "../overlap.elf",
+  "backend": "pulse",
+  "profile_file": "../overlap.json",
+  "trace": "../../runs/overlap.jsonl",
+  "summary": "../../runs/overlap.json"
+}
