@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "profile": {"start": 200},
   "program": "../overlap.elf",
   "backend": "pulse",
   "profile_file": "../overlap.json",

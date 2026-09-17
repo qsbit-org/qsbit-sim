@@ -18,7 +18,8 @@ def run(command, **kwargs):
 
 def make_demo(root, build, output, name, program, outcomes):
     trace, summary = output / f'{name}.jsonl', output / f'{name}.summary.json'
-    run([str(build / 'qsbit-sim'), '--program', str(build / 'examples' / f'{program}.elf'),
+    config = build / 'examples/runs' / ('bell.json' if program == 'bell' else 'scripted.json')
+    run([str(build / 'qsbit-sim'), '--config', str(config),
          '--backend', 'scripted', '--outcomes', outcomes, '--trace', str(trace),
          '--summary', str(summary), '--inspect', '4096'])
     state = json.loads(summary.read_text())
@@ -30,14 +31,14 @@ def make_demo(root, build, output, name, program, outcomes):
     if any(a['tick'] > b['tick'] for a, b in zip(events, events[1:])):
         raise ExtensionError(f'{name}: decreasing trace time')
     starts = [e for e in events if e['kind'] == 'OperationStart']
-    expected = [('h', 1160), ('cx', 1200), ('measure', 1240), ('measure', 1240)] if program == 'bell' else [
-        ('x', 1160), ('measure', 1240), ('x' if outcomes == '1' else 'z', 1520)]
+    expected = [('h', 360), ('cx', 400), ('measure', 440), ('measure', 440)] if program == 'bell' else [
+        ('x', 360), ('measure', 440), ('x' if outcomes == '1' else 'z', 720)]
     observed = [(e['operation'], e['tick']) for e in starts]
     if observed != expected:
         raise ExtensionError(f'{name}: unexpected operation schedule {observed}, expected {expected}')
     measurement_count = 2 if program == 'bell' else 1
-    for kind, tick in [('MeasurementSampled', 1280), ('ResultReady', 1300),
-                       ('CpuResultVisible', 1305), ('FastResultVisible', 1340)]:
+    for kind, tick in [('MeasurementSampled', 480), ('ResultReady', 500),
+                       ('CpuResultVisible', 505), ('FastResultVisible', 540)]:
         records = [e for e in events if e['kind'] == kind]
         if len(records) != measurement_count or any(e['tick'] != tick for e in records):
             raise ExtensionError(f'{name}: unexpected {kind} count or visibility tick')

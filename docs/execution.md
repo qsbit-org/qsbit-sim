@@ -66,24 +66,26 @@ advance a hardware cycle.
 
 ## Example schedules
 
-The examples use the default profile and scripted measurement bits.
+The examples use scripted measurement bits and set TCU start to 200 ns.
+Other timing settings use their defaults. The first operation at cycle 8 starts
+at 360 ns, after the CPU has had time to prepare the queued groups.
 The website build runs their ELF programs and checks the schedules before
 publishing the playback data.
 
 | Program | Physical starts (ns) | Outcome |
 | --- | --- | --- |
-| Bell | H: 1160; CX: 1200; both acquisitions: 1240 | Both scripted bits are 1. |
-| Feedback, outcome 1 | X: 1160; acquisition: 1240; branch-selected X: 1520 | Memory word 4096 is 1. |
-| Feedback, outcome 0 | X: 1160; acquisition: 1240; branch-selected Z: 1520 | Memory word 4096 is 0. |
+| Bell | H: 360; CX: 400; both acquisitions: 440 | Both scripted bits are 1. |
+| Feedback, outcome 1 | X: 360; acquisition: 440; branch-selected X: 720 | Memory word 4096 is 1. |
+| Feedback, outcome 0 | X: 360; acquisition: 440; branch-selected Z: 720 | Memory word 4096 is 0. |
 
-In each run, acquisition samples at 1280 ns. The result is ready at 1300 ns,
-CPU-visible at 1305 ns and committed to fast history at 1340 ns. TCU conditions
+In each run, acquisition samples at 480 ns. The result is ready at 500 ns,
+CPU-visible at 505 ns and committed to fast history at 540 ns. TCU conditions
 can use that history on later edges.
 
 In Bell, two measurement APPENDs join one group before QREAD seals it.
 In feedback, QREAD completes before the classical branch chooses the final
-operation. Both branches reach admission at 1480 ns and schedule the selected
-gate for cycle 26 (1520 ns), leaving two TCU cycles before output. Neither
+operation. Both branches reach admission at 680 ns and schedule the selected
+gate for cycle 26 (720 ns), leaving two TCU cycles before output. Neither
 waiting for a result nor an empty queue pauses the TCU timer.
 
 The scripted backend demonstrates control timing. Use the

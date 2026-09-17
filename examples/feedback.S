@@ -18,7 +18,7 @@ _start:
 zero_result:
   li t2, 3                      # Z on qubit 1 for a measured zero
 selected:
-  li t0, 14                     # Cycle 26: 1520 ns, two TCU cycles after admission
+  li t0, 14                     # Cycle 26; two TCU cycles after admission with the example profile
   qadvance t0
   li t1, 1
   qappend x0, t1, t2

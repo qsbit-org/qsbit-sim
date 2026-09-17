@@ -53,6 +53,7 @@ int sc_main(int argc, char **argv) {
       CHECK(bool(stream));
       const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(stream), {}};
       auto p = default_profile();
+      p.start = 200;
       if (scenario == "overlap") {
         p.mappings.clear();
         for (std::uint32_t port : {0U, 1U}) {
@@ -85,23 +86,23 @@ int sc_main(int argc, char **argv) {
       for (const auto &event : sim.trace().events())
         if (event.kind == "OperationStart")
           starts.push_back(event.tick);
-      CHECK(starts.front() == 1160);
+      CHECK(starts.front() == 360);
       if (scenario == "bell") {
         const auto first = sim.memory().read(0x1000, 4), second = sim.memory().read(0x1004, 4);
         CHECK(first <= 1 && first == second);
         CHECK(std::norm(state[first ? 3 : 0]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{1160, 1200, 1240, 1240}));
+        CHECK((starts == std::vector<Tick>{360, 400, 440, 440}));
       } else if (scenario == "feedback") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[3]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{1160, 1240, 1520}));
+        CHECK((starts == std::vector<Tick>{360, 440, 720}));
       } else if (scenario == "pulse") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[1]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{1160, 1240}));
+        CHECK((starts == std::vector<Tick>{360, 440}));
       } else if (scenario == "overlap") {
         const auto expected = std::complex<double>{0, -1 / std::sqrt(2.0)};
         CHECK(std::abs(state[0] - expected) < 1e-12 && std::abs(state[1] - expected) < 1e-12);
         CHECK(std::abs(state[2]) < 1e-12 && std::abs(state[3]) < 1e-12);
-        CHECK((starts == std::vector<Tick>{1160, 1160}));
+        CHECK((starts == std::vector<Tick>{360, 360}));
       } else
         throw std::runtime_error("unknown numerical scenario");
     }

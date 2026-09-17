@@ -50,21 +50,22 @@ The program first applies X to qubit 0, then measures it. QREAD waits for the
 measurement to reach the CPU. An RV32I branch then selects X on qubit 1 for
 result 1, or Z for result 0.
 
-With the default profile, the trace contains these milestones:
+The run file sets TCU start to 200 ns. With a 20 ns TCU period, the first
+operation at cycle 8 starts at `200 + 8 * 20 = 360 ns`. The trace contains:
 
 | Time (ns) | Event |
 | --- | --- |
-| 1160 | X starts on qubit 0. |
-| 1240 | Acquisition starts on qubit 0. |
-| 1280 | The backend supplies the measurement bit. |
-| 1300 | Discrimination finishes; the result is ready for delivery. |
-| 1305 | The CPU receives the result. |
-| 1520 | The branch-selected X starts on qubit 1. |
+| 360 | X starts on qubit 0. |
+| 440 | Acquisition starts on qubit 0. |
+| 480 | The backend supplies the measurement bit. |
+| 500 | Discrimination finishes; the result is ready for delivery. |
+| 505 | The CPU receives the result. |
+| 720 | The branch-selected X starts on qubit 1. |
 
-After receiving the result at 1305 ns, the CPU executes the branch and submits
-the selected action. Both branches reach TCU admission at 1480 ns. The program
+After receiving the result at 505 ns, the CPU executes the branch and submits
+the selected action. Both branches reach TCU admission at 680 ns. The program
 advances its cursor from cycle 12 to cycle 26, scheduling output at
-`1000 + 26 * 20 = 1520 ns`. This leaves two TCU cycles between admission and
+`200 + 26 * 20 = 720 ns`. This leaves two TCU cycles between admission and
 output. Waiting for a result does not pause the TCU.
 
 ## Try the other branch
@@ -79,7 +80,7 @@ build-gcc/qsbit-sim --config build-gcc/examples/runs/scripted.json \
 ```
 
 The new summary should report `memory["4096"]` as `0`. The operation at
-1520 ns is now Z on qubit 1. The scripted backend returns the requested bit
+720 ns is now Z on qubit 1. The scripted backend returns the requested bit
 regardless of the preceding X; it does not evolve quantum state.
 
 Open the [execution player](execution.md) to step through both branches.

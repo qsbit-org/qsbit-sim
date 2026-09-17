@@ -45,9 +45,9 @@ returns one for this preparation, yielding `|11>`. Scripted runs cover both bran
 build/qsbit-sim --config build/examples/runs/feedback.json --backend scripted --outcomes 0
 ```
 
-The CPU receives the result at 1305 ns. Both branches submit a group that the TCU
-admits at 1480 ns. QADVANCE moves the cursor from cycle 12 to cycle 26, so the
-selected gate starts at 1520 ns, two TCU cycles after admission. The TCU timer
+The CPU receives the result at 505 ns. Both branches submit a group that the TCU
+admits at 680 ns. QADVANCE moves the cursor from cycle 12 to cycle 26, so the
+selected gate starts at 720 ns, two TCU cycles after admission. The TCU timer
 continues throughout the CPU work.
 
 ## Constant pulse
@@ -61,17 +61,21 @@ fails with `UnsupportedCapability` before pulse execution.
 build/qsbit-sim --config build/examples/runs/pulse.json
 ```
 
-## Default-profile event times
+## Example event times
+
+The run configurations set TCU start to 200 ns. Other timing settings use their
+defaults. Running an ELF directly without this configuration uses the simulator
+default start of 1000 ns; pass `--start 200` to reproduce these example times.
 
 | Example | Physical starts in nanoseconds |
 | --- | --- |
-| Bell | H: 1160; CX: 1200; both acquisitions: 1240. |
-| Feedback | X on q0: 1160; acquisition: 1240; selected gate on q1: 1520. |
-| Pulse | X drive: 1160; acquisition: 1240. |
+| Bell | H: 360; CX: 400; both acquisitions: 440. |
+| Feedback | X on q0: 360; acquisition: 440; selected gate on q1: 720. |
+| Pulse | X drive: 360; acquisition: 440. |
 
 Default acquisition duration is 40 ns and discriminator delay is 20 ns. Results for
-the acquisitions at 1240 are ready at 1300, CPU-visible at 1305, and fast-visible at
-1340. QEND retirement is not simulator completion: outstanding actions and both
+the acquisitions at 440 are ready at 500, CPU-visible at 505, and fast-visible at
+540. QEND retirement is not simulator completion: outstanding actions and both
 feedback paths must drain. The summary contains the actual stop tick and memory bits.
 
 Tests assert exact event times, final state or signatures, retirement identities and

@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "profile": {"start": 200},
   "program": "../bell.elf",
   "backend": "aer",
   "trace": "../../runs/bell.jsonl",

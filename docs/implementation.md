@@ -41,7 +41,8 @@ integers. Architectural registers and addresses use 32 bits.
 | Measurement slots | 8 |
 | Firing width | 1 action per port per group |
 
-These are defaults, not fixed hardware constants. Dump the complete current
+The example run files override TCU start to 200 ns. These are configurable
+values, not fixed hardware constants. Dump the complete current
 profile, including mappings and other settings, with:
 
 ```sh

@@ -35,9 +35,9 @@ Let E be acquisition end, A the arm start and L the discriminator delay.
 The backend samples and collapses state at E; the bit becomes ready at
 `max(E, A) + L`.
 
-For example, an acquisition ending at 1280 ns with an earlier arm and a 20 ns
-delay produces `ResultReady` at 1300 ns. With the default crossings, the CPU
-receives the bit at 1305 ns and the TCU commits it at 1340 ns.
+For example, an acquisition ending at 480 ns with an earlier arm and a 20 ns
+delay produces `ResultReady` at 500 ns. With the default crossings, the CPU
+receives the bit at 505 ns and the TCU commits it at 540 ns.
 
 The runtime stores the sample until readiness, publishes the same token and bit
 to both enabled paths, then removes the readout record. A zero discriminator
