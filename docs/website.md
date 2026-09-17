@@ -83,4 +83,7 @@ ctest --test-dir build-gcc -L 'fast|website' --output-on-failure
 The suite builds with Sphinx warnings treated as errors. Browser tests check
 links, module diagrams, architecture controls and the recorded executions.
 CI uploads the HTML, browser captures and test logs as workflow artifacts.
-The workflow does not deploy a public site.
+After all build and test jobs pass on `main`, CI publishes the tested HTML to
+[qsbit-sim documentation](https://qsbit-org.github.io/qsbit-sim/). Pull requests
+build and test the website without publishing it. To republish `main`, run the
+**Build and verify** workflow from the repository Actions tab.

@@ -90,7 +90,7 @@ def source_links(app, docname, source):
             return match[0]
         if path.is_file() and path.is_relative_to(root):
             relative = path.relative_to(root).as_posix()
-            return f'[{match[1]}](https://github.com/Zhaoyilunnn/qsbit-sim/blob/{app._qsbit_source_revision}/{relative})'
+            return f'[{match[1]}](https://github.com/qsbit-org/qsbit-sim/blob/{app._qsbit_source_revision}/{relative})'
         return match[0]
     source[0] = re.sub(r'\[([^\]\n]+)\]\(([^\s)]+)\)', replace, source[0])
 

@@ -133,6 +133,11 @@ control path and [timing protocol](docs/module-architecture.md) for its exact ru
 
 ## Documentation website
 
-The local website includes a clickable architecture, module objects and behavior,
-C++ API references, and a player for recorded simulator executions. See
+The [documentation website](https://qsbit-org.github.io/qsbit-sim/) includes a
+clickable architecture, module objects and behavior, C++ API references, and a player for recorded simulator executions. See
 [build and preview the website](docs/website.md).
+
+## License
+
+qsbit-sim is licensed under the [Apache License 2.0](LICENSE). Third-party
+components retain their own licenses; see [nlohmann/json](third_party/nlohmann_json/LICENSE.MIT).

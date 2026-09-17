@@ -30,3 +30,5 @@ nitpick_ignore_regex = [('cpp:identifier', r'std::.*'), ('cpp:identifier', r'sc_
 nitpick_ignore = [('cpp:identifier', 'sc_core'), ('cpp:identifier', 'Impl')]
 
 html_show_copyright = False
+
+html_baseurl = 'https://qsbit-org.github.io/qsbit-sim/'
