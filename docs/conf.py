@@ -14,6 +14,7 @@ myst_enable_extensions = ['colon_fence']
 html_theme = 'furo'
 html_title = 'qsbit-sim'
 html_static_path = ['_static']
+templates_path = ['_templates']
 html_css_files = ['site.css']
 html_js_files = ['trace-player.js', 'architecture.js']
 html_theme_options = {
