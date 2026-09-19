@@ -24,6 +24,36 @@ ctest --test-dir build-gcc -R '^control\.' --output-on-failure
 
 Optional dependencies and build flags determine which tests are registered.
 
+## Before opening a pull request
+
+Install the development tools and activate the local environment:
+
+```sh
+uv sync --frozen --extra dev
+source .venv/bin/activate
+pre-commit install --install-hooks
+pre-commit run --all-files
+```
+
+The commit hook checks staged files. Run `pre-commit run --all-files` before
+opening a pull request to check the entire checkout. The hooks check C++
+formatting, trailing whitespace, final newlines, merge markers, and YAML,
+JSON, and TOML syntax. The install command provisions the pinned hook
+environment; later runs use the local cache. If a hook edits a file, review
+the edit, stage it, and rerun the checks. With pip, install `.[dev]` into
+`.venv` instead of using `uv sync`.
+
+Build and run the fast suite before opening a pull request:
+
+```sh
+cmake --build --preset gcc-ninja --parallel
+ctest --test-dir build-gcc -L fast --output-on-failure
+```
+
+Run the relevant optional or integration tests for the changed behavior.
+CI runs the pre-commit hooks on all tracked files and runs the complete
+configured CTest suites.
+
 ## What each test family checks
 
 | Test family | Main assertions |

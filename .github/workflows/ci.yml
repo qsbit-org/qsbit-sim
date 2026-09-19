@@ -88,8 +88,9 @@ jobs:
             -DENABLE_EXAMPLES=OFF -DENABLE_REGRESSION=OFF
           cmake --build "$RUNNER_TEMP/systemc-build" --parallel 2
           cmake --install "$RUNNER_TEMP/systemc-build"
-      - name: Check formatting
-        run: python tools/check_format.py --formatter .venv/bin/clang-format
+      - name: Check pre-commit hooks
+        if: matrix.name == 'core-sanitizers'
+        run: pre-commit run --all-files
       - name: Check optional dependency isolation
         if: matrix.extras == ''
         run: |

@@ -111,6 +111,7 @@ ctest --preset clang-ninja
 ```
 
 Backend tests are enabled separately; see [build and test options](docs/building.md).
+Before opening a pull request, run the [local checks](docs/engineering-and-testing.md#before-opening-a-pull-request).
 
 ## Timing control
 

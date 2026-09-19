@@ -1,0 +1,19 @@
+exclude: ^third_party/
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+  - repo: local
+    hooks:
+      - id: clang-format-check
+        name: Check C++ formatting
+        entry: .venv/bin/clang-format --dry-run --Werror
+        language: system
+        files: ^(include|src|tests)/.*\.(cpp|hpp)$
