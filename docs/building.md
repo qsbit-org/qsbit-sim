@@ -10,12 +10,12 @@ examples and test outputs into the selected build directory.
 The presets keep GCC and Clang builds in separate directories. Choose one:
 
 ```sh
-cmake --preset gcc-ninja
+cmake --preset gcc-ninja -DCMAKE_PREFIX_PATH="$HOME/.local/systemc"
 cmake --build --preset gcc-ninja --parallel
 ```
 
 ```sh
-cmake --preset clang-ninja
+cmake --preset clang-ninja -DCMAKE_PREFIX_PATH="$HOME/.local/systemc"
 cmake --build --preset clang-ninja --parallel
 ```
 
@@ -23,13 +23,12 @@ The executables are `build-gcc/qsbit-sim` and `build-clang/qsbit-sim`.
 Add configuration options to the first command, such as
 `-DQSBIT_BUILD_EXAMPLES=ON`.
 
-To select compilers by path, set `CMAKE_CXX_COMPILER` and
-`CMAKE_ASM_COMPILER` to the matching toolchain in a fresh build directory.
-SystemC compiles assembly sources and passes compiler-specific flags to them.
+To select a compiler by path, set `CMAKE_CXX_COMPILER` in a fresh build directory.
+Build SystemC separately with the matching C, C++, and assembly compilers.
 You can also configure without a preset:
 
 ```sh
-cmake -S . -B build
+cmake -S . -B build -DCMAKE_PREFIX_PATH="$HOME/.local/systemc"
 cmake --build build --parallel
 ```
 
@@ -39,7 +38,7 @@ when changing compiler, Python interpreter or major dependency versions.
 ## Enable tests
 
 ```sh
-cmake --preset gcc-ninja -DBUILD_TESTING=ON
+cmake --preset gcc-ninja -DCMAKE_PREFIX_PATH="$HOME/.local/systemc" -DBUILD_TESTING=ON
 cmake --build --preset gcc-ninja --parallel
 ctest --preset gcc-ninja
 ```
@@ -52,7 +51,6 @@ RISC-V binutils, but no numerical quantum packages. See the
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `QSBIT_FETCH_SYSTEMC` | ON | Fetch the pinned SystemC source if no installation is found. |
 | `QSBIT_BUILD_EXAMPLES` | OFF | Assemble example programs with GNU RISC-V binutils. |
 | `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge using Python development files and pybind11. |
 | `BUILD_TESTING` | OFF | Build core tests and examples. |
@@ -71,21 +69,18 @@ are missing.
 
 ## SystemC
 
-To use an installed C++20 SystemC library:
+Install SystemC 3.0.1 with C++20 before configuring the simulator. See the
+[installation instructions](prerequisites.md#systemc). For a user-local install:
 
 ```sh
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/systemc-install -DQSBIT_FETCH_SYSTEMC=OFF
+cmake -S . -B build -DCMAKE_PREFIX_PATH="$HOME/.local/systemc"
 ```
 
-For an offline source build, provide the revision pinned in
-[cmake/SystemC.cmake](../cmake/SystemC.cmake):
-
-```sh
-cmake -S . -B build -DFETCHCONTENT_SOURCE_DIR_SYSTEMC=/path/to/systemc-source
-```
-
-CMake downloads missing sources during configuration. Subsequent builds use
-the configured dependencies and do not install Python packages.
+Use a different install prefix with `-DCMAKE_PREFIX_PATH=/path/to/systemc`.
+CMake also searches standard system prefixes such as `/usr/local` without this
+option. It does not download dependencies during configuration. The CMake user
+package registry is ignored so stale temporary build registrations cannot
+override an installed SystemC package.
 
 ## Python environments
 
@@ -99,7 +94,8 @@ For a locked development environment with both numerical backends and ISA tests:
 ```sh
 uv sync --frozen --extra pulse --extra verification --extra dev
 source .venv/bin/activate
-cmake -S . -B build-python -DBUILD_TESTING=ON -DQSBIT_PYTHON_BACKENDS=ON \
+cmake -S . -B build-python -DCMAKE_PREFIX_PATH="$HOME/.local/systemc" \
+  -DBUILD_TESTING=ON -DQSBIT_PYTHON_BACKENDS=ON \
   -DQSBIT_TEST_AER=ON -DQSBIT_TEST_PULSE=ON -DQSBIT_ISA_REFERENCES=ON
 cmake --build build-python --parallel
 ctest --test-dir build-python --output-on-failure
@@ -121,7 +117,8 @@ coverage and exclusions.
 ## Sanitizers
 
 ```sh
-cmake -S . -B build-asan -DBUILD_TESTING=ON -DQSBIT_SANITIZERS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build-asan -DCMAKE_PREFIX_PATH="$HOME/.local/systemc" \
+  -DBUILD_TESTING=ON -DQSBIT_SANITIZERS=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-asan --parallel
 ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
   ctest --test-dir build-asan --output-on-failure

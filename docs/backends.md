@@ -39,7 +39,8 @@ Dependencies and compatibility ranges are defined in
 With the environment active, build the bridge and run the Bell example:
 
 ```sh
-cmake -S . -B build-python -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
+cmake -S . -B build-python -DCMAKE_PREFIX_PATH="$HOME/.local/systemc" \
+  -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build-python --parallel
 build-python/qsbit-sim --config build-python/examples/runs/bell.json
 ```

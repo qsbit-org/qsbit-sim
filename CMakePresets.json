@@ -11,8 +11,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-clang",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_ASM_COMPILER": "clang"
+        "CMAKE_CXX_COMPILER": "clang++"
       }
     },
     {
@@ -21,8 +20,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-gcc",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "g++",
-        "CMAKE_ASM_COMPILER": "gcc"
+        "CMAKE_CXX_COMPILER": "g++"
       }
     }
   ],
