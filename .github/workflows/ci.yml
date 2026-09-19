@@ -124,6 +124,41 @@ jobs:
             ${{ matrix.build_dir }}/random-isa/report.json
             ${{ matrix.build_dir }}/architecture-isa/report.json
 
+  macos:
+    name: macOS core
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install build and test tools
+        run: brew install cmake ninja git python uv riscv64-elf-binutils
+      - name: Prepare Conan dependencies
+        run: |
+          uv sync --frozen --group build --inexact
+          uv run --frozen --group build --inexact conan config install conan/config
+          uv run --frozen --group build --inexact conan install . -pr:a=conan/profiles/clang --build=missing
+      - name: Build with README commands
+        run: |
+          cmake --preset clang-ninja
+          cmake --build --preset clang-ninja --parallel 3
+      - name: Run scripted example
+        run: |
+          build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json
+          python3 -c "import json; from pathlib import Path; result = json.loads(Path('build-clang/runs/scripted.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
+      - name: Build and run core tests
+        run: |
+          cmake --preset clang-ninja -DBUILD_TESTING=ON
+          cmake --build --preset clang-ninja --parallel 3
+          ctest --preset clang-ninja
+      - name: Preserve diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: traces-macos-core
+          path: |
+            build-clang/Testing/Temporary/
+            build-clang/runs/
+            build-clang/use-cases/
+
   documentation:
     runs-on: ubuntu-24.04
     steps:
@@ -168,7 +203,7 @@ jobs:
 
   deploy-pages:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [native, documentation]
+    needs: [native, macos, documentation]
     runs-on: ubuntu-24.04
     permissions:
       pages: write

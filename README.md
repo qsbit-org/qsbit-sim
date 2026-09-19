@@ -7,7 +7,7 @@ level. Quantum-state backends are selected independently of the control model.
 ## Build
 
 Install the [build prerequisites](docs/prerequisites.md), then run these commands
-from the repository root. This example selects Clang on Linux:
+from the repository root. This example selects Clang on Ubuntu or Apple Clang on macOS:
 
 ```sh
 cmake --preset clang-ninja

@@ -91,8 +91,8 @@ if(QSBIT_TEST_AER OR QSBIT_TEST_PULSE)
   endif()
 endif()
 if(QSBIT_BUILD_EXAMPLES OR BUILD_TESTING)
-  find_program(RISCV_AS NAMES riscv64-unknown-elf-as REQUIRED)
-  find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
+  find_program(RISCV_AS NAMES riscv64-unknown-elf-as riscv64-elf-as REQUIRED)
+  find_program(RISCV_LD NAMES riscv64-unknown-elf-ld riscv64-elf-ld REQUIRED)
   file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples")
   foreach(run bell feedback overlap pulse scripted)
     configure_file("examples/runs/${run}.json.in"
@@ -137,9 +137,9 @@ if(BUILD_TESTING)
   add_test(NAME systemc.tcu_trace COMMAND tcu_trace "${CMAKE_CURRENT_BINARY_DIR}/tcu-trace.jsonl"
     1000 1 2 3 4 8 16)
   set_tests_properties(systemc.tcu_trace PROPERTIES TIMEOUT 15 LABELS "fast;integration")
-  find_program(RISCV_AS NAMES riscv64-unknown-elf-as REQUIRED)
-  find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
-  find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump REQUIRED)
+  find_program(RISCV_AS NAMES riscv64-unknown-elf-as riscv64-elf-as REQUIRED)
+  find_program(RISCV_LD NAMES riscv64-unknown-elf-ld riscv64-elf-ld REQUIRED)
+  find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump riscv64-elf-objdump REQUIRED)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME build.dependencies COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/dependency_setup.py"

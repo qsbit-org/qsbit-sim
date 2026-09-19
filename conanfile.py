@@ -11,13 +11,16 @@ class QsbitDependencies(ConanFile):
     def validate(self):
         if str(self.settings.compiler.cppstd) != "20":
             raise ConanInvalidConfiguration("qsbit-sim requires C++20")
-        if str(self.settings.compiler) not in ("clang", "gcc") or str(self.settings.os) != "Linux":
-            raise ConanInvalidConfiguration("The supported profiles use Clang or GCC on Linux")
+        supported = {"Linux": ("clang", "gcc"), "Macos": ("apple-clang",)}
+        if str(self.settings.compiler) not in supported.get(str(self.settings.os), ()):
+            raise ConanInvalidConfiguration(
+                "Use Clang or GCC on Linux, or Apple Clang on macOS"
+            )
         if str(self.settings.build_type) not in ("Debug", "Release"):
             raise ConanInvalidConfiguration("Prepare either Debug or Release dependencies")
 
     def layout(self):
-        compiler = str(self.settings.compiler)
+        compiler = "clang" if str(self.settings.compiler) == "apple-clang" else str(self.settings.compiler)
         configuration = str(self.settings.build_type)
         self.folders.generators = f".conan/{compiler}/{configuration}"
         suffix = "-release" if configuration == "Release" else ""

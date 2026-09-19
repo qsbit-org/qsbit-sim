@@ -15,35 +15,34 @@ A default C++ build does not require Python quantum packages.
 
 ## Ubuntu
 
-CI uses Ubuntu 24.04. For the default build with its bundled examples, install:
+CI tests Ubuntu 24.04 and macOS 14. On Ubuntu, copy this entire block to install
+both GCC and Clang, plus the tools for bundled examples and core tests:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y gcc g++ clang git cmake ninja-build python3-venv binutils-riscv64-unknown-elf
+sudo apt-get install -y gcc g++ clang git cmake ninja-build python3 python3-venv binutils-riscv64-unknown-elf
 ```
 
-For Clang, install `clang` and select the `clang-ninja` preset. Use the same
-compiler family to build SystemC and the simulator.
+No edits to the package list are needed for either compiler. The dependency
+preparation below selects Clang and configures matching compilers for SystemC
+and the simulator.
 
 The RISC-V tools use the `riscv64-unknown-elf-` prefix but can produce the
 RV32I ELF files used here. Building these examples does not require a RISC-V
 C compiler.
 
-Install Python if you will run tests:
+## macOS
+
+Install [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/)
+and [Homebrew](https://brew.sh/) once, then copy this block:
 
 ```sh
-sudo apt-get install -y python3
+brew install cmake ninja git python uv riscv64-elf-binutils
 ```
 
-For Python backends, also install venv support and the matching development files:
-
-```sh
-sudo apt-get install -y python3-venv python3-dev
-```
-
-Then follow [backend installation](backends.md#install-an-optional-backend).
-Python package constraints are in [pyproject.toml](../pyproject.toml);
-[uv.lock](../uv.lock) records reproducible resolutions.
+The `clang-ninja` preset uses Apple Clang from Xcode Command Line Tools.
+CMake discovers Homebrew's `riscv64-elf-` tools automatically; no aliases or
+custom installation paths are needed. These tools also produce RV32I ELF files.
 
 ## Prepare Conan dependencies
 
@@ -59,9 +58,10 @@ uv run --frozen --group build --inexact conan install . -pr:a=conan/profiles/cla
 This installs the locked Conan version, applies the project's exact binary
 compatibility policy to the Conan user configuration, and prepares SystemC.
 The compatibility policy disables reuse across different compiler settings;
-SystemC requires the same C++ standard as its consumer. The supplied Linux
+SystemC requires the same C++ standard as its consumer. The supplied
 profiles detect the selected compiler version and host architecture, select
-C++20 and libstdc++, and use matching C, C++, and assembly compilers.
+C++20, and use matching C, C++, and assembly compilers. Linux uses libstdc++;
+macOS uses libc++.
 No default Conan profile or SystemC installation prefix is needed.
 
 Conan downloads a matching binary when available; otherwise it compiles the
@@ -70,7 +70,7 @@ Generated CMake files stay in `.conan/`, separately from simulator build trees.
 Neither directory belongs in Git. Keep the generated files and cached packages
 available during development.
 
-Prepare GCC instead, or in addition to Clang, with:
+On Ubuntu, prepare GCC instead, or in addition to Clang, with:
 
 ```sh
 uv run --frozen --group build --inexact conan install . -pr:a=conan/profiles/gcc --build=missing
@@ -101,21 +101,18 @@ Dependency requirements are in [conanfile.py](../conanfile.py), recipe revisions
 are pinned in [conan.lock](../conan.lock), and the Conan tool is locked in
 [uv.lock](../uv.lock). The default C++ workflow installs no quantum backends.
 
-## Check the tools
+## Optional Python backends
 
-For a GCC example build:
+On Ubuntu, install the matching Python development files:
 
 ```sh
-cmake --version
-ninja --version
-g++ --version
-riscv64-unknown-elf-as --version
-riscv64-unknown-elf-ld --version
+sudo apt-get install -y python3-dev
 ```
 
-Use `clang++ --version` when selecting Clang. For tests, also check
-`python3 --version` and `riscv64-unknown-elf-objdump --version`.
-Check the prepared dependency configuration with `cmake --preset clang-ninja`.
+Homebrew's Python includes its development files on macOS. Then follow
+[backend installation](backends.md#install-an-optional-backend).
+Python package constraints are in [pyproject.toml](../pyproject.toml);
+[uv.lock](../uv.lock) records reproducible resolutions.
 
 ## Offline builds
 

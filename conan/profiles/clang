@@ -1,10 +1,10 @@
 {% set compiler, version, executable = detect_api.detect_clang_compiler() %}
 [settings]
-os=Linux
+os={{ detect_api.detect_os() }}
 arch={{ detect_api.detect_arch() }}
 compiler={{ compiler }}
-compiler.version={{ version.major }}
-compiler.libcxx=libstdc++11
+compiler.version={{ detect_api.default_compiler_version(compiler, version) }}
+compiler.libcxx={{ "libc++" if compiler == "apple-clang" else "libstdc++11" }}
 compiler.cppstd=20
 build_type=Debug
 
