@@ -23,8 +23,10 @@ The executables are `build-gcc/qsbit-sim` and `build-clang/qsbit-sim`.
 Add configuration options to the first command, such as
 `-DQSBIT_BUILD_EXAMPLES=ON`.
 
-To select a compiler by path, use `-DCMAKE_CXX_COMPILER=/path/to/cxx-compiler`
-in a fresh build directory. You can also configure without a preset:
+To select compilers by path, set `CMAKE_CXX_COMPILER` and
+`CMAKE_ASM_COMPILER` to the matching toolchain in a fresh build directory.
+SystemC compiles assembly sources and passes compiler-specific flags to them.
+You can also configure without a preset:
 
 ```sh
 cmake -S . -B build

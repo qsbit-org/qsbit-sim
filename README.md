@@ -11,14 +11,14 @@ below selects Clang on Linux. See [install build prerequisites](docs/prerequisit
 for installation commands and checks:
 
 ```sh
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++
+cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang
 cmake --build build --parallel
 ```
 
 The executable is `build/qsbit-sim`. For GCC, configure a fresh build directory
-with `-DCMAKE_CXX_COMPILER=g++` instead. Separate
-`clang-ninja` and `gcc-ninja` presets are also available for compiler selection
-and testing. CMake uses an installed C++20 SystemC library when available;
+with `-DCMAKE_CXX_COMPILER=g++ -DCMAKE_ASM_COMPILER=gcc`.
+Separate `clang-ninja` and `gcc-ninja` presets are also available for compiler
+selection and testing. CMake uses an installed C++20 SystemC library when available;
 otherwise it downloads and builds a fixed revision during the
 first configure. Python is optional and is not required for this build.
 See [build options](docs/building.md) for tests, offline builds, and external SystemC installations.
@@ -29,7 +29,8 @@ Install [GNU RISC-V binutils](docs/prerequisites.md#ubuntu)
 (`binutils-riscv64-unknown-elf` on Ubuntu), then:
 
 ```sh
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DQSBIT_BUILD_EXAMPLES=ON
+cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_ASM_COMPILER=clang -DQSBIT_BUILD_EXAMPLES=ON
 cmake --build build --parallel
 build/qsbit-sim --config build/examples/runs/scripted.json
 ```
@@ -65,6 +66,7 @@ With the environment active and Python development headers available:
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_ASM_COMPILER=clang \
   -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build --parallel
 build/qsbit-sim --config build/examples/runs/bell.json
