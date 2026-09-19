@@ -51,7 +51,7 @@ python -m pip install -e '.[aer]'
 Alternatively, use uv:
 
 ```sh
-uv sync --extra aer
+uv sync --frozen --group build --extra aer
 source .venv/bin/activate
 ```
 

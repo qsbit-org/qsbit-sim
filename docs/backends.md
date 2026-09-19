@@ -27,12 +27,13 @@ python -m pip install -e '.[aer]'
 With uv:
 
 ```sh
-uv sync --frozen --extra aer
+uv sync --frozen --group build --extra aer
 source .venv/bin/activate
 ```
 
 Use the `pulse` extra for the bundled pulse adapter. To install only the
-bridge package, omit the extra: `python -m pip install -e .` or `uv sync --frozen`.
+bridge package, omit the extra: `python -m pip install -e .` or
+`uv sync --frozen --group build`.
 Dependencies and compatibility ranges are defined in
 [pyproject.toml](../pyproject.toml).
 

@@ -14,22 +14,23 @@ numerical quantum simulator.
 Run these commands from the repository root:
 
 ```sh
-cmake --preset gcc-ninja
-cmake --build --preset gcc-ninja --parallel
+cmake --preset clang-ninja
+cmake --build --preset clang-ninja --parallel
 ```
 
-CMake builds the simulator as `build-gcc/qsbit-sim`. It also assembles the
+CMake builds the simulator as `build-clang/qsbit-sim`. It also assembles the
 programs in [examples](../examples/README.md) and places their ELF files and
-run configurations under `build-gcc/examples/`.
+run configurations under `build-clang/examples/`.
 
-For Clang, use the `clang-ninja` preset and `build-clang` directory throughout.
+For GCC on Ubuntu, first [prepare its Conan dependencies](prerequisites.md#prepare-conan-dependencies).
+Then use the `gcc-ninja` preset and `build-gcc` directory throughout.
 See [build options](building.md) to select another build configuration or
 enable tests.
 
 ## Run the feedback program
 
 ```sh
-build-gcc/qsbit-sim --config build-gcc/examples/runs/scripted.json
+build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json
 ```
 
 The run configuration selects the feedback ELF, the scripted backend and a
@@ -38,8 +39,8 @@ The run creates:
 
 | File | Contents |
 | --- | --- |
-| `build-gcc/runs/scripted.json` | Success status, final registers, inspected memory and the timing profile. |
-| `build-gcc/runs/scripted.jsonl` | Timestamped instruction, control, device and feedback events. |
+| `build-clang/runs/scripted.json` | Success status, final registers, inspected memory and the timing profile. |
+| `build-clang/runs/scripted.jsonl` | Timestamped instruction, control, device and feedback events. |
 
 Open the summary. `success` should be `true` and `memory["4096"]` should be `1`.
 The program stores its measured bit at address 4096.
@@ -73,10 +74,10 @@ output. Waiting for a result does not pause the TCU.
 Override the scripted outcome and use separate output files:
 
 ```sh
-build-gcc/qsbit-sim --config build-gcc/examples/runs/scripted.json \
+build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json \
   --outcomes 0 \
-  --summary build-gcc/runs/feedback-zero.json \
-  --trace build-gcc/runs/feedback-zero.jsonl
+  --summary build-clang/runs/feedback-zero.json \
+  --trace build-clang/runs/feedback-zero.jsonl
 ```
 
 The new summary should report `memory["4096"]` as `0`. The operation at
