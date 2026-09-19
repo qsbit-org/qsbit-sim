@@ -4,7 +4,7 @@ This tutorial runs a program that measures one qubit and uses the result to
 choose an operation on another qubit. You will build the simulator, execute the
 program and check its output.
 
-You need the [build tools, installed SystemC, and GNU RISC-V binutils](prerequisites.md).
+You need the [build tools, prepared Conan dependencies, and GNU RISC-V binutils](prerequisites.md).
 The example uses the built-in scripted backend, which supplies a fixed
 measurement bit. It exercises the complete control path without installing a
 numerical quantum simulator.
@@ -23,7 +23,7 @@ programs in [examples](../examples/README.md) and places their ELF files and
 run configurations under `build-gcc/examples/`.
 
 For Clang, use the `clang-ninja` preset and `build-clang` directory throughout.
-See [build options](building.md) to select another SystemC installation or
+See [build options](building.md) to select another build configuration or
 enable tests.
 
 ## Run the feedback program

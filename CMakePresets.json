@@ -11,8 +11,9 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-clang",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "clang++"
-      }
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "toolchainFile": "${sourceDir}/.conan/clang/Debug/conan_toolchain.cmake"
     },
     {
       "name": "gcc-ninja",
@@ -20,16 +21,75 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-gcc",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "g++"
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "toolchainFile": "${sourceDir}/.conan/gcc/Debug/conan_toolchain.cmake"
+    },
+    {
+      "name": "clang-ninja-release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-clang-release",
+      "toolchainFile": "${sourceDir}/.conan/clang/Release/conan_toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "gcc-ninja-release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-gcc-release",
+      "toolchainFile": "${sourceDir}/.conan/gcc/Release/conan_toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
       }
     }
   ],
   "buildPresets": [
-    { "name": "clang-ninja", "configurePreset": "clang-ninja" },
-    { "name": "gcc-ninja", "configurePreset": "gcc-ninja" }
+    {
+      "name": "clang-ninja",
+      "configurePreset": "clang-ninja"
+    },
+    {
+      "name": "gcc-ninja",
+      "configurePreset": "gcc-ninja"
+    },
+    {
+      "name": "clang-ninja-release",
+      "configurePreset": "clang-ninja-release"
+    },
+    {
+      "name": "gcc-ninja-release",
+      "configurePreset": "gcc-ninja-release"
+    }
   ],
   "testPresets": [
-    { "name": "clang-ninja", "configurePreset": "clang-ninja", "output": { "outputOnFailure": true } },
-    { "name": "gcc-ninja", "configurePreset": "gcc-ninja", "output": { "outputOnFailure": true } }
+    {
+      "name": "clang-ninja",
+      "configurePreset": "clang-ninja",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-ninja",
+      "configurePreset": "gcc-ninja",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-ninja-release",
+      "configurePreset": "clang-ninja-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-ninja-release",
+      "configurePreset": "gcc-ninja-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ]
 }

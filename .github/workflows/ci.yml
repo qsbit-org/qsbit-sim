@@ -14,6 +14,7 @@ jobs:
         include:
           - name: core-sanitizers
             preset: clang-ninja
+            compiler: clang
             build_dir: build-clang
             build_type: Debug
             python: '3.12'
@@ -24,6 +25,7 @@ jobs:
             sanitizers: 'ON'
           - name: bridge-only
             preset: gcc-ninja
+            compiler: gcc
             build_dir: build-gcc
             build_type: Debug
             python: '3.10'
@@ -34,6 +36,7 @@ jobs:
             sanitizers: 'OFF'
           - name: aer
             preset: clang-ninja
+            compiler: clang
             build_dir: build-clang
             build_type: Debug
             python: '3.12'
@@ -43,8 +46,9 @@ jobs:
             extras: '--extra aer'
             sanitizers: 'OFF'
           - name: pulse
-            preset: gcc-ninja
-            build_dir: build-gcc
+            preset: gcc-ninja-release
+            compiler: gcc
+            build_dir: build-gcc-release
             build_type: Release
             python: '3.13'
             bridge: 'ON'
@@ -62,7 +66,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y binutils-riscv64-unknown-elf clang ninja-build
           python -m pip install uv==0.12.7
-          uv sync --frozen --python "$(command -v python)" --extra dev --extra verification ${{ matrix.extras }}
+          uv sync --frozen --group build --python "$(command -v python)" --extra dev --extra verification ${{ matrix.extras }}
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
       - name: Provision architecture tests
@@ -70,24 +74,11 @@ jobs:
           git init build/riscv-arch-test
           git -C build/riscv-arch-test fetch --depth 1 https://github.com/riscv/riscv-arch-test.git 37e6e0022814d880375e4a310b4a9a10fb9b268a
           git -C build/riscv-arch-test checkout --detach FETCH_HEAD
-      - name: Install SystemC
+      - name: Prepare Conan dependencies
         run: |
-          git init "$RUNNER_TEMP/systemc-source"
-          git -C "$RUNNER_TEMP/systemc-source" fetch --depth 1 https://github.com/accellera-official/systemc.git 11ad094d282fd5330b27ab57f90f9d231a763da1
-          git -C "$RUNNER_TEMP/systemc-source" checkout --detach FETCH_HEAD
-          if [ '${{ matrix.preset }}' = clang-ninja ]; then
-            cc=clang
-            cxx=clang++
-          else
-            cc=gcc
-            cxx=g++
-          fi
-          cmake -S "$RUNNER_TEMP/systemc-source" -B "$RUNNER_TEMP/systemc-build" -G Ninja \
-            -DCMAKE_C_COMPILER="$cc" -DCMAKE_CXX_COMPILER="$cxx" -DCMAKE_ASM_COMPILER="$cc" \
-            -DCMAKE_CXX_STANDARD=20 -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/systemc-install" \
-            -DENABLE_EXAMPLES=OFF -DENABLE_REGRESSION=OFF
-          cmake --build "$RUNNER_TEMP/systemc-build" --parallel 2
-          cmake --install "$RUNNER_TEMP/systemc-build"
+          conan config install conan/config
+          conan install . -pr:a=conan/profiles/${{ matrix.compiler }} \
+            -s build_type=${{ matrix.build_type }} --build=missing -c tools.build:jobs=2
       - name: Check pre-commit hooks
         if: matrix.name == 'core-sanitizers'
         run: pre-commit run --all-files
@@ -98,9 +89,7 @@ jobs:
       - name: Configure
         run: |
           cmake --preset ${{ matrix.preset }} \
-            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/systemc-install" \
             -DBUILD_TESTING=ON \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DQSBIT_SANITIZERS=${{ matrix.sanitizers }} \
             -DQSBIT_PYTHON_BACKENDS=${{ matrix.bridge }} \
             -DQSBIT_TEST_AER=${{ matrix.aer }} \
@@ -147,24 +136,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz ninja-build binutils-riscv64-unknown-elf
           python -m pip install uv==0.12.7
-          uv sync --frozen --extra docs --extra docs-test
+          uv sync --frozen --group build --extra docs --extra docs-test
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           .venv/bin/python -m playwright install --with-deps chromium
-      - name: Install SystemC
+      - name: Prepare Conan dependencies
         run: |
-          git init "$RUNNER_TEMP/systemc-source"
-          git -C "$RUNNER_TEMP/systemc-source" fetch --depth 1 https://github.com/accellera-official/systemc.git 11ad094d282fd5330b27ab57f90f9d231a763da1
-          git -C "$RUNNER_TEMP/systemc-source" checkout --detach FETCH_HEAD
-          cmake -S "$RUNNER_TEMP/systemc-source" -B "$RUNNER_TEMP/systemc-build" -G Ninja \
-            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_ASM_COMPILER=gcc \
-            -DCMAKE_CXX_STANDARD=20 -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/systemc-install" \
-            -DENABLE_EXAMPLES=OFF -DENABLE_REGRESSION=OFF
-          cmake --build "$RUNNER_TEMP/systemc-build" --parallel 2
-          cmake --install "$RUNNER_TEMP/systemc-build"
+          conan config install conan/config
+          conan install . -pr:a=conan/profiles/gcc --build=missing -c tools.build:jobs=2
       - name: Build simulator and examples
         run: |
-          cmake --preset gcc-ninja -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/systemc-install" \
+          cmake --preset gcc-ninja \
             -DBUILD_TESTING=ON -DQSBIT_TEST_WEBSITE=ON
           cmake --build --preset gcc-ninja --parallel 2
       - name: Verify documentation and browser behavior

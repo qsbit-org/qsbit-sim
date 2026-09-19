@@ -10,17 +10,15 @@ Install the [build prerequisites](docs/prerequisites.md), then run these command
 from the repository root. This example selects Clang on Linux:
 
 ```sh
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++
-cmake --build build --parallel
+cmake --preset clang-ninja
+cmake --build --preset clang-ninja --parallel
 ```
 
-The executable is `build/qsbit-sim`. For GCC, configure a fresh build directory
-with `-DCMAKE_CXX_COMPILER=g++`.
-Separate `clang-ninja` and `gcc-ninja` presets are also available for compiler
-selection and testing. CMake discovers the installed SystemC package using its
-standard search paths.
-Python is optional and is not required for this build.
-See [build options](docs/building.md) for tests and offline builds.
+The executable is `build-clang/qsbit-sim`. Use `gcc-ninja` for GCC after
+preparing its Conan dependencies. Dependency versions are declared in
+[conanfile.py](conanfile.py) and locked in [conan.lock](conan.lock).
+Configuration and builds use the prepared dependencies without downloading them.
+Python quantum packages are optional. See [build options](docs/building.md).
 
 ## Run an example
 
@@ -28,15 +26,15 @@ Install [GNU RISC-V binutils](docs/prerequisites.md#ubuntu)
 (`binutils-riscv64-unknown-elf` on Ubuntu), then:
 
 ```sh
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+cmake --preset clang-ninja \
   -DQSBIT_BUILD_EXAMPLES=ON
-cmake --build build --parallel
-build/qsbit-sim --config build/examples/runs/scripted.json
+cmake --build --preset clang-ninja --parallel
+build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json
 ```
 
 This runs the feedback program with a scripted measurement result. It exercises
 the control pipeline without a quantum-state library. Results are written to
-`build/runs/scripted.json`; timestamped events are in `build/runs/scripted.jsonl`.
+`build-clang/runs/scripted.json`; timestamped events are in `build-clang/runs/scripted.jsonl`.
 The summary should contain `"success": true` and memory word `"4096": 1`.
 
 ## Optional quantum backends
@@ -64,14 +62,14 @@ Choose the `pulse` extra instead of `aer` for the bundled pulse backend, or inst
 With the environment active and Python development headers available:
 
 ```sh
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+cmake --preset clang-ninja \
   -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
-cmake --build build --parallel
-build/qsbit-sim --config build/examples/runs/bell.json
+cmake --build --preset clang-ninja --parallel
+build-clang/qsbit-sim --config build-clang/examples/runs/bell.json
 ```
 
 CMake discovers the active environment. The Bell example uses Aer and produces
-matching measurement bits at addresses 4096 and 4100 in `build/runs/bell.json`.
+matching measurement bits at addresses 4096 and 4100 in `build-clang/runs/bell.json`.
 [Other examples](examples/README.md) cover feedback and overlapping pulse drives.
 
 An external Python adapter can be selected as `"backend": "my_package:MyBackend"`
@@ -86,13 +84,13 @@ With examples enabled, CMake generates run files in the selected build tree.
 For example, the [Bell run template](examples/runs/bell.json.in) runs with:
 
 ```sh
-build/qsbit-sim --config build/examples/runs/bell.json
+build-clang/qsbit-sim --config build-clang/examples/runs/bell.json
 ```
 
 Append `--seed 42` to override the seed for one run. Use
-`--dump-default-profile build/profile.json` to inspect all hardware parameters.
+`--dump-default-profile build-clang/profile.json` to inspect all hardware parameters.
 The [configuration reference](docs/interfaces.md#cli-and-profile) lists fields,
-units, precedence, and output formats. `build/qsbit-sim --help` lists CLI options.
+units, precedence, and output formats. `build-clang/qsbit-sim --help` lists CLI options.
 
 ## Test
 

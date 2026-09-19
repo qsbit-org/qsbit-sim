@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.24)
+if(NOT CMAKE_TOOLCHAIN_FILE OR NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
+  message(FATAL_ERROR
+    "Conan dependencies are not prepared for this preset. "
+    "Follow docs/prerequisites.md, then configure with a CMake preset.")
+endif()
 project(qsbit_sim VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -136,6 +141,11 @@ if(BUILD_TESTING)
   find_program(RISCV_LD NAMES riscv64-unknown-elf-ld REQUIRED)
   find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump REQUIRED)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME build.dependencies COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/dependency_setup.py"
+    --cmake "${CMAKE_COMMAND}" --source "${CMAKE_CURRENT_SOURCE_DIR}"
+    --toolchain "${CMAKE_TOOLCHAIN_FILE}" --configuration "${CMAKE_BUILD_TYPE}")
+  set_tests_properties(build.dependencies PROPERTIES TIMEOUT 120 LABELS "fast;integration")
   add_test(NAME docs.contracts COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_docs.py" --build "${CMAKE_CURRENT_BINARY_DIR}"
     --ctest "${CMAKE_CTEST_COMMAND}")

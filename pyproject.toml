@@ -19,3 +19,6 @@ docs-test = ["playwright>=1.51,<2"]
 
 [tool.setuptools.packages.find]
 where = ["python"]
+
+[dependency-groups]
+build = ["conan==2.32.0"]

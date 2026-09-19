@@ -23,17 +23,15 @@ The executables are `build-gcc/qsbit-sim` and `build-clang/qsbit-sim`.
 Add configuration options to the first command, such as
 `-DQSBIT_BUILD_EXAMPLES=ON`.
 
-To select a compiler by path, set `CMAKE_CXX_COMPILER` in a fresh build directory.
-Build SystemC separately with the matching C, C++, and assembly compilers.
-You can also configure without a preset:
+The presets select the Conan-generated toolchain for that compiler and use
+Debug dependencies. Release presets are named `clang-ninja-release` and
+`gcc-ninja-release`; their build directories have the same `-release` suffix.
+Prepare the corresponding configuration before selecting it.
 
-```sh
-cmake -S . -B build
-cmake --build build --parallel
-```
-
-That form uses CMake's default generator and compiler. Use a new build directory
-when changing compiler, Python interpreter or major dependency versions.
+Use `-B` to select another simulator build directory while retaining the
+prepared dependencies, for example `cmake --preset clang-ninja -B build-custom`.
+Build that directory with `cmake --build build-custom`. Keep compiler and build
+type selections in the profiles and presets so they match the dependency binaries.
 
 ## Enable tests
 
@@ -67,22 +65,29 @@ With both enabled, `python.plugin` also tests an external adapter without
 numerical dependencies. An explicitly enabled test fails if its dependencies
 are missing.
 
-## SystemC
+## Conan dependencies
 
-SystemC must be installed with C++20 before configuring the simulator. Follow
-[the prerequisite setup](prerequisites.md#systemc) once for your development
-environment. No project-specific installation directory is required.
+[Prepare dependencies](prerequisites.md#prepare-conan-dependencies) once before
+configuring. The project uses the packages selected by Conan; standalone system
+installations and the CMake user package registry are not searched. No
+`CMAKE_PREFIX_PATH` or shell activation is needed for CMake.
 
-CMake searches standard system prefixes and the `CMAKE_PREFIX_PATH` environment
-variable. For a single build, you can also supply a prefix explicitly:
+The manifest and lockfile control dependency versions. Generated toolchains
+live in `.conan/`, independently of build directories. Deleting a simulator
+build directory does not delete the dependency setup. Regenerate the Conan
+files when dependencies or compiler configurations change, then configure with
+`--fresh` when replacing an existing toolchain.
+
+To update a dependency deliberately, edit [conanfile.py](../conanfile.py),
+regenerate the lockfile, and prepare and test each supported configuration:
 
 ```sh
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/systemc
+uv run --frozen --group build --inexact conan lock create . \
+  -pr:a=conan/profiles/clang --lockfile="" --lockfile-out=conan.lock
 ```
 
-Use the installation prefix, rather than its `include` or `lib` subdirectory.
-CMake does not download dependencies. The user package registry is ignored so
-stale temporary build registrations cannot override an installed package.
+Commit the manifest and lockfile together. Routine installs use the checked-in
+lockfile automatically and do not update recipe revisions.
 
 ## Python environments
 
@@ -96,7 +101,7 @@ For a locked development environment with both numerical backends and ISA tests:
 ```sh
 uv sync --frozen --extra pulse --extra verification --extra dev
 source .venv/bin/activate
-cmake -S . -B build-python \
+cmake --preset clang-ninja -B build-python \
   -DBUILD_TESTING=ON -DQSBIT_PYTHON_BACKENDS=ON \
   -DQSBIT_TEST_AER=ON -DQSBIT_TEST_PULSE=ON -DQSBIT_ISA_REFERENCES=ON
 cmake --build build-python --parallel
@@ -119,8 +124,8 @@ coverage and exclusions.
 ## Sanitizers
 
 ```sh
-cmake -S . -B build-asan \
-  -DBUILD_TESTING=ON -DQSBIT_SANITIZERS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --preset clang-ninja -B build-asan \
+  -DBUILD_TESTING=ON -DQSBIT_SANITIZERS=ON
 cmake --build build-asan --parallel
 ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
   ctest --test-dir build-asan --output-on-failure

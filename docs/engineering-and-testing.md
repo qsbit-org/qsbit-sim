@@ -64,6 +64,7 @@ configured CTest suites.
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
 | `adapter.*` | Replacement CPU construction through `ICpuCycleModel` and session reset. |
 | `docs.*` | Documentation links, checked declarations and registered test references. |
+| `build.dependencies` | Actionable missing-setup errors and Conan discovery despite unrelated installation paths and stale package cache entries. |
 
 Each [module page](modules/README.md) names its relevant CTest entries and
 describes what those tests establish.
@@ -161,7 +162,7 @@ Use the [sanitizer build](building.md#sanitizers) to check address and
 undefined-behavior errors. For line and branch coverage, use a separate build:
 
 ```sh
-cmake -S . -B build-coverage \
+cmake --preset gcc-ninja -B build-coverage \
   -DBUILD_TESTING=ON -DQSBIT_COVERAGE=ON
 cmake --build build-coverage --parallel
 ctest --test-dir build-coverage --output-on-failure

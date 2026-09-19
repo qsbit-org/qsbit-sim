@@ -1,0 +1,13 @@
+{% set compiler, version, executable = detect_api.detect_gcc_compiler() %}
+[settings]
+os=Linux
+arch={{ detect_api.detect_arch() }}
+compiler={{ compiler }}
+compiler.version={{ version.major }}
+compiler.libcxx=libstdc++11
+compiler.cppstd=20
+build_type=Debug
+
+[conf]
+tools.build:compiler_executables={"c": "gcc", "cpp": "g++", "asm": "gcc"}
+tools.cmake.cmaketoolchain:generator=Ninja

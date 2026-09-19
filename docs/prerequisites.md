@@ -1,12 +1,12 @@
 # Install build prerequisites
 
 Choose the tools for the workflow you need. A normal simulator build requires
-CMake, a C++20 toolchain, and an installed C++20 SystemC 3.0.1. Examples
+CMake, a C++20 toolchain, and Conan-managed SystemC. Examples
 additionally require GNU RISC-V binutils; tests require a Python interpreter.
 
 | Workflow | Required tools |
 | --- | --- |
-| Build the simulator | CMake 3.24 or newer, a C++20 Clang or GCC toolchain, Git to install SystemC, and an installed C++20 SystemC 3.0.1. The checked-in presets use Ninja. |
+| Build the simulator | CMake 3.24 or newer, Ninja, a C++20 Clang or GCC toolchain, and dependencies prepared with Conan 2. Preparation requires Python and uv. |
 | Build examples | Build tools plus GNU RISC-V assembler and linker. |
 | Run core tests | Example tools, RISC-V objdump and Python. |
 | Use Python backends | Build tools, Python, matching development files, and a local `.venv` with the selected adapter. |
@@ -20,7 +20,7 @@ CI uses Ubuntu 24.04. For GCC and the bundled examples, install:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y gcc g++ git cmake ninja-build binutils-riscv64-unknown-elf
+sudo apt-get install -y gcc g++ clang git cmake ninja-build python3-venv binutils-riscv64-unknown-elf
 ```
 
 For Clang, install `clang` and select the `clang-ninja` preset. Use the same
@@ -46,46 +46,61 @@ Then follow [backend installation](backends.md#install-an-optional-backend).
 Python package constraints are in [pyproject.toml](../pyproject.toml);
 [uv.lock](../uv.lock) records reproducible resolutions.
 
-## SystemC
+## Prepare Conan dependencies
 
-Install SystemC with C++20 before configuring qsbit-sim. Any installation
-prefix is supported. CMake discovers standard system installations automatically;
-custom prefixes need to be added to its search path once in your shell.
-
-To build the pinned revision, run the following from a source workspace outside
-the qsbit-sim checkout. These commands use Clang and CMake's default Unix install
-prefix, `/usr/local`:
+Run these commands from the repository root after installing
+[uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```sh
-git clone https://github.com/accellera-official/systemc.git
-git -C systemc checkout 11ad094d282fd5330b27ab57f90f9d231a763da1
-cmake -S systemc -B systemc/build -G Ninja \
-  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang \
-  -DCMAKE_CXX_STANDARD=20 -DENABLE_EXAMPLES=OFF -DENABLE_REGRESSION=OFF
-cmake --build systemc/build --parallel
-sudo cmake --install systemc/build
+uv sync --frozen --group build --inexact
+uv run --frozen --group build --inexact conan config install conan/config
+uv run --frozen --group build --inexact conan install . -pr:a=conan/profiles/clang --build=missing
 ```
 
-For GCC, replace the three compiler settings with `gcc`, `g++`, and `gcc`.
-Use a fresh SystemC build directory when changing compilers.
+This installs the locked Conan version, applies the project's exact binary
+compatibility policy to the Conan user configuration, and prepares SystemC.
+The compatibility policy disables reuse across different compiler settings;
+SystemC requires the same C++ standard as its consumer. The supplied Linux
+profiles detect the selected compiler version and host architecture, select
+C++20 and libstdc++, and use matching C, C++, and assembly compilers.
+No default Conan profile or SystemC installation prefix is needed.
 
-For an installation without administrator access, choose any writable prefix.
-Instead of the `sudo` install step above, run:
+Conan downloads a matching binary when available; otherwise it compiles the
+locked sources during this preparation step. Packages stay in the Conan cache.
+Generated CMake files stay in `.conan/`, separately from simulator build trees.
+Neither directory belongs in Git. Keep the generated files and cached packages
+available during development.
+
+Prepare GCC instead, or in addition to Clang, with:
 
 ```sh
-cmake -S systemc -B systemc/build -DCMAKE_INSTALL_PREFIX=/path/to/systemc
-cmake --install systemc/build
-export CMAKE_PREFIX_PATH=/path/to/systemc
+uv run --frozen --group build --inexact conan install . -pr:a=conan/profiles/gcc --build=missing
 ```
 
-Replace `/path/to/systemc` with your chosen installation directory. Set this
-variable in each development shell, or add it to your shell startup file.
-If it already contains other dependency prefixes, add the SystemC prefix to
-that list, separated by `:` on Linux. The normal qsbit-sim build commands stay
-the same for every installation location.
+The `clang-ninja` and `gcc-ninja` presets use Debug dependencies. To prepare a
+Release configuration, add `-s build_type=Release` to its install command and
+use `clang-ninja-release` or `gcc-ninja-release` for subsequent CMake commands.
+Compiler families and build configurations have separate generated files.
 
-A SystemC installation built with another C++ standard is rejected at configure
-time. The simulator does not download SystemC.
+After preparation, normal development only needs CMake:
+
+```sh
+cmake --preset clang-ninja
+cmake --build --preset clang-ninja --parallel
+```
+
+New terminals and IDE sessions do not need an activated Python environment or
+`CMAKE_PREFIX_PATH`. Removing `build-clang` or `build-gcc` does not remove the
+prepared dependencies. Existing standalone SystemC installations are not used.
+
+Rerun the install command after changing the Conan manifest, lockfile, compiler,
+or build configuration, or after removing `.conan/` or Conan's cached packages.
+Unchanged dependencies are reused. When switching an existing build to Conan,
+or upgrading a compiler, configure once with `cmake --fresh --preset clang-ninja`.
+
+Dependency requirements are in [conanfile.py](../conanfile.py), recipe revisions
+are pinned in [conan.lock](../conan.lock), and the Conan tool is locked in
+[uv.lock](../uv.lock). The default C++ workflow installs no quantum backends.
 
 ## Check the tools
 
@@ -101,13 +116,12 @@ riscv64-unknown-elf-ld --version
 
 Use `clang++ --version` when selecting Clang. For tests, also check
 `python3 --version` and `riscv64-unknown-elf-objdump --version`.
-The installed SystemC package can be checked by configuring the simulator with
-the appropriate `CMAKE_PREFIX_PATH`.
+Check the prepared dependency configuration with `cmake --preset clang-ninja`.
 
 ## Offline builds
 
-Install SystemC and the required tools before working offline. The simulator
-does not fetch dependencies at configure or build time. Keep any custom
-dependency prefixes in your shell environment as described above.
+Complete dependency preparation while online. CMake configure, build, and test
+commands do not contact Conan remotes. To regenerate `.conan/` from packages
+already cached locally, rerun the Conan install command with `--no-remote`.
 
 Continue with [your first simulation](quickstart.md).

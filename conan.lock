@@ -1,0 +1,9 @@
+{
+    "version": "0.5",
+    "requires": [
+        "systemc/3.0.1#3f2c369d3d7002eca4134726cfe21a6c%1743609045.951"
+    ],
+    "build_requires": [],
+    "python_requires": [],
+    "config_requires": []
+}
