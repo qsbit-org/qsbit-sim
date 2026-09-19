@@ -6,6 +6,9 @@ introduction to the data path, start with the [architecture overview](high-level
 
 ## Timing terms used below
 
+[Simulation time and execution](simulation-model.md) introduces the scheduler,
+processes and communication paths.
+
 A **tick** is one nanosecond of simulation time. CPU and TCU clocks can have
 different periods and phases on that grid.
 
@@ -32,27 +35,29 @@ show the connections and each module's local behavior.
 | `IQuantumBackend` | Calculate quantum evolution and measurements. |
 | `Simulator` | Schedule model calls and coordinate reset, device boundaries and stop. |
 
-Calls within one owner add no implied clock delay. Messages between owners use
-bounded mailboxes with explicit eligibility ticks.
+Direct C++ calls add no implied clock delay, including calls between owners.
+The command, reply, memory and measurement-delivery paths use bounded mailboxes
+with explicit eligibility ticks. Device preflight and launch acceptance are
+direct calls from the SystemC adapter.
 
 ## Producer operations and progress
 
-The producer starts at cursor zero with no open point. The first APPEND opens
-that point. A positive ADVANCE can skip the untouched origin without submitting
-an empty group. Once ADVANCE opens a new point, sealing it submits a timing entry
+The producer starts at cursor zero with no open group. The first APPEND opens
+a group there. A positive ADVANCE can skip the untouched origin without submitting
+an empty group. Once ADVANCE opens a new group, sealing it submits a timing entry
 even if it has no events.
 
 | Operation | When it completes | State change |
 | --- | --- | --- |
 | APPEND | After action validation, staging and any measurement-slot reservation. | Adds actions at the cursor and returns a handle for acquisition, otherwise zero. |
-| ADVANCE(0) | Immediately in the producer call. | None; it neither seals nor reopens a flushed point. |
-| ADVANCE(d), d > 0 | After any open group is admitted and its reply reaches the CPU. | Moves the cursor by d and opens a point there. |
-| FLUSH | After any open group is admitted and its reply reaches the CPU. | Keeps the cursor, closes the point to further APPENDs. Repeated FLUSH has no further effect. |
+| ADVANCE(0) | Immediately in the producer call. | None; it neither seals nor reopens a flushed group. |
+| ADVANCE(d), d > 0 | After any open group is admitted and its reply reaches the CPU. | Moves the cursor by d and opens a group there. |
+| FLUSH | After any open group is admitted and its reply reaches the CPU. | Keeps the cursor, closes the group to further APPENDs. Repeated FLUSH has no further effect. |
 | READ_RESULT | After FLUSH and delivery of the requested result to the CPU. | Consumes the result slot and returns its bit. |
 | END | After FLUSH and publication of closure. | Prevents further producer operations. Simulation continues until drain. |
 
 FLUSH at the untouched empty origin closes it locally. Positive ADVANCE from
-that origin or an already flushed point needs no group reply.
+that origin or an already flushed group needs no group reply.
 
 APPEND can retire before TCU admission. This allows several scalar instructions
 to build one group. For example, at cursor 4, APPEND(A), APPEND(B), ADVANCE(3)
@@ -111,7 +116,8 @@ TCU transition; they do not each consume a clock cycle.
 
 ## Start, deadlines and empty queues
 
-With TCU start S and period P, logical cycle n is due at `S + n * P`.
+With effective epoch start S and period P, logical cycle n is due at `S + n * P`.
+Initially S is `profile.start`; session reset computes a new S as described below.
 The start edge is cycle zero. Start is configured independently of CPU progress,
 so a blocked producer cannot prevent the timer from starting.
 
@@ -134,7 +140,11 @@ The device barrier waits for every CPU, memory and TCU transition due at tick t
 to finish. It then processes all physical work assigned to t, including
 zero-delay actions just launched by the TCU.
 
-Before changing quantum state, the runtime validates the whole boundary batch.
+A launch batch belongs to one label firing. A physical boundary batch contains
+all starts, ends, samples and ready results at one tick, potentially from several
+launches. Output delays can spread one launch across several boundaries.
+
+Before changing quantum state, the runtime validates the whole physical boundary batch.
 It then:
 
 1. Evolves state once over the preceding interval under all previously active drives.
@@ -184,7 +194,7 @@ It clears CPU and producer state, mailboxes, TCU queues and history, device
 reservations, readouts and result slots. Active actions receive reset-abort
 records. The backend is initialized again with the configured qubit count and seed.
 
-The CPU returns to the loaded entry PC. Memory bytes and the timing profile
+The CPU returns to the loaded entry PC. Memory bytes and the simulation profile
 are preserved. Result-slot generation counters survive reset, so stale handles
 cannot become valid through slot reuse.
 

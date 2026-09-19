@@ -13,7 +13,7 @@ The [control protocol](../module-architecture.md) defines the shared timing rule
 
 | Module | What it does |
 | --- | --- |
-| [Platform and clocks](platform-and-clock-adapter.md) | Creates the run profile, clocks and scheduled wakeups. |
+| [Platform and clocks](platform-and-clock-adapter.md) | Creates the simulation profile, clocks and scheduled wakeups. |
 | [ELF loader](elf-loader-and-program-image.md) | Loads executable bytes, segment permissions and entry PC. |
 | [ISA decoder](isa-decoder-and-semantics.md) | Decodes instructions and calculates architectural effects. |
 | [CPU cycle model](cpu-cycle-model.md) | Advances the pipeline, handles stalls and retires instructions. |
@@ -24,7 +24,7 @@ The [control protocol](../module-architecture.md) defines the shared timing rule
 
 | Module | What it does |
 | --- | --- |
-| [Port/codeword map](port-codeword-and-waveform-map.md) | Selects device actions from the run profile. |
+| [Port-codeword action map](port-codeword-and-waveform-map.md) | Selects device actions from the simulation profile. |
 | [Operation lowerer](operation-lowerer-and-device-distributor.md) | Expands commands into identified per-port events. |
 | [Timeline producer](timeline-reservation-manager.md) | Collects actions for a planned cycle and seals groups. |
 | [Crossing and admission](command-crossing-and-admission.md) | Transfers groups and inserts all their queue entries together. |
@@ -40,13 +40,13 @@ The [control protocol](../module-architecture.md) defines the shared timing rule
 | [Output channels and resource calendar](output-channels-and-resource-calendar.md) | Reserve and execute physical intervals. |
 | [Quantum backend](quantum-state-service-and-backends.md) | Evolves shared state and returns measurement outcomes. |
 | [Acquisition and discrimination](acquisition-and-discrimination.md) | Samples measurements and schedules result readiness. |
-| [Scoreboard and CPU feedback](measurement-scoreboard-and-cpu-feedback.md) | Track handles and deliver results to QREAD. |
+| [Scoreboard and CPU result delivery](measurement-scoreboard-and-cpu-feedback.md) | Track handles and deliver results to QREAD. |
 | [Fast-condition history](fast-condition-history.md) | Retains exact-token results for conditional TCU output. |
 | [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
 | [Synchronization boundary](future-synchronization-adapter.md) | Rejects QSYNC; distributed synchronization is not implemented. |
 
-In module diagrams, solid arrows show inputs and outputs; dashed arrows connect
-state or configuration to the behavior that uses it. Each **CTest** entry names
+In all architecture diagrams, solid arrows carry values or calls. Dashed arrows
+show labeled dependencies: scheduling, observation, state or configuration. Each **CTest** entry names
 registered tests. Optional numerical tests are identified separately.
 
 ```{toctree}

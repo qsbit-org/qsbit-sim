@@ -1,8 +1,9 @@
 # Controller architecture
 
 Follow the command path from the CPU through the producer and TCU to the device
-runtime. Measurement results return through two paths: CPU feedback for QREAD
-and fast history for conditional TCU output.
+runtime. Measurement results return through two delivery paths: CPU result slots for QREAD
+and fast-condition history for conditional TCU output. Delivery alone does not
+imply that a program makes a conditional decision.
 
 Click a box to open its module reference. Use the zoom controls to inspect the
 connections, or open the [module list](modules/README.md) for text navigation.
@@ -24,8 +25,11 @@ connections, or open the [module list](modules/README.md) for text navigation.
 ## Read the diagram
 
 Groups identify the main C++ owners and scheduling domains. Boxes identify
-logical responsibilities; several boxes can belong to one owner.
-Solid arrows carry values or calls. Dashed arrows show scheduling or observation.
+logical responsibilities; several boxes can belong to one owner. A state owner
+is the object that changes that state, not an independent process.
+Solid arrows carry values or calls. Dashed arrows show dependencies such as
+scheduling, observation or stored state; each dependency is labeled. The same
+convention applies to the individual module diagrams.
 
 For example, a `Group` crosses from the producer to the TCU through a timed
 mailbox. Resolving a port/codeword mapping is a direct C++ call inside command

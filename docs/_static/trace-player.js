@@ -6,15 +6,15 @@
   const script = document.currentScript;
   const url = new URL('trace-examples.json', script.src);
   const $ = id => document.getElementById(`trace-${id}`);
-  const owners = [
+  const lanes = [
     ['cpu', 'CPU', 'cpu-cycle-model'],
     ['producer', 'Producer', 'timeline-reservation-manager'],
     ['tcu', 'TCU', 'tcu-timer-and-label-broadcaster'],
     ['device', 'Device', 'output-channels-and-resource-calendar'],
-    ['feedback', 'Feedback', 'measurement-scoreboard-and-cpu-feedback'],
-    ['lifecycle', 'Lifecycle', 'trace-recorder-and-stop-controller'],
+    ['feedback', 'Result delivery', 'measurement-scoreboard-and-cpu-feedback'],
+    ['lifecycle', 'Run lifecycle', 'trace-recorder-and-stop-controller'],
   ];
-  const owner = e => {
+  const lane = e => {
     if (['InstructionRetired', 'CpuStalled', 'PipelineFlushed'].includes(e.kind)) return 'cpu';
     if (['ProducerAccepted', 'GroupSubmitted', 'GroupReplyVisible', 'ResultConsumed'].includes(e.kind)) return 'producer';
     if (['GroupAdmitted', 'LabelFired', 'ConditionCancelled', 'EndOfStreamVisible'].includes(e.kind)) return 'tcu';
@@ -43,7 +43,7 @@
     svg.setAttribute('viewBox', '0 0 940 260');
     const max = demo.events.at(-1).tick || 1;
     const x = tick => 105 + tick / max * 800;
-    owners.forEach(([key, label], row) => {
+    lanes.forEach(([key, label], row) => {
       const y = 28 + row * 34;
       svgElement('text', {x: 4, y: y + 4}, svg).textContent = label;
       svgElement('line', {x1: 105, y1: y, x2: 905, y2: y, class: 'lane'}, svg);
@@ -51,7 +51,7 @@
     // CPU stall repetitions remain accessible in the event slider without obscuring milestones.
     demo.events.forEach((event, i) => {
       if (event.kind === 'CpuStalled') return;
-      const row = owners.findIndex(o => o[0] === owner(event));
+      const row = lanes.findIndex(o => o[0] === lane(event));
       const dot = svgElement('circle', {cx: x(event.tick), cy: 28 + row * 34,
         r: 4, class: 'trace-dot', 'data-index': i, tabindex: 0, role: 'button',
         'aria-label': `${event.tick} ns ${event.kind}`}, svg);
@@ -73,8 +73,8 @@
     $('prev').disabled = index === 0;
     $('next').disabled = $('tick').disabled = index === demo.events.length - 1;
     $('owners').querySelectorAll('a').forEach(a => {
-      a.classList.toggle('active', a.dataset.owner === owner(event));
-      if (a.dataset.owner === owner(event)) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+      a.classList.toggle('active', a.dataset.owner === lane(event));
+      if (a.dataset.owner === lane(event)) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
     });
     $('clocks').replaceChildren();
     const values = [
@@ -91,7 +91,7 @@
       if (e.kind === 'GroupAdmitted') observed.set('Timing queue occupancy (at last admission)', `${e.value} at ${e.tick} ns`);
       if (e.kind === 'LabelFired') observed.set('Last fired label', `${e.label} at ${e.tick} ns`);
       if (e.kind === 'CpuResultVisible') observed.set(`CPU measurement ${e.id}`, `${e.value} visible at ${e.tick} ns`);
-      if (e.kind === 'FastResultVisible') observed.set(`Fast measurement ${e.id}`, `${e.value} visible at ${e.tick} ns`);
+      if (e.kind === 'FastResultVisible') observed.set(`TCU measurement ${e.id}`, `${e.value} committed at ${e.tick} ns; earliest condition edge (derived): ${e.tick + profile.tcu.period} ns`);
     }
     $('observed').replaceChildren();
     if (!observed.size) element('p', 'No state observations yet.', $('observed'));
@@ -129,7 +129,7 @@
   });
   $('speed').addEventListener('change', stop);
   $('example').addEventListener('change', selectDemo);
-  owners.forEach(([key, label, page]) => { const a = element('a', label, $('owners'), 'owner-card'); a.href = `modules/${page}.html`; a.dataset.owner = key; });
+  lanes.forEach(([key, label, page]) => { const a = element('a', label, $('owners'), 'owner-card'); a.href = `modules/${page}.html`; a.dataset.owner = key; });
   root.querySelectorAll('button, select, input').forEach(control => control.disabled = true);
   fetch(url).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); }).then(bundle => {
     if (bundle.schema !== 1 || !Array.isArray(bundle.examples) || !bundle.examples.length) throw new Error('Unsupported example bundle');

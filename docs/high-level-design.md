@@ -34,7 +34,7 @@ The main path through the controller is:
 ```text
 Program image -> CPU -> Timeline producer -> TCU -> Device runtime -> Quantum backend
                   ^                                  |
-                  +------- measurement feedback -----+
+                  +------- measurement results -----+
 ```
 
 | Component | Responsibility |
@@ -54,6 +54,9 @@ clock stage just because it appears as a box in the diagram.
 
 ## SystemC scheduling
 
+[Simulation time and execution](simulation-model.md) explains clocks, processes,
+model state and message delivery. Use the [glossary](glossary.md) for definitions.
+
 SystemC maintains simulation time and runs processes when their events occur.
 The CPU and memory methods run at CPU rising edges; the TCU method runs at TCU
 rising edges. The device runtime runs at physical boundaries such as pulse
@@ -66,7 +69,7 @@ of which runnable SystemC process executes first.
 
 Delta cycles coordinate work without advancing simulation time. Instruction
 latencies, queue capacities and output delays come from the C++ models and
-timing profile. The [control protocol](module-architecture.md) defines their
+simulation profile. The [control protocol](module-architecture.md) defines their
 ordering rules.
 
 ## Programs and instruction extensions
@@ -85,7 +88,7 @@ The ISA library and CPU timing model are separate. A different pipeline can
 reuse instruction semantics, and a different instruction adapter can produce
 the same control operations. The current CPU has three in-order stages.
 
-## Measurement feedback
+## Measurement results and conditional control
 
 The device runtime samples a measurement at acquisition end. Discriminator
 timing determines when the bit is ready. Separate crossings deliver it to
@@ -94,7 +97,9 @@ the CPU result slots and, when enabled, TCU fast-condition history.
 QREAD waits for the CPU-visible result and consumes its handle. A program can
 then branch and prepare a future group. QAPPEND_IF instead attaches an exact
 measurement token to an action; the TCU tests that token at firing time.
-Both paths preserve the existing TCU timeline.
+Result delivery also occurs in programs such as Bell that make no conditional
+decision. The fast path bypasses a CPU branch; its configured result latency can
+be longer than the CPU path. Both control paths preserve the existing TCU timeline.
 
 ## Replacing a model
 

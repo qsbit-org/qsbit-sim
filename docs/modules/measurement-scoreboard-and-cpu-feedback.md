@@ -1,4 +1,4 @@
-# Measurement Scoreboard and CPU Feedback
+# Measurement Scoreboard and CPU Result Delivery
 
 The scoreboard reserves a result slot when the producer accepts a measurement.
 It tracks that measurement until its bit reaches the CPU and QREAD consumes it.

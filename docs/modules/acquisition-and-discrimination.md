@@ -1,6 +1,7 @@
 # Acquisition and Discrimination
 
-Readout separates measurement sampling from result availability.
+[Readout](../glossary.md#readout) separates measurement sampling from result availability.
+Discrimination is represented by a delay; no raw waveform classifier runs here.
 `DeviceRuntime` samples the backend at acquisition end, then waits for the
 discriminator timing before publishing the bit to the CPU and optional fast path.
 

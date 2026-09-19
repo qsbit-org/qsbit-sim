@@ -56,6 +56,27 @@ condition retains the full token even after CPU consumption.
 Tests independently check the emitted encodings and their execution.
 The profile makes no binary-compatibility claim with eQASM or Distributed-HISQ.
 
+## Instruction and producer operation names
+
+The ISA mnemonic names a machine instruction; the producer operation names the
+request passed to `TimelineProducer`. Protocol examples use the uppercase names
+in the middle column. They describe the same control request at different layers.
+
+| ISA mnemonic | Protocol name | `ProducerKind` |
+| --- | --- | --- |
+| QAPPEND | APPEND | Append |
+| QADVANCE | ADVANCE | Advance |
+| QFLUSH | FLUSH | Flush |
+| QREAD | READ_RESULT | ReadResult |
+| QEND | END | End |
+| QAPPEND_IF | Conditional append | ConditionalAppend |
+| QSYNC | Synchronize | Synchronize |
+
+APPEND stages actions; ADVANCE seals a group and moves the cursor after any
+required admission reply; FLUSH seals without moving. ADVANCE(0) does neither.
+READ_RESULT consumes a CPU result after flushing. END closes production, while
+successful simulation completion still requires drain.
+
 ## CLI and profile
 
 Start a run with `--config FILE` or `--program FILE`. Run `qsbit-sim --help`
@@ -128,7 +149,12 @@ Output parent directories are created as needed.
 
 Program, profile, output and module paths all resolve relative to the run file.
 
-### Timing profile
+### Simulation profile
+
+A run configuration chooses the program, backend and output files. A simulation
+profile supplies hardware parameters. `--config` reads the former; `--profile`
+reads the latter. A Conan build profile selects compiler dependencies and is
+unrelated to either simulation input.
 
 Use `--dump-default-profile` for a complete machine-readable profile.
 An overlay changes only the supplied fields.
@@ -136,7 +162,7 @@ An overlay changes only the supplied fields.
 | Fields | Units or role |
 | --- | --- |
 | `cpu`, `tcu` | Clock objects with integer `period` and `phase` in nanoseconds. |
-| `start`, `watchdog` | TCU startup offset and global watchdog tick, in nanoseconds. |
+| `start`, `watchdog` | Initial TCU start tick, reused as an offset on reset; global simulation watchdog deadline. |
 | `memory_latency` | CPU periods from memory acceptance to service completion. |
 | `command_latency`, `reply_latency` | Receiver edges for group and admission-reply crossings. |
 | `cpu_result_latency`, `fast_result_latency` | Receiver edges for the independent result paths. |
@@ -151,10 +177,16 @@ a nonempty `actions` array.
 
 ### Action mappings
 
+A mapping is looked up by source `port` and `codeword`. Each selected action
+has its own physical output `port`; neither port is necessarily a qubit index.
 An action selects `kind`, output `port`, `operation`, `targets` and `resources`.
 It also supplies `delay` and `duration`, plus `discriminator_delay`,
 `amplitude`, `axis` or `separate_arm` as applicable. A resource has a numeric
-`id` and an `exclusive` boolean.
+`id` and an `exclusive` boolean. Two overlapping actions sharing that resource
+conflict if either reservation is exclusive. The same physical output port
+cannot host overlapping actions, even when their resource declarations differ.
+A two-qubit gate can reserve both target resources. Memory access ports use a
+separate request-and-response interface.
 
 Periods and action durations are positive. Discriminator delay may be zero.
 Pulse amplitude uses radians/ns; a rotation gate uses radians.
@@ -186,7 +218,8 @@ according to `kind` rather than treating zero as a missing value.
 | `OperationStart` | Event identity and duration in `value`. |
 | `OperationEnd` | Event ID, label, port, operation and targets. |
 | `MeasurementSampled` / `ResultReady` | Measurement ID, target and bit. |
-| `CpuResultVisible` / `FastResultVisible` | Measurement ID, target and bit at the receiver edge. |
+| `CpuResultVisible` | Measurement ID, target and bit delivered before the CPU step; QREAD can use it on this edge. |
+| `FastResultVisible` | Measurement ID, target and bit committed to TCU history after its firing decision; usable by conditions on later edges. |
 | `ResultConsumed` | Reading instruction ID and returned bit. |
 | `EndOfStreamVisible` | Last admitted label when the TCU receives closure. |
 | `SessionReset` / `ResetAborted` | New epoch and aborted event IDs where applicable. |
@@ -196,6 +229,31 @@ according to `kind` rather than treating zero as a missing value.
 
 Instruction, label, physical-event and measurement IDs occupy separate
 namespaces. Correlate records by event kind, epoch and the appropriate ID.
+The `cycle` field is a dimensionless index, not nanoseconds:
+
+| Trace kind | `cycle` meaning | Selected other fields |
+| --- | --- | --- |
+| `InstructionRetired` | CPU edge index relative to CPU phase | `id`: instruction; `value`: instruction result |
+| `ProducerAccepted`, `GroupSubmitted` | Planned producer cursor | `ProducerAccepted.value`: returned handle |
+| `GroupAdmitted`, `LabelFired` | Current logical TCU cycle in this epoch | `GroupAdmitted.value`: queue occupancy after admission |
+| Other kinds | Interpret only where explicitly defined; otherwise zero | `id` and `value` depend on `kind` |
+
+### Identity scopes
+
+| Identity | Allocation and scope | Reset behavior |
+| --- | --- | --- |
+| Epoch | Simulator session identity | Incremented; global time continues |
+| Instruction ID | CPU instruction identity within an epoch | CPU instruction sequence restarts |
+| Control-event ID | Producer-generated action identity within an epoch | Sequence restarts |
+| Label | Producer-generated group identity within an epoch | Sequence restarts; zero marks an empty stream |
+| Measurement ID | Scoreboard measurement sequence within an epoch | Sequence restarts |
+| Slot generation | Reuse count for one scoreboard slot | Preserved to reject stale handles |
+| Fetch generation | CPU identity for pending instruction fetches | Updated when old fetch work is invalidated |
+
+A measurement token combines its epoch and measurement identity with slot,
+generation, handle and target. A trace `id` is not a universal sequence number;
+join records using their kind, epoch and documented identity.
+
 Independent events at the same tick may be compared as a set; ordering required
 on one target still applies. A consumer must reject unknown schema versions.
 

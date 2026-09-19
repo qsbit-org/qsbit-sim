@@ -7,7 +7,7 @@ readout delays.
 | Backend | Use | Installation |
 | --- | --- | --- |
 | `scripted` | Return fixed measurement bits for control tests; no quantum state. | Included in the C++ build. |
-| `aer` | Apply ideal gates and perform live measurements with collapse. | Python bridge and `aer` extra. |
+| `aer` | Apply ideal gates and perform state-derived measurements with collapse. | Python bridge and `aer` extra. |
 | `pulse` | Evolve constant Hamiltonian drives jointly, with Aer gates and measurements. | Python bridge and `pulse` extra. |
 | `package.module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |
 
@@ -46,7 +46,7 @@ cmake --build build-python --parallel
 build-python/qsbit-sim --config build-python/examples/runs/bell.json
 ```
 
-The live Bell measurements should agree: either 00 or 11. The summary and
+The simulated Bell measurements should agree: either 00 or 11. The summary and
 trace are written under `build-python/runs/`. See the
 [examples](../examples/README.md) for feedback, pulses and overlapping drives.
 
@@ -76,6 +76,10 @@ unsupported requested operations fail validation.
 
 ## Python adapter methods
 
+`IQuantumBackend` is the C++ execution interface. `PythonBackend` implements it
+as a bridge to the selected Python quantum backend. A CPU adapter implements
+the separate `ICpuCycleModel` interface.
+
 | Method | Required behavior |
 | --- | --- |
 | `validate(action)` | Check kind, operation and targets without changing quantum state. |
@@ -87,7 +91,9 @@ unsupported requested operations fail validation.
 
 Action dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`
 and `axis`. Measurement tokens contain `epoch`, `measurement` and `target`.
-Qubit 0 is the least significant statevector bit.
+Qubit 0 is the least significant statevector bit: basis index 1 represents
+qubit 0 set to one and all other qubits set to zero. Numerical backend
+measurements come from simulated state; they do not access physical hardware.
 
 Methods complete synchronously and use the supplied seed for reproducibility.
 They do not call SystemC timing functions. A slow call increases host runtime

@@ -26,6 +26,11 @@ digraph module {
 
 ## Reserving and executing intervals
 
+A [resource](../glossary.md#resource) is a configured conflict identifier. Two
+output ports can share one resource, and a two-qubit gate can reserve both
+qubit resources. Queue occupancy counts buffered events; resource occupancy
+records intervals of physical use.
+
 `accept()` converts each event to an interval:
 `start = fire_tick + delay`, `end = start + duration`.
 It checks the complete batch against existing reservations and then installs

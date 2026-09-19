@@ -1,4 +1,4 @@
-# Quantum-State Service and Backends
+# Quantum Backends
 
 A backend calculates quantum evolution and measurement outcomes.
 `DeviceRuntime` supplies the physical times and orders all calls that change that state.
@@ -32,8 +32,8 @@ in the order defined by the [device protocol](../module-architecture.md#device-b
 Ports never advance shared quantum state independently.
 
 The scripted backend returns configured measurement bits and has no statevector.
-The Aer adapter supports ideal gates and live measurements with collapse.
-The pulse adapter additionally evolves jointly under constant X, Y and Z drives.
+The Aer quantum backend supports ideal gates and state-derived measurements with collapse.
+The pulse quantum backend additionally evolves jointly under constant X, Y and Z drives.
 See [backend integration](../backends.md) for installation and adapter methods.
 
 Calls are synchronous. A slow numerical calculation increases host execution
@@ -71,5 +71,5 @@ Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../
 **CTest:** `systemc.bell.normal`, `systemc.pulse.normal`.
 
 These tests run complete device sequences with the scripted backend. Optional
-`numerical.*` tests check live Aer and pulse evolution; `python.plugin` checks
+`numerical.*` tests check numerical Aer and pulse evolution; `python.plugin` checks
 loading and calls to an external adapter.

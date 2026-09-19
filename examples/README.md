@@ -79,7 +79,7 @@ the acquisitions at 440 are ready at 500, CPU-visible at 505, and fast-visible a
 feedback paths must drain. The summary contains the actual stop tick and memory bits.
 
 Tests assert exact event times, final state or signatures, retirement identities and
-successful drain. A replacement timing profile changes these numerical expectations.
+successful drain. A replacement simulation profile changes these numerical expectations.
 
 ## Overlapping drives
 

@@ -78,7 +78,7 @@ and new behavior. The existing suite includes:
 - Requests published exactly on a receiver edge, and admission while a full
   queue fires. The receiver cannot consume a newly published request on that edge or reuse
   a slot freed by that edge's firing.
-- Empty timing queues during CPU feedback waits. The timer continues and
+- Empty timing queues during CPU result waits. The timer continues and
   late groups fail without shifting their deadlines.
 - Taken branches and older faults that discard younger control instructions.
 - Overlapping resource intervals, adjacent intervals and same-target sampling
@@ -94,7 +94,8 @@ registration and compare the resulting trace and state.
 ## SystemC test processes
 
 Run each independent SystemC scenario in a fresh executable or child process.
-A normal C++ fixture cannot assume it can rewind elaboration or simulation time.
+[Elaboration](glossary.md#elaboration) constructs the SystemC modules and processes.
+A normal C++ fixture cannot assume it can repeat that setup or rewind simulation time.
 Keep pure ISA and transition tests independent of SystemC where possible.
 
 Use deterministic inputs and seeds. Assert event times, required ordering,
@@ -106,7 +107,7 @@ the seed and first differing event so the run can be reproduced.
 Enable `QSBIT_PYTHON_BACKENDS` and the selected numerical test options described
 in [building](building.md#cmake-options).
 `python.plugin` checks adapter loading without numerical packages.
-`numerical.*` checks live Aer Bell correlations and feedback, pulse inversion,
+`numerical.*` checks numerical Aer Bell correlations and feedback, pulse inversion,
 simultaneous drives, and unsupported operations.
 
 The pulse tests include simultaneous noncommuting drives with an analytic

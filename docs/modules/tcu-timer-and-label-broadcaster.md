@@ -25,7 +25,7 @@ digraph module {
 
 ## From logical cycle to global tick
 
-Let the start tick be S and the TCU period be P. Logical cycle n occurs at
+Let the effective start tick of the current epoch be S and the TCU period be P. Logical cycle n occurs at
 `S + n * P`; cycle zero is the start edge. Before S, groups can enter the queues
 but cannot fire. The current cycle is calculated on each call rather than stored
 as an incrementing counter.

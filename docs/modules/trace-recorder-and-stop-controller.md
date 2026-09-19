@@ -30,7 +30,8 @@ starts and ends, sampling, readiness and feedback visibility. Each event has
 a timestamp and kind-specific identities. Recording an event consumes no
 simulated time.
 
-QEND stops CPU production after the producer has flushed and received any
+A `Completion` record carries a measurement bit; it is separate from whole-run
+completion. QEND stops CPU production after the producer has flushed and received any
 required admission reply. Simulation continues until the TCU has seen closure,
 queues and physical actions have drained, memory is idle, and every enabled
 feedback message and credit acknowledgment has been delivered.
@@ -56,7 +57,8 @@ The [trace reference](../interfaces.md#jsonl-trace) defines fields and ID namesp
 ## Reset and errors
 
 A fatal fault records its type and explanation, marks the run unsuccessful
-and stops SystemC. Watchdog expiry is a failure to drain. The application writes
+and stops SystemC. The simulation watchdog is a deadline in global simulation ticks, not a host-time
+timeout. Its expiry is a failure to drain. The application writes
 the partial trace and failed summary when the output paths remain usable.
 
 Reset starts a new epoch in the same trace. Aborted actions and observed stale

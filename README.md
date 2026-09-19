@@ -7,7 +7,8 @@
 
 A C++20 and SystemC simulator for RV32I programs with quantum-control extensions.
 It models CPU execution, timing-control queues, measurement, and feedback at cycle
-level. Quantum-state backends are selected independently of the control model.
+level using event-driven scheduling. [Simulation time and execution](docs/simulation-model.md)
+explains how clock edges and device events advance the model. Quantum-state backends are selected independently of the control model.
 
 ## Build
 

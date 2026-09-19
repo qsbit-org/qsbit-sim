@@ -5,6 +5,23 @@ Their declarations are checked against the current headers.
 See the [control protocol](module-architecture.md) for ordering and the
 [external formats](interfaces.md) for program and JSON inputs.
 
+## Time and cycle units
+
+`Tick` is a `uint64_t` alias reused for timestamps and cycle counts. The field
+contract, not the C++ alias, determines the unit.
+
+| Fields | Unit |
+| --- | --- |
+| `Clock::period`, `Clock::phase`, `Profile::start`, `Profile::watchdog` | Nanoseconds |
+| Mailbox `published` and `eligible`, `LaunchBatch::fire_tick`, `TraceEvent::tick` | Global simulation ticks, 1 ns each |
+| `PhysicalAction::start`, `PhysicalAction::end` | Global simulation ticks |
+| Action `delay`, `duration`, `discriminator_delay` | Nanoseconds |
+| `TimingPoint::interval` | TCU cycles since the preceding timing point |
+| TCU `Point::due`, `last_due_`; producer cursor | Logical TCU cycle in the current epoch |
+| `TraceEvent::cycle` | Kind-specific CPU edge index or logical TCU cycle; see [trace fields](interfaces.md#jsonl-trace) |
+| `memory_latency` | CPU periods after acceptance |
+| Configured crossing latencies | Receiver edges, starting strictly after publication |
+
 ## CPU adapter
 
 `Simulator` calls `step()` once per CPU edge. The model owns its registers,

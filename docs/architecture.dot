@@ -11,10 +11,10 @@ digraph architecture {
     m3 [label="CPU Cycle Model", href="modules/cpu-cycle-model.html", id="module-cpu-cycle-model"];
     m4 [label="Memory and Response Model", href="modules/memory-and-response-model.html", id="module-memory-and-response-model"];
     m5 [label="Quantum Instruction\nAdapter", href="modules/quantum-instruction-adapter.html", id="module-quantum-instruction-adapter"];
-    m13 [label="Port Codeword and\nWaveform Map", href="modules/port-codeword-and-waveform-map.html", id="module-port-codeword-and-waveform-map"];
+    m13 [label="Port-Codeword\nAction Map", href="modules/port-codeword-and-waveform-map.html", id="module-port-codeword-and-waveform-map"];
     m6 [label="Operation Lowerer and\nDevice Distributor", href="modules/operation-lowerer-and-device-distributor.html", id="module-operation-lowerer-and-device-distributor"];
-    m7 [label="Timeline Reservation\nManager", href="modules/timeline-reservation-manager.html", id="module-timeline-reservation-manager"];
-    m17 [label="Measurement Scoreboard\nand CPU Feedback", href="modules/measurement-scoreboard-and-cpu-feedback.html", id="module-measurement-scoreboard-and-cpu-feedback"];
+    m7 [label="Timeline\nProducer", href="modules/timeline-reservation-manager.html", id="module-timeline-reservation-manager"];
+    m17 [label="Measurement Scoreboard\nand CPU Result Delivery", href="modules/measurement-scoreboard-and-cpu-feedback.html", id="module-measurement-scoreboard-and-cpu-feedback"];
   }
   subgraph cluster_tcu { label="TCU domain: TcuCycleModel"; color="#bacdd2"; style="rounded";
     m8 [label="Command Crossing and\nAtomic Admission", href="modules/command-crossing-and-admission.html", id="module-command-crossing-and-admission"];
@@ -26,7 +26,7 @@ digraph architecture {
   }
   subgraph cluster_device { label="Physical boundaries: DeviceRuntime"; color="#bacdd2"; style="rounded";
     m14 [label="Output Channels and\nResource Calendar", href="modules/output-channels-and-resource-calendar.html", id="module-output-channels-and-resource-calendar"];
-    m15 [label="Quantum-State Service and\nBackends", href="modules/quantum-state-service-and-backends.html", id="module-quantum-state-service-and-backends"];
+    m15 [label="Quantum\nBackends", href="modules/quantum-state-service-and-backends.html", id="module-quantum-state-service-and-backends"];
     m16 [label="Acquisition and\nDiscrimination", href="modules/acquisition-and-discrimination.html", id="module-acquisition-and-discrimination"];
   }
   subgraph cluster_lifecycle { label="Observation and extension boundary"; color="#bacdd2"; style="rounded";
@@ -48,7 +48,7 @@ digraph architecture {
   m9 -> m11 [label="due head"];
   m11 -> m10 [label="due label"];
   m10 -> m12 [label="manifested members"];
-  m18 -> m12 [label="old history"];
+  m18 -> m12 [label="history from earlier edges"];
   m12 -> m14 [label="LaunchBatch / preflight"];
   m14 -> m15 [label="physical actions"];
   m15 -> m16 [label="sample bits"];

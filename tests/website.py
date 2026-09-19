@@ -117,6 +117,7 @@ def check_browser(site, module_pages):
             bundle = json.loads((site / '_static/trace-examples.json').read_text())
             for example_index, example in enumerate(bundle['examples']):
                 page.select_option('#trace-example', str(example_index))
+                assert page.get_by_role('link', name='Result delivery', exact=True).count() == 1
                 page.click('#trace-next')
                 observed = json.loads(page.locator('#trace-event').inner_text())
                 assert observed == example['events'][1]
@@ -133,6 +134,13 @@ def check_browser(site, module_pages):
                     position = next(i for i, e in enumerate(example['events']) if e['kind'] == kind)
                     page.select_option('#trace-jump', str(position))
                     assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][position]
+                fast = next((i for i, e in enumerate(example['events'])
+                             if e['kind'] == 'FastResultVisible'), None)
+                if fast is not None:
+                    page.select_option('#trace-jump', str(fast))
+                    event = example['events'][fast]
+                    usable = event['tick'] + example['configuration']['tcu']['period']
+                    assert f'committed at {event["tick"]} ns; earliest condition edge (derived): {usable} ns' in page.locator('#trace-observed').inner_text()
                 last = len(example['events']) - 1
                 page.locator('#trace-position').evaluate('(el, value) => { el.value = value; el.dispatchEvent(new Event("input", {bubbles: true})); }', last)
                 assert 'SimulationCompleted' in page.locator('#trace-status').inner_text()

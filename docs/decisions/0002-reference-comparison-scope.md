@@ -12,7 +12,7 @@ cannot provide a common cycle-by-cycle reference.
 ## Required observations
 
 Compare corresponding label firings, device-operation identities and start ticks,
-measurement readiness, and CPU feedback visibility where the reference exposes
+measurement readiness, and CPU result visibility where the reference exposes
 those events. Use one declared time origin; do not align individual events after
 the run to remove discrepancies.
 
@@ -46,7 +46,7 @@ termination protocol has a separate boundary.
 
 ## Measurements and unsupported features
 
-Deterministic basis-state measurements can use live numerical backends on both
+Deterministic basis-state measurements can use numerical backends on both
 sides. Each simulator computes its own results without importing an expected
 trace or schedule. For probabilistic circuits, equal random seeds in different
 libraries do not imply equal samples. Check probabilities, correlations and

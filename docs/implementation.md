@@ -23,7 +23,10 @@ method due at that tick has finished.
 
 ## Default timing
 
-The time resolution is 1 ns. Protocol times, epochs and IDs use checked 64-bit
+The time resolution is 1 ns. Clock phase locates rising edges relative to global
+time zero; TCU start selects the initial logical-cycle origin. See
+[time and cycle units](cpp-interfaces.md#time-and-cycle-units).
+Protocol times, epochs and IDs use checked 64-bit
 integers. Architectural registers and addresses use 32 bits.
 
 | Setting | Default |
@@ -51,12 +54,15 @@ build-gcc/qsbit-sim --dump-default-profile out/default-profile.json
 
 Each run summary records its full validated profile and an FNV-1a fingerprint.
 The fingerprint identifies the configuration; it is not a cryptographic check.
+`Group.configuration` carries this string. A summary instead uses
+`configuration_hash` for the fingerprint and `configuration` for the full profile.
 The profile stays fixed throughout the run and all session resets.
 
 ## CPU and memory
 
 The default CPU is a single-issue, in-order pipeline with fetch, decode and
-execute/commit stages. Each latch advances at most once per CPU edge.
+execute/commit stages. [CPU terms](glossary.md#programs-and-cpu-execution) define
+stages, latches, hazards and retirement. Each latch advances at most once per CPU edge.
 An older instruction retires before a younger instruction entering execute
 captures its operands.
 

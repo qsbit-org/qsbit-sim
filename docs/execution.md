@@ -6,7 +6,9 @@ select the next quantum operation. [Quickstart](quickstart.md) shows how to
 run that program locally.
 
 Use **Next event** to advance one record or **Next tick** to move to the next
-simulation timestamp. The speed control changes playback only.
+simulation timestamp. Each record is a logged observation, not a SystemC
+notification. The speed control changes playback only.
+[Simulation time and execution](simulation-model.md) explains these distinctions.
 
 ```{raw} html
 <div id="trace-player" class="trace-player" aria-label="Simulation trace player">
@@ -52,8 +54,12 @@ Click the component cards to read the relevant module behavior.
 
 Global tick is simulation time in nanoseconds. The displayed CPU edge index and
 TCU logical cycle are derived from that tick and the profile. Between CPU edges, the
-display retains the last edge index. TCU logical cycles begin at the configured
-start.
+display retains the last edge index. TCU logical cycles begin at the effective epoch start. These examples contain
+no session reset, so that start equals `profile.start`.
+
+Timeline lanes group trace records by subject; they are not C++ owners, SystemC
+processes or clock domains. **Result delivery** includes both CPU reception and
+TCU history commits. Bell uses these deliveries without conditional control.
 
 **Last observed state** shows only values recorded by earlier events, together
 with their observation tick. For example, occupancy is the value recorded at
@@ -79,8 +85,11 @@ publishing the playback data.
 | Feedback, outcome 0 | X: 360; acquisition: 440; branch-selected Z: 720 | Memory word 4096 is 0. |
 
 In each run, acquisition samples at 480 ns. The result is ready at 500 ns,
-CPU-visible at 505 ns and committed to fast history at 540 ns. TCU conditions
-can use that history on later edges.
+CPU-visible at 505 ns and committed to fast history at 540 ns. With the 20 ns
+TCU period, conditions can first use that history at 560 ns. `FastResultVisible`
+marks the commit, not use by the condition check already performed at 540 ns.
+The player labels the earliest possible condition edge as derived; use also
+requires the token to remain in history.
 
 In Bell, two measurement APPENDs join one group before QREAD seals it.
 In feedback, QREAD completes before the classical branch chooses the final

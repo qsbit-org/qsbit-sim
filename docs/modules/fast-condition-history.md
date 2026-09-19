@@ -2,7 +2,8 @@
 
 `FastHistory` stores measurement results for conditional TCU output. It has
 its own delivery path and latency, so a result can reach the CPU before or after
-it reaches the TCU.
+it reaches the TCU. The fast path bypasses the CPU branch; the name does not
+promise a shorter result-delivery latency.
 
 ## Connections
 

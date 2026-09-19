@@ -30,6 +30,9 @@ Publishing a message records its epoch and receiver-eligible tick. Eligibility
 starts at the first receiver edge strictly after publication, followed by any
 additional configured receiver periods. With TCU edges at 20 and 40 ns and a
 one-edge crossing, a group published at 20 ns is first eligible at 40 ns.
+Eligibility permits inspection; admission can occur later if storage is full.
+The [mailbox lifecycle](../glossary.md#mailbox) distinguishes publication,
+eligibility and consumption.
 
 The TCU checks the group's manifest, profile fingerprint, ordered label, deadline
 and queue requirements. If current occupancy leaves enough room, it inserts the

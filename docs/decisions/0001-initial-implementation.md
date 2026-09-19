@@ -53,14 +53,14 @@ before simulation starts. The [implementation reference](../implementation.md#de
 lists the defaults. Committed mailboxes carry payloads and eligibility ticks;
 SystemC events wake processes without carrying the payload themselves.
 
-At each physical tick, a barrier waits for all due clock transitions before
+At each physical boundary, the device barrier checks completion of all due clock transitions before
 processing device actions. This includes actions launched with zero delay on
 that tick. `DeviceRuntime` controls evolution intervals, measurements and
 result publication. A backend computes quantum state changes synchronously
 and never advances SystemC time.
 
 The built-in scripted backend supports deterministic protocol tests. Optional
-Python adapters provide live Qiskit Aer simulation and a small-system
+Python adapters provide Qiskit Aer simulation and a small-system
 piecewise-constant Hamiltonian backend. Each numerical backend maintains one
 shared state across operations and mid-circuit measurements. Capability checks
 run before a complete boundary batch changes state.

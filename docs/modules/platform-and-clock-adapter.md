@@ -4,10 +4,11 @@
 scheduler. It creates their clocks, calls each model at the right time, and
 applies session resets.
 
-The timing profile is the configuration for a run: clock periods and phases,
+The simulation profile fixes the modeled hardware: clock periods and phases,
 communication delays, queue capacities, and port mappings. `Simulator` validates
 and copies it before simulation starts. The copy remains unchanged during the run,
-including across resets.
+including across resets. A run configuration separately selects the executable
+program, backend and output paths. See [configuration terms](../glossary.md#run-configuration).
 
 ## Connections
 
@@ -25,7 +26,7 @@ digraph module {
   input [label="Validated profile and reset request"];
   owner [label="Simulator"];
   state [label="profile_\ncpu_clock_, tcu_clock_\nwake_, barrier_"];
-  output [label="Clock edges / reset / physical wakeup"];
+  output [label="Clock edges, reset and physical wakeup"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
 }
 ```
@@ -34,14 +35,18 @@ digraph module {
 
 The CPU and memory methods run on CPU rising edges. The TCU method runs on
 TCU rising edges. These processes use `dont_initialize()`, so their first execution
-comes from their clock event rather than the kernel's initialization pass.
+comes from a triggering event rather than an automatic initialization call.
+A clock event at time zero can still invoke them. [Process initialization](../glossary.md#initialization)
+and [sensitivity](../glossary.md#sensitivity) describe these rules.
 
 Each method checks for reset, advances its model if no reset applies, and records
 that it has finished work for the current tick. It then requests the device
-barrier with a zero-time notification.
+barrier with `notify(SC_ZERO_TIME)`, which schedules a later delta at the same
+simulation time. It does not call the barrier inline or advance a hardware cycle.
 
-The barrier checks that every clocked method due at this tick has finished. It
-then processes any physical boundary due at the same tick. This allows a TCU
+The barrier returns without processing devices until every clocked method due
+at this tick has finished. It then processes the physical boundary batch.
+It does not suspend with `wait()`. This allows a TCU
 launch with zero output delay to join the complete device batch before quantum
 state changes.
 
@@ -68,7 +73,7 @@ for communication between models.
 Every clock method and timed wakeup checks reset before ordinary work.
 The first callback at a reset tick applies it; other callbacks at that tick skip
 their normal transitions. Reset starts a new epoch and initializes the backend
-while preserving memory bytes and the timing profile. SystemC time keeps moving
+while preserving memory bytes and the simulation profile. SystemC time keeps moving
 forward.
 
 Construction rejects invalid profiles, reset ticks, missing backends and CPU

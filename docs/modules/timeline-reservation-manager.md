@@ -1,4 +1,4 @@
-# Timeline Reservation Manager
+# Timeline Producer
 
 `TimelineProducer` prepares operations for future TCU cycles. It collects
 actions that should fire together, seals them into one group, and waits for the
@@ -51,7 +51,7 @@ before publishing closure. The producer holds the instruction ID and operands
 across retries and permits only one sealed submission at a time.
 
 At startup, an untouched empty origin needs no submission. After a positive
-ADVANCE opens a point, sealing that point submits an entry even if it has no
+ADVANCE opens a group, sealing that group submits a timing entry even if it has no
 events. Such an entry is a wait-only point. The
 [producer protocol](../module-architecture.md#producer-operations-and-progress)
 defines all completion cases.
@@ -61,7 +61,7 @@ defines all completion cases.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `cursor_, last_admitted_due_` | logical TCU cycles | Current planned cycle and the last acknowledged due cycle. Their difference gives the next interval. |
-| `open_events_, open_, flushed_` | open-group state | Staged events and whether the point remains appendable. |
+| `open_events_, open_, flushed_` | open-group state | Staged events and whether the group remains appendable. |
 | `sealed_` | optional Group | One immutable submission awaiting the matching label reply. |
 | `held_` | optional ProducerOperation | Keeps the instruction ID and operands unchanged while an operation waits. |
 | `last_label_, next_event_, closed_` | identity and lifecycle | Allocates increasing label and event IDs and records producer closure. |

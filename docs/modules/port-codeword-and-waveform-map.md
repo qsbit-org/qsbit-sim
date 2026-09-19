@@ -1,10 +1,10 @@
-# Port Codeword and Waveform Map
+# Port-Codeword Action Map
 
 The port/codeword map defines what a control instruction means for the
 configured device. For example, the default map uses codeword 1 on port 0 for an
 X gate on qubit 0, and codeword 4 for acquisition on that qubit.
 
-The mapping belongs to the run profile. Programs select entries by source port
+The mapping belongs to the simulation profile. Programs select entries by source port
 and codeword; the selected actions can address different physical output ports.
 
 ## Connections

@@ -39,13 +39,17 @@ The run creates:
 
 | File | Contents |
 | --- | --- |
-| `build-clang/runs/scripted.json` | Success status, final registers, inspected memory and the timing profile. |
+| `build-clang/runs/scripted.json` | Success status, final registers, inspected memory and the simulation profile. |
 | `build-clang/runs/scripted.jsonl` | Timestamped instruction, control, device and feedback events. |
 
 Open the summary. `success` should be `true` and `memory["4096"]` should be `1`.
 The program stores its measured bit at address 4096.
 
 ## Follow the result
+
+[Acquisition](glossary.md#acquisition) is the timed readout interval. At its end,
+the backend supplies a bit; the modeled [discriminator](glossary.md#discrimination)
+delay determines when that bit is ready to send.
 
 The program first applies X to qubit 0, then measures it. QREAD waits for the
 measurement to reach the CPU. An RV32I branch then selects X on qubit 1 for
@@ -59,13 +63,14 @@ operation at cycle 8 starts at `200 + 8 * 20 = 360 ns`. The trace contains:
 | 360 | X starts on qubit 0. |
 | 440 | Acquisition starts on qubit 0. |
 | 480 | The backend supplies the measurement bit. |
-| 500 | Discrimination finishes; the result is ready for delivery. |
+| 500 | The modeled discriminator delay ends; the bit is ready for delivery. |
 | 505 | The CPU receives the result. |
 | 720 | The branch-selected X starts on qubit 1. |
 
 After receiving the result at 505 ns, the CPU executes the branch and submits
-the selected action. Both branches reach TCU admission at 680 ns. The program
-advances its cursor from cycle 12 to cycle 26, scheduling output at
+the selected action. Both branches reach [TCU admission](glossary.md#admission), which inserts a
+complete group into the queues, at 680 ns. The program
+advances its [producer cursor](glossary.md#producer-cursor) from cycle 12 to cycle 26, scheduling output at
 `200 + 26 * 20 = 720 ns`. This leaves two TCU cycles between admission and
 output. Waiting for a result does not pause the TCU.
 

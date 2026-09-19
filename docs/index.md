@@ -15,7 +15,8 @@ adapter and quantum backend have separate interfaces.
 measurement-feedback program and inspect its result. The default scripted backend
 requires no Python quantum packages.
 
-To understand the model, read the [architecture overview](high-level-design.md),
+To understand the model, read [Simulation time and execution](simulation-model.md)
+and the [glossary](glossary.md), then the [architecture overview](high-level-design.md),
 then [follow an execution](execution.md). The [architecture diagram](architecture.md)
 links to each module's inputs, outputs, state and behavior.
 
@@ -51,6 +52,7 @@ website
 :maxdepth: 1
 :caption: Understand the controller
 
+simulation-model
 high-level-design
 architecture
 decisions/0001-initial-implementation
