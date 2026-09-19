@@ -2,15 +2,18 @@
 
 The `reference.cactus_golden` CTest case runs RV32I extension programs with
 qsbit-sim and compares their observable events with traces captured from
-CACTUS. CI runs the test on every push and pull request. It uses checked in
-reference traces, so CI does not need to build CACTUS. The raw JSONL and
-normalized golden events are under [`tests/data/cactus`](tests/data/cactus).
+[CACTUS](https://github.com/gtaifu/CACTUS). CI runs the test on every push and
+pull request. The test uses checked in reference traces, so CI does not build
+CACTUS. The raw JSONL and normalized golden events are under
+[`tests/data/cactus`](tests/data/cactus).
 
 ## Reference and programs
 
 The CACTUS source revision is
-`a05f47423ac37b14989ec38c525741ec597b4826`. The eQASM assembler revision
-is `9b024494558287a937cdd5a8ccd63fcaa784b1c4`. The reference harness uses
+[`a05f47423ac37b14989ec38c525741ec597b4826`](https://github.com/gtaifu/CACTUS/commit/a05f47423ac37b14989ec38c525741ec597b4826).
+The eQASM assembler revision is
+[`9b024494558287a937cdd5a8ccd63fcaa784b1c4`](https://github.com/QE-Lab/eQASM_Assembler/commit/9b024494558287a937cdd5a8ccd63fcaa784b1c4).
+The reference harness uses
 SystemC 2.3.3 with 5 ns and 20 ns clocks. It resets the model before publishing
 the run signal at 999 ns and observes events through 12000 ns. The harness
 source, hardware configuration, gate configuration, opcode map, layout, and

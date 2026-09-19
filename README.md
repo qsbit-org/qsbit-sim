@@ -123,6 +123,14 @@ The CPU prepares quantum operations ahead of time. A timing control unit (TCU)
 buffers those operations and releases them at their scheduled cycles. Measurement
 results return to the CPU or feed conditional TCU output.
 
+The core ideas behind this control model come from QuMA and eQASM: operations
+are prepared ahead of time, then released by a timed control path. We also
+credit [CACTUS](https://github.com/gtaifu/CACTUS), an early cycle-accurate
+simulator for QuMA and eQASM. Its latest public commit is from 2020, and its
+documented build targets older dependencies. qsbit-sim aims to provide an
+entirely open source, extensible foundation for simulating quantum control
+architectures as research moves toward fault-tolerant quantum computing (FTQC).
+
 Architectural references for this control model are:
 
 - [QuMA: An Experimental Microarchitecture for a Superconducting Quantum Processor](https://arxiv.org/abs/1708.07677) — codeword-triggered output and queue-based timing control.
