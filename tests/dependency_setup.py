@@ -40,6 +40,21 @@ with tempfile.TemporaryDirectory(prefix='qsbit-dependencies-') as directory:
     cache = (root / 'configured' / 'CMakeCache.txt').read_text()
     assert f'SystemCLanguage_DIR:PATH={args.toolchain.parent}' in cache, cache
     assert not (root / 'configured' / '_deps').exists()
+    examples = subprocess.run(
+        [args.cmake, '--build', str(root / 'configured'), '--target', 'example_images'],
+        text=True, capture_output=True, timeout=30)
+    assert examples.returncode == 0, examples.stdout + examples.stderr
+    for name in ('bell', 'feedback', 'pulse', 'overlap'):
+        assert (root / 'configured' / 'examples' / f'{name}.elf').read_bytes()[:4] == b'\x7fELF'
+    assert (root / 'configured' / 'examples' / 'runs' / 'scripted.json').is_file()
+
+    minimal = subprocess.run(
+        [*command, '-B', str(root / 'minimal'),
+         f'-DCMAKE_TOOLCHAIN_FILE={args.toolchain}', '-DQSBIT_BUILD_EXAMPLES=OFF'],
+        env=environment, text=True, capture_output=True, timeout=60)
+    assert minimal.returncode == 0, minimal.stdout + minimal.stderr
+    assert not (root / 'minimal' / 'examples').exists()
+    assert 'RISCV_AS:' not in (root / 'minimal' / 'CMakeCache.txt').read_text()
     mismatched = subprocess.run(
         [*command, '-B', str(root / 'mismatched'),
          f'-DCMAKE_TOOLCHAIN_FILE={args.toolchain}',

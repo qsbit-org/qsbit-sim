@@ -22,13 +22,9 @@ Python quantum packages are optional. See [build options](docs/building.md).
 
 ## Run an example
 
-Install [GNU RISC-V binutils](docs/prerequisites.md#ubuntu)
-(`binutils-riscv64-unknown-elf` on Ubuntu), then:
+The default build includes the example programs and run configurations.
 
 ```sh
-cmake --preset clang-ninja \
-  -DQSBIT_BUILD_EXAMPLES=ON
-cmake --build --preset clang-ninja --parallel
 build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json
 ```
 
@@ -62,8 +58,7 @@ Choose the `pulse` extra instead of `aer` for the bundled pulse backend, or inst
 With the environment active and Python development headers available:
 
 ```sh
-cmake --preset clang-ninja \
-  -DQSBIT_BUILD_EXAMPLES=ON -DQSBIT_PYTHON_BACKENDS=ON
+cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
 build-clang/qsbit-sim --config build-clang/examples/runs/bell.json
 ```

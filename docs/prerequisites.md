@@ -1,22 +1,21 @@
 # Install build prerequisites
 
 Choose the tools for the workflow you need. A normal simulator build requires
-CMake, a C++20 toolchain, and Conan-managed SystemC. Examples
-additionally require GNU RISC-V binutils; tests require a Python interpreter.
+CMake, a C++20 toolchain, Conan-managed SystemC, and GNU RISC-V binutils
+for the included examples. Tests also require a Python interpreter.
 
 | Workflow | Required tools |
 | --- | --- |
-| Build the simulator | CMake 3.24 or newer, Ninja, a C++20 Clang or GCC toolchain, and dependencies prepared with Conan 2. Preparation requires Python and uv. |
-| Build examples | Build tools plus GNU RISC-V assembler and linker. |
-| Run core tests | Example tools, RISC-V objdump and Python. |
+| Build the simulator | CMake 3.24 or newer, Ninja, a C++20 Clang or GCC toolchain, GNU RISC-V assembler and linker, and dependencies prepared with Conan 2. Preparation requires Python and uv. |
+| Run core tests | Build tools, RISC-V objdump and Python. |
 | Use Python backends | Build tools, Python, matching development files, and a local `.venv` with the selected adapter. |
-| Build the website | Example tools, Python documentation dependencies, Doxygen and Graphviz. See [website setup](website.md). |
+| Build the website | Build tools, Python documentation dependencies, Doxygen and Graphviz. See [website setup](website.md). |
 
 A default C++ build does not require Python quantum packages.
 
 ## Ubuntu
 
-CI uses Ubuntu 24.04. For GCC and the bundled examples, install:
+CI uses Ubuntu 24.04. For the default build with its bundled examples, install:
 
 ```sh
 sudo apt-get update

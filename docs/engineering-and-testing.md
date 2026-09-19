@@ -64,7 +64,7 @@ configured CTest suites.
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
 | `adapter.*` | Replacement CPU construction through `ICpuCycleModel` and session reset. |
 | `docs.*` | Documentation links, checked declarations and registered test references. |
-| `build.dependencies` | Actionable missing-setup errors and Conan discovery despite unrelated installation paths and stale package cache entries. |
+| `build.dependencies` | Missing-setup diagnostics, isolated Conan discovery, default example assembly, and simulator-only configuration without RISC-V tool discovery. |
 
 Each [module page](modules/README.md) names its relevant CTest entries and
 describes what those tests establish.

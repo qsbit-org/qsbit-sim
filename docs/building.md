@@ -21,7 +21,7 @@ cmake --build --preset clang-ninja --parallel
 
 The executables are `build-gcc/qsbit-sim` and `build-clang/qsbit-sim`.
 Add configuration options to the first command, such as
-`-DQSBIT_BUILD_EXAMPLES=ON`.
+`-DBUILD_TESTING=ON`.
 
 The presets select the Conan-generated toolchain for that compiler and use
 Debug dependencies. Release presets are named `clang-ninja-release` and
@@ -49,7 +49,7 @@ RISC-V binutils, but no numerical quantum packages. See the
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `QSBIT_BUILD_EXAMPLES` | OFF | Assemble example programs with GNU RISC-V binutils. |
+| `QSBIT_BUILD_EXAMPLES` | ON | Assemble example programs with GNU RISC-V binutils. |
 | `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge using Python development files and pybind11. |
 | `BUILD_TESTING` | OFF | Build core tests and examples. |
 | `QSBIT_TEST_AER` | OFF | Register numerical tests for the `aer` extra. |
@@ -64,6 +64,9 @@ Numerical backend tests require both `BUILD_TESTING` and `QSBIT_PYTHON_BACKENDS`
 With both enabled, `python.plugin` also tests an external adapter without
 numerical dependencies. An explicitly enabled test fails if its dependencies
 are missing.
+
+For a simulator-only build, set `-DQSBIT_BUILD_EXAMPLES=OFF` and leave
+`BUILD_TESTING=OFF`. This configuration does not require RISC-V binutils.
 
 ## Conan dependencies
 

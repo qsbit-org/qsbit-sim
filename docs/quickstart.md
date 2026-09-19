@@ -14,7 +14,7 @@ numerical quantum simulator.
 Run these commands from the repository root:
 
 ```sh
-cmake --preset gcc-ninja -DQSBIT_BUILD_EXAMPLES=ON
+cmake --preset gcc-ninja
 cmake --build --preset gcc-ninja --parallel
 ```
 
