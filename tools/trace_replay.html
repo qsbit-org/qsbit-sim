@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qsbit trace replay</title>
+<link rel="stylesheet" href="site.css">
+<style>body { max-width: 1200px; margin: auto; padding: 1rem; font-family: system-ui, sans-serif; --color-background-border: #ccd8da; --color-background-secondary: #f4f8f8; --color-background-primary: white; --color-content-foreground: #182a2d; --color-content-foreground-secondary: #526367; } #trace-file { overflow-wrap: anywhere; } @media (prefers-color-scheme: dark) { body { background: #152124; color: #e7f0f0; --color-background-border: #53666a; --color-background-secondary: #213034; --color-background-primary: #17262a; --color-content-foreground: #e7f0f0; --color-content-foreground-secondary: #a9bec0; } }</style>
+<h1>Trace replay</h1>
+<p id="trace-file"></p>
+<div data-standalone="true" data-bundle="trace.json" id="trace-player" class="trace-player" aria-label="Simulation trace player">
+  <p id="trace-status" role="status">Loading recorded executions…</p>
+  <div class="player-controls">
+    <label>Trace <select id="trace-example" aria-label="Trace"></select></label>
+    <button id="trace-prev" type="button">Previous</button>
+    <button id="trace-play" type="button">Play</button>
+    <button id="trace-next" type="button">Next event</button>
+    <button id="trace-tick" type="button">Next tick</button>
+    <label>Speed <select id="trace-speed"><option value="600">1×</option><option value="200">3×</option><option value="60">10×</option></select></label>
+  </div>
+  <label class="scrubber">Recorded event <input id="trace-position" type="range" min="0" max="0" value="0"></label>
+  <div id="trace-clocks" class="clock-grid"></div>
+  <div id="trace-owners" class="owner-grid"></div>
+  <div class="timeline-scroll"><svg id="trace-timeline" role="img" aria-label="Events by owner and simulation tick"></svg></div>
+  <div class="player-columns">
+    <section><h2>Recorded event</h2><select id="trace-jump" aria-label="Jump to milestone"></select><pre id="trace-event"></pre></section>
+    <section><h2>Last observed state</h2><div id="trace-observed"></div></section>
+  </div>
+
+  <details><summary>Run configuration</summary><pre id="trace-config"></pre></details>
+</div>
+<noscript>The interactive player requires JavaScript.</noscript>
+<script src="trace-player.js"></script>
+</html>

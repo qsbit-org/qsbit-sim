@@ -39,6 +39,16 @@ the control pipeline without a quantum-state library. Results are written to
 `build-clang/runs/scripted.json`; timestamped events are in `build-clang/runs/scripted.jsonl`.
 The summary should contain `"success": true` and memory word `"4096": 1`.
 
+Replay the recorded trace in your browser with one command:
+
+```sh
+python3 tools/replay_trace.py build-clang/runs/scripted.jsonl
+```
+
+The player opens a local browser tab. Press Ctrl+C in the terminal to stop it.
+It reads the matching `.json` summary when available to show derived CPU and TCU
+clocks; a standalone `.jsonl` still replays without that file.
+
 ## Optional quantum backends
 
 Create and activate a local virtual environment, then install the backend you need:

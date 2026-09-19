@@ -152,6 +152,9 @@ if(BUILD_TESTING)
   add_test(NAME docs.checker COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/documentation.py")
   set_tests_properties(docs.contracts docs.checker PROPERTIES TIMEOUT 30 LABELS "fast;documentation")
+  add_test(NAME trace.replay COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/trace_replay.py")
+  set_tests_properties(trace.replay PROPERTIES TIMEOUT 30 LABELS "fast;documentation")
   if(QSBIT_TEST_WEBSITE)
     add_test(NAME docs.website_build COMMAND "${Python3_EXECUTABLE}" -m sphinx
       -n -W --keep-going -b html -D "qsbit_build=${CMAKE_CURRENT_BINARY_DIR}"

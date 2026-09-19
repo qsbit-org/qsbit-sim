@@ -4,7 +4,7 @@
   const root = document.getElementById('trace-player');
   if (!root) return;
   const script = document.currentScript;
-  const url = new URL('trace-examples.json', script.src);
+  const url = new URL(root.dataset.bundle || 'trace-examples.json', script.src);
   const $ = id => document.getElementById(`trace-${id}`);
   const lanes = [
     ['cpu', 'CPU', 'cpu-cycle-model'],
@@ -72,15 +72,15 @@
     $('event').textContent = JSON.stringify(event, null, 2);
     $('prev').disabled = index === 0;
     $('next').disabled = $('tick').disabled = index === demo.events.length - 1;
-    $('owners').querySelectorAll('a').forEach(a => {
+    $('owners').querySelectorAll('.owner-card').forEach(a => {
       a.classList.toggle('active', a.dataset.owner === lane(event));
       if (a.dataset.owner === lane(event)) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
     });
     $('clocks').replaceChildren();
     const values = [
       ['Global tick', `${event.tick} ns`],
-      ['CPU edge index (derived)', event.tick < profile.cpu.phase ? 'Before first edge' : Math.floor((event.tick - profile.cpu.phase) / profile.cpu.period)],
-      ['TCU logical cycle (derived)', event.tick < profile.start ? 'Before start' : Math.floor((event.tick - profile.start) / profile.tcu.period)],
+      ['CPU edge index (derived)', profile?.cpu?.period > 0 ? (event.tick < profile.cpu.phase ? 'Before first edge' : Math.floor((event.tick - profile.cpu.phase) / profile.cpu.period)) : 'Profile unavailable'],
+      ['TCU logical cycle (derived)', profile?.tcu?.period > 0 && Number.isFinite(profile.start) ? (event.tick < profile.start ? 'Before start' : Math.floor((event.tick - profile.start) / profile.tcu.period)) : 'Profile unavailable'],
     ];
     values.forEach(([label, value]) => { const card = element('div', undefined, $('clocks'), 'clock-card'); element('span', label, card); element('strong', String(value), card); });
     const observed = new Map();
@@ -91,7 +91,7 @@
       if (e.kind === 'GroupAdmitted') observed.set('Timing queue occupancy (at last admission)', `${e.value} at ${e.tick} ns`);
       if (e.kind === 'LabelFired') observed.set('Last fired label', `${e.label} at ${e.tick} ns`);
       if (e.kind === 'CpuResultVisible') observed.set(`CPU measurement ${e.id}`, `${e.value} visible at ${e.tick} ns`);
-      if (e.kind === 'FastResultVisible') observed.set(`TCU measurement ${e.id}`, `${e.value} committed at ${e.tick} ns; earliest condition edge (derived): ${e.tick + profile.tcu.period} ns`);
+      if (e.kind === 'FastResultVisible') observed.set(`TCU measurement ${e.id}`, profile?.tcu?.period > 0 ? `${e.value} committed at ${e.tick} ns; earliest condition edge (derived): ${e.tick + profile.tcu.period} ns` : `${e.value} committed at ${e.tick} ns`);
     }
     $('observed').replaceChildren();
     if (!observed.size) element('p', 'No state observations yet.', $('observed'));
@@ -106,7 +106,7 @@
   function selectDemo() {
     stop();
     demo = demos[Number($('example').value)];
-    $('program').textContent = demo.program;
+    if ($('program')) $('program').textContent = demo.program;
     $('config').textContent = JSON.stringify(demo.configuration, null, 2);
     $('position').max = demo.events.length - 1;
     $('jump').replaceChildren();
@@ -129,7 +129,7 @@
   });
   $('speed').addEventListener('change', stop);
   $('example').addEventListener('change', selectDemo);
-  lanes.forEach(([key, label, page]) => { const a = element('a', label, $('owners'), 'owner-card'); a.href = `modules/${page}.html`; a.dataset.owner = key; });
+  lanes.forEach(([key, label, page]) => { const a = element(root.dataset.standalone ? 'span' : 'a', label, $('owners'), 'owner-card'); if (!root.dataset.standalone) a.href = `modules/${page}.html`; a.dataset.owner = key; });
   root.querySelectorAll('button, select, input').forEach(control => control.disabled = true);
   fetch(url).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); }).then(bundle => {
     if (bundle.schema !== 1 || !Array.isArray(bundle.examples) || !bundle.examples.length) throw new Error('Unsupported example bundle');

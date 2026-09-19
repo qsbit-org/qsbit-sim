@@ -5,6 +5,12 @@ examples. Start with **feedback-one** to see a measurement reach the CPU and
 select the next quantum operation. [Quickstart](quickstart.md) shows how to
 run that program locally.
 
+To replay any local trace without building the website, run
+`python3 tools/replay_trace.py PATH/TO/TRACE.jsonl` from the repository root.
+The command opens a local browser tab and serves only the selected trace and
+player assets. Press Ctrl+C to stop it. If a same-stem `.json` summary exists,
+the player also shows derived CPU and TCU clocks from its configuration.
+
 Use **Next event** to advance one record or **Next tick** to move to the next
 simulation timestamp. Each record is a logged observation, not a SystemC
 notification. The speed control changes playback only.
