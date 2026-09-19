@@ -81,8 +81,7 @@ controller retains ownership of operation timing.
 The initial CPU is small enough to test directly, but its cycle counts do not
 claim compatibility with an existing processor. Classical pipelines may differ
 in an external comparison as long as both produce the required timed quantum
-operations. [ADR 0002](0002-reference-comparison-scope.md) defines those comparisons.
+operations.
 
 The simulator does not execute eQASM binaries. Distributed synchronization and
 conditional acquisition require additional contracts before implementation.
-CACTUS comparison tools and reports remain outside the source repository.

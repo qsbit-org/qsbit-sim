@@ -1,0 +1,24 @@
+--- a/src/0_core/qasm_instruction.cpp
++++ b/src/0_core/qasm_instruction.cpp
+@@ -1127,8 +1127,8 @@
+     cl_insn = ((insn & 0xC0000000) == 0);  // !(insn[31] | insn[30])
+     q_insn  = ((insn & 0xC0000000) != 0);  // (insn[31] | insn[30])
+
+-    bool meas_a = (insn & 0x80000000) & ((insn & 0x7E000000) == 1);
+-    bool meas_b = (insn & 0x80000000) & ((insn & 0x0001F800) == 1);
++    bool meas_a = ((insn & 0x80000000U) != 0) && (((insn >> 23) & 0xffU) == 6);
++    bool meas_b = ((insn & 0x80000000U) != 0) && (((insn >> 9) & 0xffU) == 6);
+     meas_insn   = meas_a || meas_b;
+
+     opcode = (insn & OPCODE_MASK) >> OPCODE_SHIFT;
+--- a/src/1_digital/quantum/tech_ind/meas_issue_gen.cpp
++++ b/src/1_digital/quantum/tech_ind/meas_issue_gen.cpp
+@@ -67,7 +67,7 @@
+             meas.timing = q_pipe_interface.timing;
+             // representation is opcode
+             if (q_pipe_interface.ops[i].op.type == REPR_OPCODE) {
+-                if (q_pipe_interface.ops[i].op.opcode == 6) {
++                if (q_pipe_interface.ops[i].op.opcode.get_value() == 6) {
+                     vec_meas_ena.push_back(true);
+                 } else {
+                     vec_meas_ena.push_back(false);

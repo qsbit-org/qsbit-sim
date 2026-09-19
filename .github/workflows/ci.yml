@@ -119,6 +119,7 @@ jobs:
             ${{ matrix.build_dir }}/Testing/Temporary/
             ${{ matrix.build_dir }}/*.jsonl
             ${{ matrix.build_dir }}/runs/
+            ${{ matrix.build_dir }}/cactus-golden/
             ${{ matrix.build_dir }}/use-cases/
             ${{ matrix.build_dir }}/plugin-test/
             ${{ matrix.build_dir }}/random-isa/report.json

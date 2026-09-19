@@ -1,0 +1,680 @@
+{
+  "start": 1040,
+  "cpu_result_latency": 12,
+  "qubits": 7,
+  "mappings": [
+    {
+      "port": 0,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 0,
+          "operation": "x",
+          "targets": [
+            0
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 0,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 0,
+          "operation": "h",
+          "targets": [
+            0
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 0,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 0,
+          "operation": "z",
+          "targets": [
+            0
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 0,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 0,
+          "operation": "measure",
+          "targets": [
+            0
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 1,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 1,
+          "operation": "x",
+          "targets": [
+            1
+          ],
+          "resources": [
+            {
+              "id": 1,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 1,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 1,
+          "operation": "h",
+          "targets": [
+            1
+          ],
+          "resources": [
+            {
+              "id": 1,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 1,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 1,
+          "operation": "z",
+          "targets": [
+            1
+          ],
+          "resources": [
+            {
+              "id": 1,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 1,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 1,
+          "operation": "measure",
+          "targets": [
+            1
+          ],
+          "resources": [
+            {
+              "id": 1,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 2,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 2,
+          "operation": "x",
+          "targets": [
+            2
+          ],
+          "resources": [
+            {
+              "id": 2,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 2,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 2,
+          "operation": "h",
+          "targets": [
+            2
+          ],
+          "resources": [
+            {
+              "id": 2,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 2,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 2,
+          "operation": "z",
+          "targets": [
+            2
+          ],
+          "resources": [
+            {
+              "id": 2,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 2,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 2,
+          "operation": "measure",
+          "targets": [
+            2
+          ],
+          "resources": [
+            {
+              "id": 2,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 3,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 3,
+          "operation": "x",
+          "targets": [
+            3
+          ],
+          "resources": [
+            {
+              "id": 3,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 3,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 3,
+          "operation": "h",
+          "targets": [
+            3
+          ],
+          "resources": [
+            {
+              "id": 3,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 3,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 3,
+          "operation": "z",
+          "targets": [
+            3
+          ],
+          "resources": [
+            {
+              "id": 3,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 3,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 3,
+          "operation": "measure",
+          "targets": [
+            3
+          ],
+          "resources": [
+            {
+              "id": 3,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 4,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 4,
+          "operation": "x",
+          "targets": [
+            4
+          ],
+          "resources": [
+            {
+              "id": 4,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 4,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 4,
+          "operation": "h",
+          "targets": [
+            4
+          ],
+          "resources": [
+            {
+              "id": 4,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 4,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 4,
+          "operation": "z",
+          "targets": [
+            4
+          ],
+          "resources": [
+            {
+              "id": 4,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 4,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 4,
+          "operation": "measure",
+          "targets": [
+            4
+          ],
+          "resources": [
+            {
+              "id": 4,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 5,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 5,
+          "operation": "x",
+          "targets": [
+            5
+          ],
+          "resources": [
+            {
+              "id": 5,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 5,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 5,
+          "operation": "h",
+          "targets": [
+            5
+          ],
+          "resources": [
+            {
+              "id": 5,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 5,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 5,
+          "operation": "z",
+          "targets": [
+            5
+          ],
+          "resources": [
+            {
+              "id": 5,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 5,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 5,
+          "operation": "measure",
+          "targets": [
+            5
+          ],
+          "resources": [
+            {
+              "id": 5,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 6,
+      "codeword": 1,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 6,
+          "operation": "x",
+          "targets": [
+            6
+          ],
+          "resources": [
+            {
+              "id": 6,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 6,
+      "codeword": 2,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 6,
+          "operation": "h",
+          "targets": [
+            6
+          ],
+          "resources": [
+            {
+              "id": 6,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 6,
+      "codeword": 3,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 6,
+          "operation": "z",
+          "targets": [
+            6
+          ],
+          "resources": [
+            {
+              "id": 6,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 6,
+      "codeword": 4,
+      "actions": [
+        {
+          "kind": "acquire",
+          "port": 6,
+          "operation": "measure",
+          "targets": [
+            6
+          ],
+          "resources": [
+            {
+              "id": 6,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 20,
+          "discriminator_delay": 0
+        }
+      ]
+    },
+    {
+      "port": 0,
+      "codeword": 6,
+      "actions": [
+        {
+          "kind": "gate",
+          "port": 0,
+          "operation": "cz",
+          "targets": [
+            0,
+            3
+          ],
+          "resources": [
+            {
+              "id": 0,
+              "exclusive": true
+            },
+            {
+              "id": 3,
+              "exclusive": true
+            }
+          ],
+          "delay": 40,
+          "duration": 40
+        }
+      ]
+    }
+  ],
+  "timing_capacity": 2,
+  "event_capacity": 2
+}

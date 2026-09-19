@@ -120,13 +120,6 @@ bounded control queues, CPU and fast measurement feedback, and scripted, Aer
 and constant-pulse backends. [Implementation reference](implementation.md)
 lists the numerical defaults and limits.
 
-CACTUS comparisons check corresponding quantum-operation and supported feedback
-times after each simulator executes its own program. The comparison tools remain
-in a separate disposable project. Different classical pipelines need not have
-matching instruction counts or private queue occupancy.
-[ADR 0002](decisions/0002-reference-comparison-scope.md) defines the comparison
-limits.
-
 TQEC input, distributed synchronization and additional numerical adapters are
 future integrations.
 

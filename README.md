@@ -137,7 +137,7 @@ control path and [timing protocol](docs/module-architecture.md) for its exact ru
 - [Module architecture](docs/module-architecture.md) and [module contracts](docs/modules/README.md)
 - [Executable implementation](docs/implementation.md)
 - [Program and trace interfaces](docs/interfaces.md)
-- [Verification](docs/engineering-and-testing.md) and [CACTUS comparison scope](docs/decisions/0002-reference-comparison-scope.md)
+- [Verification](docs/engineering-and-testing.md) and [CACTUS validation](CACTUS_VALIDATION.md)
 - [Glossary](docs/glossary.md)
 
 ## Documentation website

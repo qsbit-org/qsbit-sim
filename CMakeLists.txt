@@ -222,6 +222,13 @@ if(BUILD_TESTING)
     if(QSBIT_TEST_AER)
       list(APPEND NUMERICAL_SCENARIOS bell feedback capability)
       list(APPEND CLI_SCENARIOS bell feedback)
+      add_test(NAME reference.cactus_golden COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/cactus_golden.py"
+        --simulator "$<TARGET_FILE:qsbit_sim>"
+        --assembler "${RISCV_AS}" --linker "${RISCV_LD}"
+        --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")
+      set_tests_properties(reference.cactus_golden PROPERTIES TIMEOUT 600
+        LABELS "reference;integration;numerical")
     endif()
     if(QSBIT_TEST_PULSE)
       list(APPEND NUMERICAL_SCENARIOS pulse overlap joint)

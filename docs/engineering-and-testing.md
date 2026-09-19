@@ -131,27 +131,6 @@ constitute official RISC-V certification.
 The runners and dependency manifests pin their reference versions. Test programs,
 traces and reports remain in the build tree.
 
-## Compare with CACTUS
-
-CACTUS validation runs in a separate disposable project. It compiles a shared
-workload into independent eQASM and RV32I-extension programs, runs both, and
-compares corresponding control and device events on a common time grid.
-qsbit-sim must execute its own program rather than consume the reference trace
-as a schedule.
-
-The fixture records both binaries, reference revision and patches, execution
-entry point, actual clock periods and phases, reset/start timing, mappings and
-measurement inputs. Compare absolute event times after one common-origin
-normalization, with zero tick tolerance. Do not shift individual events.
-
-Producer acceptance times and private queue occupancies can differ between CPU
-models. Missing reference probes and unsupported features are coverage limits.
-[ADR 0002](decisions/0002-reference-comparison-scope.md) defines the required
-observations and known reference limitations.
-
-All reference-specific translators, probes, fixtures and reports stay outside
-this repository and its default CI workflow.
-
 ## CI, sanitizers and coverage
 
 The [CI workflow](../.github/workflows/ci.yml) runs a core sanitizer build, a

@@ -56,7 +56,6 @@ simulation-model
 high-level-design
 architecture
 decisions/0001-initial-implementation
-decisions/0002-reference-comparison-scope
 ```
 
 ```{toctree}

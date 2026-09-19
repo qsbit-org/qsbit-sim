@@ -585,10 +585,6 @@ Timing and event queues separate variable command preparation time from planned 
 
 An architectural reference for RISC-V control extensions and codeword operations. Binary compatibility is not claimed.
 
-### CACTUS comparison
-
-Independent execution of equivalent workloads followed by comparison of corresponding timed events. Comparison tools remain outside this repository.
-
 ### TQEC integration
 
 A future adapter for compiling TQEC workloads and consuming their results.

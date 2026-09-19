@@ -1,0 +1,53 @@
+smis s0, {0}
+smis s1, {1}
+smis s2, {2}
+smis s3, {3}
+smis s4, {4}
+smis s5, {5}
+smis s6, {6}
+smit t0, 2
+qwait 8
+bs 0 X s0
+bs 4 MeasZ s0
+qwait 40
+qwait 30
+qwait 20
+qwait 10
+fmr r1, q0
+nop
+nop
+nop
+nop
+ldi r2, 1
+nop
+nop
+nop
+nop
+cmp r1, r2
+nop
+nop
+nop
+nop
+br ne, zero
+nop
+nop
+nop
+nop
+bs 0 X s1
+br always, done
+nop
+nop
+nop
+nop
+zero:
+bs 0 Z s1
+done:
+qwait 10000
+qwait 10001
+qwait 10002
+qwait 10003
+qwait 10004
+qwait 10005
+qwait 10006
+qwait 10007
+stop

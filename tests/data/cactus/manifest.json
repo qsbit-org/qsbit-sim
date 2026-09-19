@@ -1,0 +1,273 @@
+{
+  "reference_revision": "a05f47423ac37b14989ec38c525741ec597b4826",
+  "assembler_revision": "9b024494558287a937cdd5a8ccd63fcaa784b1c4",
+  "reference_observation_ns": [
+    0,
+    12000
+  ],
+  "cases": [
+    {
+      "workload": "x_measure",
+      "mode": "original",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 5,
+      "raw_sha256": "67eac64d118452c676f06d2688dbeb9ac213131ab349520fd9a1a3b04b177871",
+      "reference_binary_sha256": "42078822a81320ac67f3b3b91a415df999eaff1a1e291c33e2579c4baf097c22",
+      "rv32_elf_sha256": "c34195213015d9f1f4126e15727c1f0ef74b9e512c36d6dddffef0d39202555c",
+      "unavailable_probes": [
+        "CPU visibility: original binary measurement defects"
+      ],
+      "profile": "default"
+    },
+    {
+      "workload": "x_measure",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 6,
+      "raw_sha256": "088cd7f4d7002fae51615ee162e9fa6eb3ec5ee09973312efa57189566d23928",
+      "reference_binary_sha256": "42078822a81320ac67f3b3b91a415df999eaff1a1e291c33e2579c4baf097c22",
+      "rv32_elf_sha256": "c34195213015d9f1f4126e15727c1f0ef74b9e512c36d6dddffef0d39202555c",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "zero_measure",
+      "mode": "original",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 5,
+      "raw_sha256": "a93ecfe60f0d40a5bd13ff0b27d4ccf447b7356bf3a39e9da2f5596d2f9c0c49",
+      "reference_binary_sha256": "c7908b5d6b37d5811a07766573400276be1c204395394cc21078330fa944172e",
+      "rv32_elf_sha256": "8a1dcae7becdc0523142b6293fc3039b23c312d25a8d749c62038b669d0c42ed",
+      "unavailable_probes": [
+        "CPU visibility: original binary measurement defects"
+      ],
+      "profile": "default"
+    },
+    {
+      "workload": "zero_measure",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 6,
+      "raw_sha256": "9ee73d52b8b7a8d5ff72b2f4c78005ba9280b31c7a6f54c9a20716ad36054e03",
+      "reference_binary_sha256": "c7908b5d6b37d5811a07766573400276be1c204395394cc21078330fa944172e",
+      "rv32_elf_sha256": "8a1dcae7becdc0523142b6293fc3039b23c312d25a8d749c62038b669d0c42ed",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "parallel",
+      "mode": "original",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 8,
+      "raw_sha256": "60c9f5b292c83a75a1990c0215620e654593b0c112cd6e3dc03ebdece54477e3",
+      "reference_binary_sha256": "19ce38da275b5835f65711128022ed983ff6056807841489d563490bdcd0bafd",
+      "rv32_elf_sha256": "4ebe384a3b0156aa34643e323941c63496585603047973a7862133ba7036f197",
+      "unavailable_probes": [
+        "CPU visibility: original binary measurement defects"
+      ],
+      "profile": "default"
+    },
+    {
+      "workload": "parallel",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 10,
+      "raw_sha256": "6b21a39910a1bae673b41589238781b6c23740cb9ec13c77f0fbfd718ecb7341",
+      "reference_binary_sha256": "19ce38da275b5835f65711128022ed983ff6056807841489d563490bdcd0bafd",
+      "rv32_elf_sha256": "4ebe384a3b0156aa34643e323941c63496585603047973a7862133ba7036f197",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "repeat",
+      "mode": "original",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 10,
+      "raw_sha256": "7734896d2afbad797d672e10bce804ad0d3f9bb9e1920df3b9b879056560742f",
+      "reference_binary_sha256": "058465f5f7ab598c336b8a8db9b069835a9f1fcc17ebb2a739f87ce8a9d75a01",
+      "rv32_elf_sha256": "450c798433a9c020f501d345f11f8bbe3e86b4bdde0732daa244dd53c5b643db",
+      "unavailable_probes": [
+        "CPU visibility: original binary measurement defects"
+      ],
+      "profile": "default"
+    },
+    {
+      "workload": "repeat",
+      "mode": "corrected",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 10,
+      "raw_sha256": "993235f04822628d26cc3a575c6ecd74cde9b5345fa91d7b230f15779aeab50d",
+      "reference_binary_sha256": "058465f5f7ab598c336b8a8db9b069835a9f1fcc17ebb2a739f87ce8a9d75a01",
+      "rv32_elf_sha256": "450c798433a9c020f501d345f11f8bbe3e86b4bdde0732daa244dd53c5b643db",
+      "unavailable_probes": [
+        "Per-measurement CPU visibility: reference exposes latest result only after all outstanding measurements on that target complete"
+      ],
+      "profile": "default"
+    },
+    {
+      "workload": "entangle_uncompute",
+      "mode": "original",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 15,
+      "raw_sha256": "b7b09df83018530238a39804e1d0eb0ff02baf56ef2ec93d96ed0df2a08a11fc",
+      "reference_binary_sha256": "e3c748af9ba95cfe337efbd0b811749322a46580942e3b621b0ee8d320f592f6",
+      "rv32_elf_sha256": "019af2c03aa2e4831ac1d277064512386ca543e971a18af0c4df111f44bff6a6",
+      "unavailable_probes": [
+        "CPU visibility: original binary measurement defects"
+      ],
+      "profile": "default"
+    },
+    {
+      "workload": "entangle_uncompute",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 17,
+      "raw_sha256": "4c640b63ff858fb34df7cc96606d7f785334090afbecfbd07f766f133f466f6e",
+      "reference_binary_sha256": "e3c748af9ba95cfe337efbd0b811749322a46580942e3b621b0ee8d320f592f6",
+      "rv32_elf_sha256": "019af2c03aa2e4831ac1d277064512386ca543e971a18af0c4df111f44bff6a6",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "pressure",
+      "mode": "original",
+      "probes": [
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 85,
+      "raw_sha256": "f7ddf2a9e9164d7cf2721ec59991a4c18320ae72b75da01c22df6d0099a41a12",
+      "reference_binary_sha256": "3cff73c3d2dde132a14506a08346a6cb001e40f7ef43fe151eb3a2c6aa4e4d4c",
+      "rv32_elf_sha256": "4c27f480a1ba459aa28fc697363488c396589159104d91163871144b780ae818",
+      "unavailable_probes": [
+        "CPU visibility: original binary measurement defects"
+      ],
+      "profile": "pressure"
+    },
+    {
+      "workload": "pressure",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 87,
+      "raw_sha256": "33cab89f29e65ec9fb82236f2b4e28dc96e5ea66a1597e2847739c564269bc5c",
+      "reference_binary_sha256": "3cff73c3d2dde132a14506a08346a6cb001e40f7ef43fe151eb3a2c6aa4e4d4c",
+      "rv32_elf_sha256": "4c27f480a1ba459aa28fc697363488c396589159104d91163871144b780ae818",
+      "unavailable_probes": [],
+      "profile": "pressure"
+    },
+    {
+      "workload": "feedback_0",
+      "mode": "assembly",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 11,
+      "raw_sha256": "f062366342d352815d4b9b6afa1fb8921d27a27c00b6dfc5d7c1b4a94d95849e",
+      "reference_binary_sha256": "1a16171cb14703918072bd0ab5b456d75a598ab1a0480331c6680aa506d17666",
+      "rv32_elf_sha256": "c57979d37272b2d8ee44f9dd55e55f7e9abf68e8728521af12fa147273474f18",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "feedback_0",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 11,
+      "raw_sha256": "909145bf8d26245c8d65a907ece4431e31f9c334b9a1f1bd61c7c84da1c76e88",
+      "reference_binary_sha256": "1a16171cb14703918072bd0ab5b456d75a598ab1a0480331c6680aa506d17666",
+      "rv32_elf_sha256": "c57979d37272b2d8ee44f9dd55e55f7e9abf68e8728521af12fa147273474f18",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "feedback_1",
+      "mode": "assembly",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 11,
+      "raw_sha256": "4b9d75cf4293d02f43110bc619a3c7b245ca3bb0fa8abb8c9023158a9795708f",
+      "reference_binary_sha256": "edd4b8bbaac1b7c58f1573afaf11641ade2b55f5055263f32734670b0dbff88d",
+      "rv32_elf_sha256": "8943468c4ae7d20d75bad4742f16c1691d0aedb223a6ea33ecd1141916f88c70",
+      "unavailable_probes": [],
+      "profile": "default"
+    },
+    {
+      "workload": "feedback_1",
+      "mode": "corrected",
+      "probes": [
+        "CpuResultVisible",
+        "ResultReady",
+        "operation",
+        "tcu"
+      ],
+      "event_count": 11,
+      "raw_sha256": "9c91b69998bd2b00e6e59d3d2d27cb2639a1ebb2f4943c3d8f0ca6940acd1844",
+      "reference_binary_sha256": "edd4b8bbaac1b7c58f1573afaf11641ade2b55f5055263f32734670b0dbff88d",
+      "rv32_elf_sha256": "8943468c4ae7d20d75bad4742f16c1691d0aedb223a6ea33ecd1141916f88c70",
+      "unavailable_probes": [],
+      "profile": "default"
+    }
+  ]
+}

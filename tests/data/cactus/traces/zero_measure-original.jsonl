@@ -1,0 +1,7 @@
+{"kind":"RunPublished","tick":999}
+{"kind":"TcuOutput","tick":1200,"label":1,"interval":8}
+{"kind":"DeviceCommand","tick":1240,"cycle":12,"operation":"z180","targets":[0]}
+{"kind":"TcuOutput","tick":1280,"label":2,"interval":4}
+{"kind":"DeviceCommand","tick":1320,"cycle":16,"operation":"measure","targets":[0]}
+{"kind":"ResultReady","tick":1340,"target":0,"value":0}
+{"kind":"FeedbackPublished","tick":1360,"target":0,"value":0}

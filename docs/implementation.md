@@ -133,5 +133,4 @@ Session reset clears controller and quantum state under the same profile.
 A controller-only reset that preserves qubit state is not implemented.
 
 See [ADR 0001](decisions/0001-initial-implementation.md) for the implementation
-choices and [ADR 0002](decisions/0002-reference-comparison-scope.md) for the scope
-of CACTUS timing comparisons.
+choices.

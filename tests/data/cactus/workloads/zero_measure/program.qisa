@@ -1,0 +1,20 @@
+smis s0, {0}
+smis s1, {1}
+smis s2, {2}
+smis s3, {3}
+smis s4, {4}
+smis s5, {5}
+smis s6, {6}
+smit t0, 2
+qwait 8
+bs 0 Z s0
+bs 4 MeasZ s0
+qwait 10000
+qwait 10001
+qwait 10002
+qwait 10003
+qwait 10004
+qwait 10005
+qwait 10006
+qwait 10007
+stop

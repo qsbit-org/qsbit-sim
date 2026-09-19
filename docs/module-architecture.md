@@ -214,6 +214,3 @@ The trace schema is documented in [file formats](interfaces.md#jsonl-trace).
 
 The [module pages](modules/README.md) identify source files and registered tests.
 The [testing guide](engineering-and-testing.md) explains how to run them.
-External CACTUS comparisons follow
-[ADR 0002](decisions/0002-reference-comparison-scope.md); their tooling and reports
-remain outside this repository.

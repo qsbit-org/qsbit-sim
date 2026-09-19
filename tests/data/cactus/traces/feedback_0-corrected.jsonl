@@ -1,0 +1,13 @@
+{"kind":"RunPublished","tick":999}
+{"kind":"TcuOutput","tick":1200,"label":1,"interval":8}
+{"kind":"DeviceCommand","tick":1240,"cycle":12,"operation":"z180","targets":[0]}
+{"kind":"TcuOutput","tick":1280,"label":2,"interval":4}
+{"kind":"DeviceCommand","tick":1320,"cycle":16,"operation":"measure","targets":[0]}
+{"kind":"ResultReady","tick":1340,"target":0,"value":0}
+{"kind":"FeedbackPublished","tick":1360,"target":0,"value":0}
+{"kind":"CpuResultVisible","tick":1400,"target":0,"value":0}
+{"kind":"TcuOutput","tick":2080,"label":3,"interval":40}
+{"kind":"TcuOutput","tick":2680,"label":4,"interval":30}
+{"kind":"TcuOutput","tick":3080,"label":5,"interval":20}
+{"kind":"TcuOutput","tick":3280,"label":6,"interval":10}
+{"kind":"DeviceCommand","tick":3320,"cycle":116,"operation":"z180","targets":[1]}
