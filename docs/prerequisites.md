@@ -48,31 +48,44 @@ Python package constraints are in [pyproject.toml](../pyproject.toml);
 
 ## SystemC
 
-Install the pinned SystemC 3.0.1 revision before configuring qsbit-sim. The
-following commands work from any directory and install it under
-`$HOME/.local/systemc` using Clang and C++20:
+Install SystemC with C++20 before configuring qsbit-sim. Any installation
+prefix is supported. CMake discovers standard system installations automatically;
+custom prefixes need to be added to its search path once in your shell.
+
+To build the pinned revision, run the following from a source workspace outside
+the qsbit-sim checkout. These commands use Clang and CMake's default Unix install
+prefix, `/usr/local`:
 
 ```sh
-mkdir -p "$HOME/.local/src"
-git clone https://github.com/accellera-official/systemc.git "$HOME/.local/src/systemc"
-git -C "$HOME/.local/src/systemc" checkout 11ad094d282fd5330b27ab57f90f9d231a763da1
-cmake -S "$HOME/.local/src/systemc" -B "$HOME/.local/src/systemc-build" -G Ninja \
+git clone https://github.com/accellera-official/systemc.git
+git -C systemc checkout 11ad094d282fd5330b27ab57f90f9d231a763da1
+cmake -S systemc -B systemc/build -G Ninja \
   -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang \
-  -DCMAKE_CXX_STANDARD=20 -DCMAKE_INSTALL_PREFIX="$HOME/.local/systemc" \
-  -DENABLE_EXAMPLES=OFF -DENABLE_REGRESSION=OFF
-cmake --build "$HOME/.local/src/systemc-build" --parallel
-cmake --install "$HOME/.local/src/systemc-build"
+  -DCMAKE_CXX_STANDARD=20 -DENABLE_EXAMPLES=OFF -DENABLE_REGRESSION=OFF
+cmake --build systemc/build --parallel
+sudo cmake --install systemc/build
 ```
 
-For a GCC build, replace `clang`, `clang++`, and `clang` with `gcc`, `g++`,
-and `gcc` in the configure command. If switching toolchains, use a fresh
-SystemC build directory. To install system-wide, set
-`-DCMAKE_INSTALL_PREFIX=/usr/local` and run `sudo cmake --install` for that
-build directory. Reconfigure qsbit-sim with
-`-DCMAKE_PREFIX_PATH="$HOME/.local/systemc"` for the user-local installation;
-standard system prefixes are searched automatically. A SystemC installation
-built with another C++ standard is rejected at configure time. The simulator
-does not download SystemC.
+For GCC, replace the three compiler settings with `gcc`, `g++`, and `gcc`.
+Use a fresh SystemC build directory when changing compilers.
+
+For an installation without administrator access, choose any writable prefix.
+Instead of the `sudo` install step above, run:
+
+```sh
+cmake -S systemc -B systemc/build -DCMAKE_INSTALL_PREFIX=/path/to/systemc
+cmake --install systemc/build
+export CMAKE_PREFIX_PATH=/path/to/systemc
+```
+
+Replace `/path/to/systemc` with your chosen installation directory. Set this
+variable in each development shell, or add it to your shell startup file.
+If it already contains other dependency prefixes, add the SystemC prefix to
+that list, separated by `:` on Linux. The normal qsbit-sim build commands stay
+the same for every installation location.
+
+A SystemC installation built with another C++ standard is rejected at configure
+time. The simulator does not download SystemC.
 
 ## Check the tools
 
@@ -94,7 +107,7 @@ the appropriate `CMAKE_PREFIX_PATH`.
 ## Offline builds
 
 Install SystemC and the required tools before working offline. The simulator
-does not fetch dependencies at configure or build time. Use
-`-DCMAKE_PREFIX_PATH` to select the installed SystemC package.
+does not fetch dependencies at configure or build time. Keep any custom
+dependency prefixes in your shell environment as described above.
 
 Continue with [your first simulation](quickstart.md).

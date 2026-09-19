@@ -19,7 +19,7 @@ example executables:
 ```sh
 uv sync --frozen --extra docs
 source .venv/bin/activate
-cmake --preset gcc-ninja -DCMAKE_PREFIX_PATH="$HOME/.local/systemc" -DBUILD_TESTING=ON
+cmake --preset gcc-ninja -DBUILD_TESTING=ON
 cmake --build --preset gcc-ninja --parallel
 python -m sphinx -n -W --keep-going -b html -D qsbit_build=build-gcc docs out/documentation-preview/html
 ```
@@ -75,7 +75,7 @@ the Markdown files continue to open local source files.
 uv sync --frozen --extra docs --extra docs-test
 source .venv/bin/activate
 python -m playwright install chromium
-cmake --preset gcc-ninja -DCMAKE_PREFIX_PATH="$HOME/.local/systemc" \
+cmake --preset gcc-ninja \
   -DBUILD_TESTING=ON -DQSBIT_TEST_WEBSITE=ON
 cmake --build --preset gcc-ninja --parallel
 ctest --test-dir build-gcc -L 'fast|website' --output-on-failure
