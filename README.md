@@ -1,5 +1,10 @@
 # qsbit-sim
 
+[![CI](https://github.com/qsbit-org/qsbit-sim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/qsbit-org/qsbit-sim/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://qsbit-org.github.io/qsbit-sim/)
+[![License](https://img.shields.io/github/license/qsbit-org/qsbit-sim)](LICENSE)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](docs/prerequisites.md)
+
 A C++20 and SystemC simulator for RV32I programs with quantum-control extensions.
 It models CPU execution, timing-control queues, measurement, and feedback at cycle
 level. Quantum-state backends are selected independently of the control model.
