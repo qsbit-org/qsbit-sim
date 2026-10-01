@@ -9,31 +9,30 @@ custom-0; compressed instructions and relaxation are disabled.
 
 ## Control-only run
 
-The default C++ build can execute a mock feedback scenario without Python:
+Run the feedback example with the mock backend, without the Python bridge:
 
 ```sh
-build/qsbit-sim --config build/examples/runs/mock.json
+build-clang/qsbit-sim --config build-clang/examples/runs/mock.json
 ```
 
-Results are in `build/runs/mock.json` and `build/runs/mock.jsonl`.
+Results are in `build-clang/runs/mock.json` and `build-clang/runs/mock.jsonl`.
 For the remaining examples, enable the Python bridge and install the selected
-[backend extra](../docs/backends.md). Run each configuration with the simulator
-from the same build directory. For example, a `clang-ninja` preset build uses
-`build-clang/qsbit-sim --config build-clang/examples/runs/mock.json`.
+[backend](../docs/backends.md). Run commands from the repository root;
+the commands below use the `clang-ninja` build.
 
 ## Bell pair
 
-`bell.S` applies H to qubit 0, CX to qubits 0 and 1, then measures both at one timing
-point. Two QAPPEND instructions complete the measurement group before it is sealed.
-QREAD returns the live results and stores them at addresses 4096 and 4100.
+`bell.S` applies H to qubit 0, CX to qubits 0 and 1, then measures both at one time
+point. Two QAPPEND instructions prepare the acquisition events; QREAD enqueues
+them and returns each result. The program stores the bits at addresses 4096 and 4100.
 
 ```sh
-build/qsbit-sim --config build/examples/runs/bell.json
+build-clang/qsbit-sim --config build-clang/examples/runs/bell.json
 ```
 
 The ideal result is 00 or 11 with equal probability; both bits must agree. Qubit 0 is
-the least significant statevector bit. A seed is reproducible for this pinned adapter;
-it does not define a common random stream with another simulator library.
+the least significant statevector bit. Reusing the seed with the same adapter
+and dependencies reproduces the outcomes.
 
 ## Measurement feedback
 
@@ -42,13 +41,12 @@ branch. Result one schedules X on qubit 1; result zero schedules Z. Aer determin
 returns one for this preparation, yielding `|11>`. Mock runs cover both branches:
 
 ```sh
-build/qsbit-sim --config build/examples/runs/feedback.json --backend mock --outcomes 0
+build-clang/qsbit-sim --config build-clang/examples/runs/feedback.json --backend mock --outcomes 0
 ```
 
-The CPU receives the result at 505 ns. Both branches submit a group that the TCU
-admits at 680 ns. QADVANCE moves the cursor from cycle 12 to cycle 26, so the
-selected gate starts at 720 ns, two TCU cycles after admission. The TCU timer
-continues throughout the CPU work.
+The CPU receives the result at 505 ns. QADVANCE moves the current time point
+from cycle 12 to cycle 26. Both branches enqueue the selected event at 680 ns
+for output at 720 ns. The TCU timer continues while the CPU waits and branches.
 
 ## Constant pulse
 
@@ -58,7 +56,7 @@ The result is one, stored at 4096. Selecting the Aer circuit backend for this pr
 fails with `UnsupportedCapability` before pulse execution.
 
 ```sh
-build/qsbit-sim --config build/examples/runs/pulse.json
+build-clang/qsbit-sim --config build-clang/examples/runs/pulse.json
 ```
 
 ## Example event times
@@ -74,12 +72,9 @@ default start of 1000 ns; pass `--start 200` to reproduce these example times.
 | Pulse | X drive: 360; acquisition: 440. |
 
 Default acquisition duration is 40 ns and discriminator delay is 20 ns. Results for
-the acquisitions at 440 are ready at 500, CPU-visible at 505, and fast-visible at
-540. QEND retirement is not simulator completion: outstanding actions and both
+the acquisitions at 440 are ready at 500, CPU-visible at 505, and TCU-visible at
+540. QEND retirement is not simulator completion: outstanding events and both
 feedback paths must drain. The summary contains the actual stop tick and memory bits.
-
-Tests assert exact event times, final state or signatures, retirement identities and
-successful drain. A replacement simulation profile changes these numerical expectations.
 
 ## Overlapping drives
 
@@ -89,5 +84,5 @@ sum for 20 ns. The expected state is `-i (|0> + |1>) / sqrt(2)` on qubit 0; qubi
 remains zero. Sequentially replaying the two rotations would give a different result.
 
 ```sh
-build/qsbit-sim --config build/examples/runs/overlap.json
+build-clang/qsbit-sim --config build-clang/examples/runs/overlap.json
 ```

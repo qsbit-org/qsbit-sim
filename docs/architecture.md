@@ -1,7 +1,7 @@
 # Controller architecture
 
 The processor prepares port and codeword events during the reserve phase.
-The TCU stores timing points and per-port events, then triggers control output
+The TCU stores time points and per-port events, then triggers control output
 at the requested times. Measurement results feed classical control and fast
 conditional execution.
 
@@ -24,8 +24,5 @@ each time point, as in [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677).
 The [overview](high-level-design.md) explains the instruction and feedback scope.
 Click a component to inspect its implementation and tests.
 
-The [implementation map](implementation.md#implementation-map) covers C++ state
-ownership, resource checks, backend APIs and scheduling. The
-[timing contract](module-architecture.md) specifies communication delays and
-the order of simulation transitions. [Recorded executions](execution.md) show
-these rules applied to runnable examples.
+See [simulation timing](module-architecture.md) for edge order and communication
+delays, or [recorded executions](execution.md) for example traces.

@@ -1,17 +1,14 @@
 # Measurement results and CPU feedback
 
-The measurement result storage reserves a result slot when the timing control accepts a measurement.
-It tracks that measurement until its bit reaches the CPU and QREAD consumes it.
-Each slot carries a token so delayed results cannot overwrite a reused slot.
-
-These slots identify individual measurements. They are not the per-qubit
-last-result registers specified by eQASM.
+`MeasurementResults` reserves a slot for each accepted measurement and retains
+it until QREAD consumes the result. A generation counter distinguishes
+successive uses of the same slot.
 
 ## Connections
 
 - **Input:** a measurement reservation from the timing control, a tagged CPU completion,
   or a QREAD handle.
-- **Output:** a token and 32-bit handle, a result bit, or an incomplete read.
+- **Output:** a measurement reference and 32-bit handle, a result bit, or an incomplete read.
 - **Scheduling:** reservation and consumption occur in the CPU control call.
   `TimingControl::receive()` delivers arrived results before the CPU steps.
 
@@ -29,28 +26,26 @@ digraph module {
 
 ## Slot lifecycle
 
-A slot moves from **Free** to **Pending** when `reserve()` assigns its token.
-The token includes epoch, measurement ID, slot, generation, handle and target.
-The returned handle is what the program stores in a register.
+`reserve()` changes a slot from **Free** to **Pending** and assigns a
+`MeasurementReference`. The program receives its 32-bit handle.
 
-`deliver()` checks the full token and changes Pending to **Visible**. A QREAD
-first flushes any pending events at the current time point, then waits if its slot is still Pending. Once
-Visible, consumption returns the bit and makes the slot Free.
+`deliver()` checks the full reference and changes the slot to **Visible**.
+QREAD first enqueues any pending events, then waits for its slot to become
+Visible. It returns the bit and frees the slot.
 
-Acquisition end, result readiness, CPU visibility and consumption are separate
-events. A result ready on a CPU edge crosses to a strictly later edge, even with
-zero discriminator delay. Different tokens can complete out of order.
+Different measurements can complete out of order. Each delivery must match
+the reserved epoch, measurement ID, slot generation, handle and target.
 
-Fast-feedback delivery has separate credits. Consuming a CPU result does not
-release a pending fast credit; the TCU's delivery acknowledgment does. Successful
-simulation completion waits for those deliveries, but it may retain unread
-Visible CPU slots as final state.
+Fast-feedback credits are tracked separately. QREAD frees the CPU slot;
+a TCU delivery acknowledgment frees the fast-feedback credit. Successful
+completion waits for deliveries and acknowledgments, but allows unread
+Visible slots.
 
 ## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `slots_` | `vector<Slot>` | Each slot has Free, Pending or Visible state, token and result bit. |
+| `slots_` | `vector<Slot>` | Each slot has Free, Pending or Visible state, measurement reference and result bit. |
 | `generations_` | per-slot generation | Persists across reset so a reused slot does not revive an old handle. |
 | `fast_pending_` | `map<measurement ID, MeasurementReference>` | Independent fast-delivery credits, released by acknowledgment. |
 | `next_measurement_` | checked ID | Next measurement identity within the epoch. |
@@ -60,8 +55,8 @@ Visible CPU slots as final state.
 ## Reset and errors
 
 Unknown, consumed, wrong-generation or wrong-epoch handles fail. A full
-CPU slot array causes APPEND to fail rather than wait for a later QREAD that
-cannot execute while APPEND is blocked.
+CPU slot array causes QAPPEND to fail rather than wait for a later QREAD that
+cannot execute while QAPPEND is blocked.
 
 Reset clears slots and pending fast credits and restarts measurement IDs in a
 new epoch. Per-slot generation counters survive reset, so reusing a slot cannot

@@ -1,4 +1,4 @@
-# Trace Recorder and Stop Controller
+# Tracing and completion
 
 `Trace` records what the simulator has done. `Simulator` decides when a run
 has completed or failed. Together they provide the event history and final
@@ -15,9 +15,9 @@ status used to inspect a run.
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Committed domain events"];
+  input [label="TraceEvent records"];
   owner [label="Trace and Simulator"];
-  state [label="Trace::events_\nSimulator::stopped_ and success_ and fault_\nOwner drain predicates"];
+  state [label="Trace::events_\nSimulator::stopped_ and success_ and fault_\nComponent completion checks"];
   output [label="JSONL and success or typed fault"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -25,24 +25,19 @@ digraph module {
 
 ## Recording and finishing a run
 
-Trace events distinguish staging, enqueue, label event triggering, physical operation
-starts and ends, sampling, readiness and feedback visibility. Each event has
-a timestamp and kind-specific identities. Recording an event consumes no
-simulated time.
+Trace records distinguish event preparation, queue insertion, triggering,
+output starts and ends, measurement sampling, result readiness and delivery.
+Each has a tick and event-specific IDs. See the
+[trace reference](../interfaces.md#jsonl-trace).
 
-A `Completion` record carries a measurement bit; it is separate from whole-run
-completion. QEND stops CPU production after the timing control has flushed and received any
-required enqueue reply. Simulation continues until the TCU has seen closure,
-queues and physical actions have drained, memory is idle, and every enabled
-feedback message and credit acknowledgment has been delivered.
+QEND halts the CPU after its pending events have been enqueued and
+acknowledged. The simulation continues until the TCU receives closure,
+all queued and device work finishes, memory is idle, and all enabled
+result deliveries and acknowledgments complete. Unread Visible CPU
+results may remain.
 
-A Visible CPU result slot may remain unread at successful stop. It is final
-state, not an outstanding delivery. The barrier emits `SimulationCompleted`
-only when all completion conditions hold.
-
-Trace ticks are nondecreasing. Records at the same tick do not represent extra
-hardware cycles; use their event meanings and the protocol to interpret order.
-The [trace reference](../interfaces.md#jsonl-trace) defines fields and ID namespaces.
+The device barrier emits `SimulationCompleted` when these conditions
+hold. Trace ticks are nondecreasing; several records can share one tick.
 
 ## Objects and state
 
@@ -50,18 +45,18 @@ The [trace reference](../interfaces.md#jsonl-trace) defines fields and ID namesp
 | --- | --- | --- |
 | `Trace::events_` | `vector<TraceEvent>` | Append-only observation records, ordered by nondecreasing tick. |
 | `Simulator::stopped_ and success_ and fault_` | terminal state | Distinguishes full drain from fatal failure. |
-| Owner drain predicates | read-only checks | CPU, timing control, TCU, device, measurement result storage, links and memory completion. |
+| Component completion checks | read-only checks | CPU, timing control, TCU, device, measurement result storage, links and memory completion. |
 
 [C++ API](../api.md#tracehpp).
 
 ## Reset and errors
 
 A fatal fault records its type and explanation, marks the run unsuccessful
-and stops SystemC. The simulation watchdog is a deadline in global simulation ticks, not a host-time
-timeout. Its expiry is a failure to drain. The application writes
-the partial trace and failed summary when the output paths remain usable.
+and stops SystemC. The watchdog checks a global simulation deadline.
+If the run has not drained, it fails with `Watchdog`. The application writes
+the partial trace and failed summary when the output paths are usable.
 
-Reset starts a new epoch in the same trace. Aborted actions and observed stale
+Reset starts a new epoch in the same trace. Aborted events and observed stale
 completion discards remain available for diagnosis.
 
 ## Implementation and tests
@@ -71,5 +66,5 @@ Source: [simulator.cpp](../../src/simulator.cpp) and [trace.hpp](../../include/q
 **CTest:** `systemc.use_cases`.
 
 The tests compare complete traces after reversing process registration. They
-also check that END waits for slow fast-feedback delivery, that reset changes
+also check that QEND waits for slow fast-feedback delivery, that reset changes
 the epoch, and that watchdog and model faults terminate with the expected type.

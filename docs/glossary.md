@@ -2,132 +2,113 @@
 
 ## Controller architecture
 
-These terms describe the control path. The
-[architecture overview](high-level-design.md) identifies the supported subset.
-
 ### Reserve phase
 
-Instruction processing that prepares timing points and operation events for
-the queues. eQASM defines reserve and trigger phases in
-[Section 3.1](https://arxiv.org/abs/1808.02449).
+Instruction processing that prepares and enqueues time points and their events.
 
 ### Trigger phase
 
-Release of queued events at their specified timing points.
+Release of queued events at their scheduled time points. The phase names follow
+[eQASM, Section 3.1](https://arxiv.org/abs/1808.02449).
 
 ### TCU
 
-The timing control unit. It contains the timing queue, event queues and timing
-controller described in [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677).
+The timing control unit: timing queue, per-port event queues and timing
+controller. See [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677).
 
 ### Time point
 
-A specified time for one or more operation events. The current time point being
-prepared is independent of the running TCU timer. The simulator expresses it
-as a logical TCU cycle.
+A scheduled TCU cycle for zero or more events. The CPU prepares the current
+time point independently of the running TCU timer.
 
 ### Timing label
 
-The identifier associating a time point with its event-queue entries. QuMA
-explicitly uses timing labels and label broadcast in Section 5.2. A timing
-label is not a timestamp.
+An identifier that associates a time point with its event-queue entries.
 
 ### Timing queue
 
-The first-in, first-out queue of timing points. The simulator stores intervals
-and calculates cumulative due cycles.
+A FIFO of time points. Each entry stores an interval from the preceding point,
+a timing label and a list of event IDs.
 
 ### Per-port event queue
 
-The first-in, first-out queue of events for one output port. HISQ describes
-per-port event queues in [Section 3.2](https://arxiv.org/html/2509.04798v1#S3.SS2).
+A FIFO of events for one output port. Each event carries its time point's label.
 
 ### Port and codeword
 
-A port identifies a control destination; a codeword selects its configured
-operation. HISQ uses ports, codewords and time points to specify control.
-In the simulation profile, the instruction's port need not equal a qubit index
-or the output port selected by the mapping.
+The lookup key for configured operations. The instruction selects a source
+port and codeword; the mapping specifies output ports and qubit targets.
 
 ### Enqueue
 
-Insertion of a timing point and its associated events into the timing and
-event queues. qsbit-sim checks capacity and inserts all entries together.
+Insertion of a time point and all its events into the TCU queues together.
 
 ### Event trigger
 
-Release of the events associated with a due timing label. Configured output
-delays determine their subsequent start times.
+Release of the events for a due time point. Each output starts after its
+configured delay.
 
 ### Readout
 
-The path from acquisition through discrimination to measurement-result delivery.
+Acquisition, discrimination and delivery of a measurement result.
 
 ### Acquisition
 
-A timed measurement interval. The current simulation samples and collapses
-quantum state at its end.
+A measurement interval. The backend samples at its end.
 
 ### Discrimination
 
-Conversion of a readout signal to a measurement bit. The simulator models the
-delay; its backend supplies the bit without classifying a raw waveform.
+Conversion of a readout signal to a bit. qsbit-sim models the delay and
+takes the bit from the backend.
 
 ### Classical feedback
 
-Reading a measurement result into the CPU and using program control flow to
-select later operations.
+Reading a measurement result into the CPU and using program control flow
+to select subsequent operations.
 
 ### Fast conditional execution
 
-Selecting an event based on a measurement-derived condition without a CPU
-branch. eQASM defines execution flags for this purpose in Sections 2.3.8 and
-3.5. The current simulator instead tests an exact measurement reference and
-expected bit; these semantics are not interchangeable.
+Testing a measurement result at the event trigger, without a CPU branch.
+QAPPEND_IF selects a measurement reference and an expected bit.
 
 ## Simulation time and scheduling
 
 ### SystemC
 
-A C++ discrete-event simulation library. Its kernel runs ready processes and
-advances simulation time to the next scheduled event.
+The C++ discrete-event simulation library that schedules model execution.
 
 ### Simulation time
 
-Time in the modeled system. It continues across session resets.
+Time in the modeled system, measured in nanoseconds. It continues across resets.
 
 ### Host time
 
-Elapsed execution time on the computer running the simulator. A backend's host
-computation time does not change modeled instruction or device latencies.
+Elapsed execution time on the computer running the simulator.
 
 ### Tick
 
-One nanosecond of simulation time. The C++ alias `Tick` also stores some cycle
-counts; consult the [field units](cpp-interfaces.md#time-and-cycle-units).
+One nanosecond of simulation time. The C++ type `Tick` also stores some
+cycle counts; see [field units](cpp-interfaces.md#time-and-cycle-units).
 
 ### Clock period and phase
 
-Period is the interval between rising edges. Phase is the first rising-edge
-offset from global time zero. Edges occur at `phase + k * period`.
+Period is the interval between rising edges. Phase is the first rising edge's
+offset from time zero. Edges occur at `phase + k * period`.
 
 ### TCU logical cycle
 
-Cycle n is due at `epoch_start + n * tcu.period`. The initial origin is
-`profile.start`. After reset, it is the first TCU edge at or after
-`reset_tick + profile.start`.
+Cycle n occurs at `epoch_start + n * tcu.period`. Initially, `epoch_start`
+is `profile.start`; reset calculates a [new start](module-architecture.md#session-reset).
 
 ### Arrival time
 
-The receiver edge at which a published message first becomes available after
-its configured communication delay. A full destination can delay consumption.
-The C++ mailbox field retains the compatibility name `eligible`.
+The earliest receiver edge at which a published message can be consumed.
+The mailbox stores it in `eligible`.
 
 ### Mailbox
 
-Bounded simulator message storage containing a payload, publication tick,
-arrival tick and epoch. A SystemC notification wakes a consumer; it does not
-carry the payload.
+Bounded storage that retains each message with its epoch, publication tick
+and arrival tick until consumption.
 
 ### Elaboration
 
@@ -135,140 +116,124 @@ Construction of SystemC modules, processes and connections before simulation.
 
 ### Initialization
 
-The initial kernel phase. `dont_initialize()` suppresses automatic invocation;
-an event at time zero can still trigger the process.
+The initial SystemC kernel phase. `dont_initialize()` suppresses automatic
+process invocation; an event at time zero can still trigger the process.
 
 ### Sensitivity
 
-The events that make a SystemC process runnable. The simulator uses clock-edge,
-timed-wakeup and barrier events.
+The events that make a SystemC process runnable.
 
 ### Delta cycle
 
-A scheduling round that does not advance simulation time or hardware cycles.
+A scheduling round that does not advance simulation time.
 
 ### Device barrier
 
-An implementation method that processes device work after all clocked
-transitions due at that tick have finished. It does not represent a hardware
-pipeline stage.
+`Simulator::barrier()`, which processes device events after all clocked
+methods due at the same tick have finished.
 
 ### Physical boundary
 
-An implementation timestamp for output starts, ends, measurement samples or
-result readiness. It can occur between clock edges.
+A tick with scheduled output starts, ends, measurement samples or ready results.
 
 ## Programs and CPU execution
 
 ### RV32I
 
-The base 32-bit RISC-V integer instruction set. The simulator adds its
-[custom-0 control profile](interfaces.md#quantum-instruction-encoding).
+The base 32-bit RISC-V integer instruction set. qsbit-sim adds
+[custom-0 control instructions](interfaces.md#quantum-instruction-encoding).
 
 ### ISA and microarchitecture
 
-An ISA specifies instruction encodings and architectural effects.
-A microarchitecture determines how an implementation executes those
-instructions, including stages, hazards and timing.
+The ISA defines instruction encodings and effects. The microarchitecture
+defines how they execute, including pipeline stages, stalls and timing.
 
 ### CPU pipeline
 
-The default CPU advances fetch, decode and execute stages on CPU rising edges.
-Each stored instruction advances at most one stage per edge. Retirement
-commits its architectural effects.
+Fetch, decode and execute stages. Each instruction advances at most one stage
+per CPU edge. Execute also commits its result.
 
 ### Stall
 
-An unfinished instruction retains its state and retries on a later CPU edge.
-A pending load or measurement read can stall execution while the TCU continues.
+An unfinished instruction retains its state until a later CPU edge retries it.
 
 ### Speculative instruction
 
-Younger work fetched before older control flow or faults are resolved.
-Only the oldest instruction can publish stores or control effects.
+An instruction fetched before older control flow or faults are resolved.
+Only the oldest instruction can issue stores or control operations.
 
 ### Program image
 
-Executable bytes, permissions and entry address loaded from ELF or raw machine
-code. Memory requests and responses have separately modeled delays.
+Executable bytes, segment permissions and entry address loaded from ELF or
+raw machine code.
 
 ## Simulator records and checks
 
-The following are implementation data and services. Their C++ declarations are
-in the [interface reference](cpp-interfaces.md).
-
 ### Timing and event records
 
-`TimingEvents` carries one timing point and its associated events to the TCU.
-`EnqueueReply` acknowledges queue insertion. `TriggeredEvents` carries the
-events selected at one trigger edge. These records do not add hardware stages.
+`TimingEvents` carries a time point and its events.
+`EnqueueReply` acknowledges insertion.
+`TriggeredEvents` carries the events selected at a trigger edge.
 
 ### Measurement reference
 
-`MeasurementReference` identifies an individual measurement using its epoch,
-measurement ID, result slot, slot generation, handle and target.
-The 32-bit handle returned to the program is not a qubit index.
-QREAD consumes the result slot; a previously prepared condition retains its
-reference. Slot generations prevent stale handles from becoming valid on reuse.
+`MeasurementReference` identifies a measurement by epoch, measurement ID,
+result slot, slot generation, handle and target. The program uses the
+32-bit handle; QREAD consumes its result slot.
 
 ### Measurement storage
 
-`MeasurementResults` stores pending and CPU-visible results.
-`ConditionalResults` retains bounded measurement results for TCU conditions.
-They implement the current profile, not eQASM's architectural register files.
+`MeasurementResults` tracks pending and CPU-visible results.
+`ConditionalResults` retains results for TCU conditions.
 
 ### Resource
 
-A configured identifier used by the simulation's output-conflict checks.
-Intervals sharing a resource conflict if either requires exclusive use.
-These checks also prohibit overlapping events on the same output port.
+A configured ID used to detect conflicting output intervals. Overlapping
+intervals sharing an ID conflict if either requires exclusive use.
 
 ### Event specification
 
-`EventSpec` contains configured output parameters. `ScheduledEvent` adds
-start and end timestamps. Output occupies the half-open interval
-`[start, end)`; adjacent intervals may share an endpoint.
+`EventSpec` defines an operation's output parameters. `ScheduledEvent`
+adds start and end ticks. The operation occupies `[start, end)`.
 
 ### Quantum backend
 
-The numerical or mock implementation of the quantum device.
-`IQuantumBackend` defines validation, evolution, gate application and measurement.
-It is a simulator API, not a controller hardware module.
+An implementation of `IQuantumBackend` that supplies quantum evolution and
+measurement outcomes. The mock backend supplies fixed outcomes without a
+quantum state.
 
 ### Ideal gate and pulse drive
 
-An ideal gate changes state at its start. A pulse drive contributes throughout
-its interval; overlapping permitted drives evolve jointly against shared state.
+An ideal gate changes state at its start. A pulse drive contributes to
+evolution throughout its interval.
 
 ## Configuration and completion
 
 ### Run configuration
 
-A JSON file selecting the program, backend, profile and output files.
-Paths are relative to the file's directory.
+A JSON file selecting the program, backend, profile and outputs.
+Paths resolve relative to the file's directory.
 
 ### Simulation profile
 
 Clock periods, delays, capacities and codeword mappings fixed for a run.
-A Conan build profile instead selects compiler dependencies.
 
 ### Drain
 
-Completion of pending queue entries, device events, memory transactions and
-enabled result deliveries after QEND. Unread CPU-visible results may remain.
+Completion of pending events, memory transactions and result deliveries
+after QEND. Unread CPU-visible results may remain.
 
 ### Session reset
 
-A new simulation epoch with controller and quantum state reset.
-Committed memory and the profile remain unchanged. Simulation time continues;
-measurement-slot generations remain valid for detecting stale references.
+A new epoch with controller and backend state reset. Memory and the profile
+are preserved, as are the slot generations used to reject stale handles.
 
 ### Trace record
 
-A logged observation containing a timestamp and event-specific fields.
-Schema-1 names remain stable for existing consumers; see
+A timestamped observation with event-specific fields. See
 [trace formats](interfaces.md#jsonl-trace).
 
 ### Watchdog
 
-A global simulation deadline. Reaching it without draining reports a failure.
+The global simulation deadline. The run fails if it has not drained when
+the deadline is checked.

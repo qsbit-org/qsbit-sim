@@ -1,4 +1,4 @@
-# ISA Decoder and Semantics
+# ISA decoder and semantics
 
 The ISA library decodes instruction words and calculates their architectural
 effects. It specifies the result of an instruction; the CPU model decides when
@@ -25,19 +25,16 @@ digraph module {
 
 ## Decode and evaluate
 
-`decode()` identifies RV32I and the version 1 custom-0 instructions. It extracts
-register fields and immediates, checks fixed encoding bits, and records which
-register operands the CPU must read.
+`decode()` identifies RV32I and custom-0 instructions, checks fixed encoding
+bits, and extracts registers and immediates.
 
-`evaluate()` calculates results such as arithmetic values, branch decisions,
-next PC and memory access parameters. It neither updates registers nor accesses
-memory. RV32I arithmetic uses 32-bit wraparound; time and protocol IDs use checked
-arithmetic elsewhere in the simulator.
+`evaluate()` calculates arithmetic results, branch decisions, the next PC
+and memory access parameters. The CPU commits those effects and issues
+memory requests. RV32I arithmetic wraps at 32 bits.
 
-The CPU sends decoded quantum instructions through
-[`adapt_quantum()`](quantum-instruction-adapter.md). That path creates a timing control
-operation instead of executing a quantum effect inside the ISA library.
-Both functions are synchronous C++ calls and add no simulated delay.
+Quantum instructions pass through
+[`adapt_quantum()`](quantum-instruction-adapter.md) to produce a
+`ControlOperation`. Both decoding paths run within the CPU edge.
 
 ## Objects and state
 

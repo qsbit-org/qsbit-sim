@@ -1,8 +1,7 @@
 # Program, configuration and trace reference
 
-Use this page to prepare program inputs, configure a run and read its outputs.
-The current external JSON formats use schema version 1. C++ declarations are
-listed separately in [C++ interfaces](cpp-interfaces.md).
+The simulator accepts ELF or raw machine code and JSON configuration files.
+Run files, serialized profiles and traces use schema version 1.
 
 ## Program input
 
@@ -26,12 +25,8 @@ is not part of the selected ISA.
 
 ## Quantum instruction encoding
 
-These are the existing simulator custom-0 encodings. QAPPEND supplies a port
-and codeword; QADVANCE advances the requested time point. These roles correspond
-to HISQ's `cw` and `wait`, but do not establish binary or completion-rule
-compatibility. QREAD is a local measurement read, not HISQ `recv`. HISQ `send`,
-`recv` and synchronization are unsupported. QFLUSH, QEND and QAPPEND_IF remain
-simulator-specific instructions. See the [architecture scope](high-level-design.md#implemented-instruction-profile).
+The simulator defines the following custom-0 control instructions. Their
+encodings are not compatible with eQASM or HISQ.
 
 Quantum instructions use opcode `0x0b` and the R-type layout:
 
@@ -42,31 +37,29 @@ Quantum instructions use opcode `0x0b` and the R-type layout:
 
 | funct3 | Instruction | Register fields | Completion |
 | --- | --- | --- | --- |
-| 0 | QAPPEND | rs1: port; rs2: codeword; rd: returned handle. | Actions enter timing control staging. Acquisition returns a handle; other actions return zero. |
-| 1 | QADVANCE | rs1: unsigned interval; rd and rs2: zero. | Any pending timing point and its events are enqueued and acknowledged, then the time point advances. Zero interval changes nothing. |
-| 2 | QFLUSH | rd, rs1 and rs2: zero. | Any pending timing point and its events are enqueued and acknowledged. |
+| 0 | QAPPEND | rs1: port; rs2: codeword; rd: returned handle. | Events are stored for the current time point. Acquisition returns a handle; other events return zero. |
+| 1 | QADVANCE | rs1: unsigned interval; rd and rs2: zero. | Any pending time point and its events are enqueued and acknowledged, then the time point advances. Zero interval changes nothing. |
+| 2 | QFLUSH | rd, rs1 and rs2: zero. | Any pending time point and its events are enqueued and acknowledged. |
 | 3 | QREAD | rs1: handle; rd: result destination; rs2: zero. | Flush completes and the CPU-visible bit is consumed. |
 | 4 | QEND | rd, rs1 and rs2: zero. | Flush completes and closure is published. Successful completion still waits for drain. |
-| 5 | QAPPEND_IF | rs1: port; rs2: codeword; rd: register containing a predicate handle. | A conditional action enters staging; no register is written. |
+| 5 | QAPPEND_IF | rs1: port; rs2: codeword; rd: register containing a measurement handle. | Conditional events are stored for the current time point; no register is written. |
 | 6 | QSYNC | All register fields: zero. | Raises `UnsupportedSynchronization`. |
 | 7 | Reserved | Any. | Raises `IllegalInstruction`. |
 
 `funct7` is zero except for QAPPEND_IF, where it is the expected bit, 0 or 1.
 Any invalid fixed field makes the encoding illegal.
 
-A measurement handle is a nonzero checked 32-bit reference to a token containing
-epoch, measurement ID, slot, generation and target. It is not a qubit number.
-QREAD consumes the handle; reset invalidates it. A previously staged fast
-condition retains the full token even after CPU consumption.
+A measurement handle is a nonzero 32-bit value identifying a result slot and
+its generation. The associated `MeasurementReference` also records the epoch,
+measurement ID and target.
+QREAD consumes the handle; reset invalidates it. A condition prepared before
+QREAD retains the measurement reference after CPU consumption. Conditional acquisition is unsupported.
 
 [quantum.inc](../examples/quantum.inc) supplies GNU `.insn` macros.
-Tests independently check the emitted encodings and their execution.
-The profile makes no binary-compatibility claim with eQASM or Distributed-HISQ.
 
 ## Instruction and control operation names
 
-`ControlKind` selects the implementation of each existing instruction in
-`TimingControl`. It is an internal C++ enumeration.
+`TimingControl` receives each instruction as a `ControlKind` value:
 
 | ISA mnemonic | `ControlKind` |
 | --- | --- |
@@ -77,11 +70,6 @@ The profile makes no binary-compatibility claim with eQASM or Distributed-HISQ.
 | QEND | End |
 | QAPPEND_IF | ConditionalAppend |
 | QSYNC | Synchronize |
-
-QAPPEND prepares events; QADVANCE advances the time point after any
-required enqueue reply; QFLUSH submits without advancing. QADVANCE(0) does neither.
-QREAD consumes a CPU result after flushing. QEND closes production, while
-successful simulation completion still requires drain.
 
 ## CLI and profile
 
@@ -101,7 +89,7 @@ for the executable's option list.
 | `--trace FILE` and `--summary FILE` | Write JSONL events and JSON final state. |
 | `--inspect ADDRESS` | Include a final 32-bit memory word; repeatable. |
 | `--memory-dump FILE` | Write all RAM bytes starting at memory base. |
-| `--outcomes 0,1,...` | Set mock bits indexed by measurement issue ID, starting at one. |
+| `--outcomes 0,1,...` | Set mock bits by measurement ID, starting at one; omitted IDs return zero. |
 | `--reset TICK` | Schedule a session reset; repeated ticks must be sorted and unique. |
 | `--reverse-registration` | Reverse process registration for diagnostic runs. |
 | `--python-path DIRECTORY` | Add a module directory for the selected Python adapter. |
@@ -112,7 +100,7 @@ applied before inline `profile`. Unknown options and JSON keys are errors.
 
 | Exit status | Meaning |
 | --- | --- |
-| 0 | The run completed and drained. |
+| 0 | The run completed, or `--help` or `--dump-default-profile` succeeded. |
 | 1 | A fault occurred during simulation. |
 | 2 | Input, configuration or construction failed. |
 
@@ -150,17 +138,14 @@ Output parent directories are created as needed.
 | `memory_base`, `memory_size`, `raw_base` | RAM addresses and size and optional raw load address. |
 | `resets` | Array of integer reset ticks. |
 | `inspect` | Array of 32-bit addresses to inspect. |
-| `outcomes` | Array of booleans for mock measurements. |
+| `outcomes` | Array of booleans indexed by measurement ID, starting at one; omitted IDs return zero. |
 | `reverse_registration` | Boolean diagnostic option. |
-
-Program, profile, output and module paths all resolve relative to the run file.
 
 ### Simulation profile
 
-A run configuration chooses the program, backend and output files. A simulation
-profile supplies hardware parameters. `--config` reads the former; `--profile`
-reads the latter. A Conan build profile selects compiler dependencies and is
-unrelated to either simulation input.
+A simulation profile sets clocks, capacities, communication delays and
+codeword mappings. Supply it with `--profile`, or in a run file's `profile`
+and `profile_file` fields.
 
 Use `--dump-default-profile` for a complete machine-readable profile.
 An overlay changes only the supplied fields.
@@ -170,42 +155,43 @@ An overlay changes only the supplied fields.
 | `cpu`, `tcu` | Clock objects with integer `period` and `phase` in nanoseconds. |
 | `start`, `watchdog` | Initial TCU start tick, reused as an offset on reset; global simulation watchdog deadline. |
 | `memory_latency` | CPU periods from memory acceptance to service completion. |
-| `command_latency`, `reply_latency` | Receiver edges for timing point and enqueue-reply crossings. |
+| `command_latency`, `reply_latency` | Receiver edges for time point and enqueue-reply crossings. |
 | `cpu_result_latency`, `fast_result_latency` | Receiver edges for the independent result paths. |
-| `timing_capacity`, `event_capacity`, `staging_capacity` | Timing entries, entries per port and staged actions. |
+| `timing_capacity`, `event_capacity`, `staging_capacity` | Timing entries, entries per port and staged events. |
 | `result_slots`, `history_depth` | CPU result slots and TCU history entries per target. |
-| `ports`, `qubits`, `firing_width` | Device size and maximum actions per port per timing point. |
+| `ports`, `qubits`, `firing_width` | Device size and maximum events per port per time point. |
 | `seed`, `fast_feedback` | Random seed and fast-path enable flag. |
-| `mappings` | Source port and codeword entries and their action lists. |
+| `mappings` | Source port and codeword entries and their event lists. |
 
 The serialized profile uses `schema: 1`. Each mapping has `port`, `codeword` and
 a nonempty `actions` array.
 
-### Action mappings
+### Codeword mappings
 
-A mapping is looked up by source `port` and `codeword`. Each selected action
+A mapping is looked up by source `port` and `codeword`. Each selected event
 has its own physical output `port`; neither port is necessarily a qubit index.
-An action selects `kind`, output `port`, `operation`, `targets` and `resources`.
+An event selects `kind`, output `port`, `operation`, `targets` and `resources`.
 It also supplies `delay` and `duration`, plus `discriminator_delay`,
 `amplitude`, `axis` or `separate_arm` as applicable. A resource has a numeric
-`id` and an `exclusive` boolean. Two overlapping actions sharing that resource
+`id` and an `exclusive` boolean. Two overlapping events sharing that resource
 conflict if either reservation is exclusive. The same physical output port
-cannot host overlapping actions, even when their resource declarations differ.
-A two-qubit gate can reserve both target resources. Memory access ports use a
-separate request-and-response interface.
+cannot host overlapping events, even when their resource declarations differ.
+A two-qubit gate can reserve both target resources. Except for discriminator
+arms, events on the same target may overlap only when both are pulses.
+A measurement sample and an ideal gate starting on the same target at the
+same tick also conflict.
 
-Periods and action durations are positive. Discriminator delay may be zero.
+Periods and event durations are positive. Discriminator delay may be zero.
 Pulse amplitude uses radians/ns; a rotation gate uses radians.
-Backend support is checked when an action is requested, so a profile may contain
+Backend support is checked when an event is requested, so a profile may contain
 entries unused by the chosen backend.
 
 ## JSONL trace
 
-Schema-1 event names are retained for existing trace consumers.
 `ProducerAccepted` records codeword preparation; `GroupSubmitted`,
 `GroupAdmitted` and `GroupReplyVisible` record the enqueue request, insertion
-and acknowledgment of a timing point and its events. `LabelFired` records the
-event trigger. These serialized names do not name additional hardware modules.
+and acknowledgment of a time point and its events. `LabelFired` records the
+event trigger.
 
 Each line is a JSON object with `schema: 1`. Ticks are nondecreasing and use
 nanoseconds. The common fields are `tick`, `epoch`, `kind`, `id`, `label`,
@@ -219,7 +205,7 @@ according to `kind` rather than treating zero as a missing value.
 | --- | --- |
 | `SessionStarted` | `detail` identifies the profile fingerprint. |
 | `InstructionRetired` | Instruction ID, CPU cycle, PC, word, destination, next PC, result and all registers. |
-| `CpuStalled` and `PipelineFlushed` | Held instruction and reason, or discarded branch and END work, respectively. |
+| `CpuStalled` and `PipelineFlushed` | Held instruction and reason, or discarded branch and QEND work, respectively. |
 | `ProducerAccepted` | Instruction ID, planned time point in `cycle`, source port and codeword and returned handle in `value`. |
 | `GroupSubmitted` | Label and planned time point. |
 | `GroupAdmitted` | Label, current TCU cycle and post-enqueue timing occupancy in `value`. |
@@ -231,7 +217,7 @@ according to `kind` rather than treating zero as a missing value.
 | `OperationEnd` | Event ID, label, port, operation and targets. |
 | `MeasurementSampled` and `ResultReady` | Measurement ID, target and bit. |
 | `CpuResultVisible` | Measurement ID, target and bit delivered before the CPU step; QREAD can use it on this edge. |
-| `FastResultVisible` | Measurement ID, target and bit committed to TCU history after its event triggering decision; usable by conditions on later edges. |
+| `FastResultVisible` | Measurement ID, target and bit committed to TCU history after its triggering decision; usable by conditions on later edges. |
 | `ResultConsumed` | Reading instruction ID and returned bit. |
 | `EndOfStreamVisible` | Last enqueued label when the TCU receives closure. |
 | `SessionReset` and `ResetAborted` | New epoch and aborted event IDs where applicable. |
@@ -256,13 +242,13 @@ The `cycle` field is a dimensionless index, not nanoseconds:
 | --- | --- | --- |
 | Epoch | Simulator session identity | Incremented; global time continues |
 | Instruction ID | CPU instruction identity within an epoch | CPU instruction sequence restarts |
-| Control-event ID | Timing control-generated action identity within an epoch | Sequence restarts |
-| Label | Timing control-generated timing point identity within an epoch | Sequence restarts; zero marks an empty stream |
+| Control-event ID | Timing control-generated event identity within an epoch | Sequence restarts |
+| Label | Timing control-generated time point identity within an epoch | Sequence restarts; zero marks an empty stream |
 | Measurement ID | MeasurementResults measurement sequence within an epoch | Sequence restarts |
 | Slot generation | Reuse count for one measurement result storage slot | Preserved to reject stale handles |
 | Fetch generation | CPU identity for pending instruction fetches | Updated when old fetch work is invalidated |
 
-A measurement token combines its epoch and measurement identity with slot,
+A measurement reference combines its epoch and measurement identity with slot,
 generation, handle and target. A trace `id` is not a universal sequence number;
 join records using their kind, epoch and documented identity.
 

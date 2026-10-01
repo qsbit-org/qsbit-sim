@@ -35,13 +35,9 @@ pre-commit install --install-hooks
 pre-commit run --all-files
 ```
 
-The commit hook checks staged files. Run `pre-commit run --all-files` before
-opening a pull request to check the entire checkout. The hooks check C++
-formatting, trailing whitespace, final newlines, merge markers, and YAML,
-JSON, and TOML syntax. The install command provisions the pinned hook
-environment; later runs use the local cache. If a hook edits a file, review
-the edit, stage it, and rerun the checks. With pip, install `.[dev]` into
-`.venv` instead of using `uv sync`.
+The hooks check formatting, whitespace, merge markers, and YAML, JSON and
+TOML syntax. If a hook changes a file, review and stage the edit, then rerun
+the checks. With pip, install `.[dev]` into `.venv` instead of using uv.
 
 Build and run the fast suite before opening a pull request:
 
@@ -59,8 +55,8 @@ configured CTest suites.
 | Test family | Main assertions |
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
-| `control.*` | Atomic enqueue, manifests, queue bounds, deadlines, result slots and predicates. |
-| `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and token history. |
+| `control.*` | Atomic enqueue, event-ID lists, queue bounds, deadlines, result slots and conditions. |
+| `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and measurement reference history. |
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
 | `adapter.*` | Replacement CPU construction through `ICpuCycleModel` and session reset. |
 | `docs.*` | Documentation links, checked declarations and registered test references. |
@@ -74,19 +70,19 @@ describes what those tests establish.
 When changing a protocol, check the boundary case that distinguishes the old
 and new behavior. The existing suite includes:
 
-- Two APPENDs at one time point, including ADVANCE(0), followed by one complete enqueue.
+- Two QAPPEND instructions at one time point, including QADVANCE(0), followed by one complete enqueue.
 - Requests published exactly on a receiver edge, and enqueue while a full
-  queue triggers. The receiver cannot consume a newly published request on that edge or reuse
-  a slot freed by that edge's event triggering.
+  queue releases events. Neither the new request nor the newly freed space
+  can be used on that edge.
 - Empty timing queues during CPU result waits. The timer continues and
-  late timing points fail without shifting their deadlines.
+  late time points fail without shifting their deadlines.
 - Taken branches and older faults that discard younger control instructions.
 - Overlapping resource intervals, adjacent intervals and same-target sampling
   collisions. Invalid batches must not partially change device state.
 - Delayed discriminator arms, zero discriminator delay, independent CPU and
-  fast-result crossings, and exact-token history eviction.
+  fast-result crossings, and eviction of stored measurement results.
 - Reset at clock and physical boundaries, stale completions and result-slot reuse.
-- END while physical work or fast-feedback credits remain pending.
+- QEND while physical work or fast-feedback credits remain pending.
 
 Registration-order tests run equivalent scenarios with reversed SystemC process
 registration and compare the resulting trace and state.
@@ -110,9 +106,8 @@ in [building](building.md#cmake-options).
 `numerical.*` checks numerical Aer Bell correlations and feedback, pulse inversion,
 simultaneous drives, and unsupported operations.
 
-The pulse tests include simultaneous noncommuting drives with an analytic
-expected state. Matching a sequence of ideal gates would not establish that
-joint pulse evolution is correct.
+The pulse tests compare simultaneous noncommuting drives against their
+analytic joint evolution.
 
 ## Independent ISA checks
 
@@ -130,6 +125,17 @@ constitute official RISC-V certification.
 
 The runners and dependency manifests pin their reference versions. Test programs,
 traces and reports remain in the build tree.
+
+## Cross-project integration
+
+The [integration workflow](../.github/workflows/integration.yml) builds this
+revision with `qsbit-compiler` main. The compiler repository also tests its
+own changes against qsbit-sim main. Both workflows run on pushes and pull
+requests and record the two Git revisions.
+
+The tests compile QIR to ELF and execute it in the simulator. The mock test
+checks operation timing and measurement-result order. The Aer test checks
+Bell-state amplitudes and measurement correlations.
 
 ## CI, sanitizers and coverage
 
@@ -149,8 +155,8 @@ ctest --test-dir build-coverage --output-on-failure
 python3 tools/coverage.py --build build-coverage
 ```
 
-Coverage artifacts stay under the build directory. Examine untested error and
-timing paths; a global coverage percentage alone does not prove correctness.
+Coverage artifacts stay under the build directory. Review uncovered error
+conditions and timing cases.
 
 ## Documentation checks
 
@@ -166,6 +172,5 @@ that validator's failure cases. After changing a header, refresh excerpts with:
 python3 tools/check_docs.py --build build-gcc --write
 ```
 
-These checks catch structural drift. Behavioral claims still need the relevant
-simulator assertions. Changes to rendered pages or diagrams also need the
-[website tests](website.md#run-website-tests).
+Run the relevant simulator tests for behavioral changes and the
+[website tests](website.md#run-website-tests) for rendered pages and diagrams.

@@ -1,18 +1,14 @@
 # Results for conditional execution
 
 `ConditionalResults` stores measurement results for conditional TCU output. It has
-its own delivery path and latency, so a result can reach the CPU before or after
-it reaches the TCU. The fast path bypasses the CPU branch; the name does not
-promise a shorter result-delivery latency.
-
-This storage implements the profile's exact-measurement conditions. It does not
-implement eQASM's execution-flag register file or its derived flag functions.
+a separate delivery path from CPU feedback. Its latency is set by
+`fast_result_latency` and can be longer or shorter than CPU result delivery.
 
 ## Connections
 
 - **Input:** tagged measurement completions from `ControlLinks::fast_results`.
-- **Output:** predicate results for launch preflight and delivered-token
-  acknowledgments that return fast-feedback credits to the CPU.
+- **Output:** condition results and acknowledgments that return fast-feedback
+  credits to the CPU.
 - **Owner:** `TcuCycleModel`; history is committed at the end of a TCU transition.
 
 ```{graphviz}
@@ -22,41 +18,38 @@ digraph module {
   input [label="Discriminator result mailbox"];
   owner [label="ConditionalResults"];
   state [label="history_\nProfile::history_depth"];
-  output [label="Predicate result and delivered credit"];
+  output [label="Condition result and delivery acknowledgment"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
 ## Receiving and using a result
 
-The TCU first evaluates the due timing point's conditions using existing history.
-It then commits eligible incoming completions. A `FastResultVisible` event marks
-this commit; conditions can use the new result starting on the next TCU edge.
+The TCU evaluates conditions first, then commits arriving measurement
+results. `FastResultVisible` records the commit. A result committed at
+100 ns cannot affect a condition evaluated at 100 ns; with a 20 ns TCU
+period, it becomes usable at 120 ns.
 
-History is bounded per target. A new completion appends its full token and bit;
-when `history_depth` is exceeded, the oldest entry is removed. Lookup requires
-the exact token captured by QAPPEND_IF, not merely the latest bit for that qubit.
+Each target retains at most `history_depth` results. A new result evicts
+the oldest when that limit is exceeded. Lookup requires the full
+measurement reference captured by QAPPEND_IF, not the target's latest bit.
 
-For example, if a result is committed at the 100 ns TCU edge, a timing point event triggering at
-100 ns cannot use it. With a 20 ns period, a timing point at 120 ns can use it if the
-entry is still retained.
-
-CPU result consumption does not erase TCU history. Measurements on different
-targets may complete out of order; results for one target must arrive in
-increasing measurement-ID order.
+QREAD does not remove these results. Results for different targets can
+arrive out of order, but results for one target must arrive in increasing
+measurement-ID order.
 
 ## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `history_` | `vector<deque<Completion>>` | Bounded per-target history of exact measurement tokens and results. |
+| `history_` | `vector<deque<Completion>>` | Bounded per-target history of exact measurement references and results. |
 | `Profile::history_depth` | per-target bound | Evicts the oldest entry after an accepted new result. |
 
 [C++ API](../api.md#feedbackhpp).
 
 ## Reset and errors
 
-An absent or evicted required token raises a fault. Duplicate or out-of-order
+An absent or evicted required measurement reference raises a fault. Duplicate or out-of-order
 results for the same target also fail. Old-epoch completions are discarded.
 Session reset clears all history and pending delivery state.
 
@@ -69,6 +62,6 @@ Source: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/
 
 **CTest:** `control.fast`, `protocol.history`.
 
-The tests check exact-token lookup, history eviction and duplicate results.
+The tests check lookup by measurement reference, history eviction and duplicate results.
 They also verify that a result arriving on an edge cannot affect that edge's
-event triggering decision.
+triggering decision.

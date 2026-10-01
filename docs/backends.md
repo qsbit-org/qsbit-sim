@@ -6,14 +6,14 @@ readout delays.
 
 | Backend | Use | Installation |
 | --- | --- | --- |
-| `mock` | Return fixed measurement bits for control tests; no quantum state. | Included in the C++ build. |
+| `mock` | Return configured measurement bits; omitted measurement IDs return zero. No quantum state. | Included in the C++ build. |
 | `aer` | Apply ideal gates and perform state-derived measurements with collapse. | Python bridge and `aer` extra. |
 | `pulse` | Evolve constant Hamiltonian drives jointly, with Aer gates and measurements. | Python bridge and `pulse` extra. |
 | `package.module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |
 
 ## Install an optional backend
 
-Install the [Python development prerequisites](prerequisites.md#ubuntu), then
+Install the [Python development prerequisites](prerequisites.md#optional-python-backends), then
 choose venv or uv. Run from the repository root.
 
 With venv and pip:
@@ -76,9 +76,7 @@ unsupported requested operations fail validation.
 
 ## Python adapter methods
 
-`IQuantumBackend` is the C++ execution interface. `PythonBackend` implements it
-as a bridge to the selected Python quantum backend. A CPU adapter implements
-the separate `ICpuCycleModel` interface.
+Implement these methods on the class selected by `module:Class`:
 
 | Method | Required behavior |
 | --- | --- |
@@ -86,22 +84,20 @@ the separate `ICpuCycleModel` interface.
 | `reset(qubits, seed)` | Initialize state and random sampling for a new epoch. |
 | `evolve(start, end, drives)` | Evolve jointly under all active drives over the interval, in nanoseconds. |
 | `apply(gates)` | Apply the validated ideal-gate batch at one physical boundary. |
-| `measure(tokens)` | Measure targets jointly, collapse state and return one boolean per token in input order. |
+| `measure(tokens)` | Measure targets jointly, collapse state and return one boolean per measurement reference in input order. |
 | `state()` | Return complex statevector amplitudes, or an empty sequence if inspection is unavailable. |
 
-Action dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`
-and `axis`. Measurement tokens contain `epoch`, `measurement` and `target`.
+Event dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`
+and `axis`. Measurement dictionaries contain `epoch`, `measurement` and `target`.
 Qubit 0 is the least significant statevector bit: basis index 1 represents
-qubit 0 set to one and all other qubits set to zero. Numerical backend
-measurements come from simulated state; they do not access physical hardware.
+qubit 0 set to one and all other qubits set to zero.
 
 Methods complete synchronously and use the supplied seed for reproducibility.
 They do not call SystemC timing functions. A slow call increases host runtime
 without moving a simulated timestamp.
 
-[custom_backend.py](../tests/fixtures/custom_backend.py) shows a dependency-free
-protocol fixture. It is useful for checking adapter loading and method calls;
-it does not simulate quantum state.
+[custom_backend.py](../tests/fixtures/custom_backend.py) provides a mock adapter
+for testing loading and method calls.
 
 ## Native C++ adapters
 

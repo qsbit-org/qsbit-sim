@@ -1,12 +1,12 @@
-# Control output and simulation resource checks
+# Control output and resource checks
 
-`ControlElectronics` schedules physical actions after the TCU triggers a timing point.
-Its resource checker reserves the complete future interval for each action,
-including actions whose output delay means they have not started yet.
+`ControlElectronics` schedules physical events after the TCU triggers a time point.
+Its resource checker reserves the complete future interval for each event,
+including events whose output delay means they have not started yet.
 
 ## Connections
 
-- **Input:** validated TCU `TriggeredEvents` values with resolved action descriptors.
+- **Input:** validated TCU `TriggeredEvents` values with resolved event specifications.
 - **Output:** physical starts and ends, active pulse drives, backend calls and
   measurement completions.
 - **Scheduling:** the SystemC barrier calls `process()` at the next physical
@@ -19,41 +19,37 @@ digraph module {
   input [label="TriggeredEvents"];
   owner [label="ControlElectronics"];
   state [label="reservations_\nboundaries_\nactive_"];
-  output [label="Physical actions and backend calls and Completion"];
+  output [label="Device events, backend calls and Completion"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
 ## Reserving and executing intervals
 
-A [resource](../glossary.md#resource) is a configured conflict identifier. Two
-output ports can share one resource, and a two-qubit gate can reserve both
-qubit resources. Queue occupancy counts buffered events; resource occupancy
-records intervals of physical use.
+`accept()` calculates `start = fire_tick + delay` and
+`end = start + duration` for every event. It checks all intervals against
+one another and existing reservations before installing them.
 
-`accept()` converts each event to an interval:
-`start = fire_tick + delay`, `end = start + duration`.
-It checks the complete batch against existing reservations and then installs
-all intervals. Resource occupancy is half-open, `[start, end)`, so one action
-can end at the exact tick another begins.
+Intervals use `[start, end)`, so adjacent operations can share an endpoint.
+Overlaps on one output port are forbidden. Intervals on different ports
+conflict when they share a resource and either use is exclusive. Except for
+discriminator arms, events sharing a target may overlap only when both
+are pulses.
 
-At a physical boundary, the model validates all scheduled work at that tick. It
-evolves quantum state under the previously active drives up to this tick,
-samples ending acquisitions, removes ended actions, applies starting ideal
-gates and activates new intervals. Ready results are published last.
+At each device event tick, the model validates the scheduled work, evolves
+the preceding interval, samples ending acquisitions, removes ended events,
+applies starting gates and activates new intervals. It publishes ready
+results last.
 
-Independent ports may operate together. Overlapping pulses can share a target
-when their resource declarations permit it and the backend supports joint
-evolution. Port iteration order must not change the resulting quantum state.
-
-For pulses active over [10,30) and [20,40), backend evolution covers [10,20)
-with the first drive, [20,30) with both, and [30,40) with the second.
+Permitted overlapping pulses evolve together. For drives active over
+[10,30) and [20,40), evolution covers [10,20) with the first drive,
+[20,30) with both, and [30,40) with the second.
 
 ## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `reservations_` | `ResourceReservations` | Future half-open physical reservations and action identities. |
+| `reservations_` | `ResourceReservations` | Future half-open physical reservations and event identities. |
 | `boundaries_` | `map<Tick, Boundary>` | Scheduled starts, ends and result-ready IDs. |
 | `active_` | `map<Id, ScheduledEvent>` | Operations currently occupying physical intervals. |
 | `last_tick_, processed_tick_` | global ticks | Last evolution point and guard against repeated physical processing. |
@@ -62,12 +58,12 @@ with the first drive, [20,30) with both, and [30,40) with the second.
 
 ## Reset and errors
 
-All action durations must be positive. Exclusive-resource conflicts and
+All event durations must be positive. Exclusive-resource conflicts and
 unsupported same-target sampling collisions fail before quantum state changes.
 A backend failure stops the run; already performed numerical work is not rolled
 back or retried.
 
-Reset aborts active actions, clears future boundaries and reservations, and
+Reset aborts active and future events, clears reservations, and
 initializes the backend for the new epoch. Global time continues from the
 reset tick.
 

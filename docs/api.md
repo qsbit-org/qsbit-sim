@@ -1,9 +1,8 @@
 # C++ API reference
 
-Use [interface contracts](cpp-interfaces.md) to understand the main adapter
-boundaries, or select a header below to find its source. The namespace reference
-contains the extracted declarations, including private state named by the
-[module reference](modules/README.md).
+The headers below define the simulator's public interfaces. See
+[C++ interfaces](cpp-interfaces.md) for adapter requirements and
+[components](modules/README.md) for behavior and tests.
 
 (backend_8hpp)=
 ## backend.hpp
@@ -13,7 +12,7 @@ Quantum backend operations and the mock implementation. [Open header](../include
 (control_8hpp)=
 ## control.hpp
 
-Profiles, action mappings, timing point records and measurement tokens. [Open header](../include/qsbit/control.hpp).
+Profiles, event mappings, time point records and measurement references. [Open header](../include/qsbit/control.hpp).
 
 (cpu_8hpp)=
 ## cpu.hpp
@@ -63,7 +62,7 @@ Fetch and data ports with timed memory service. [Open header](../include/qsbit/m
 (producer_8hpp)=
 ## producer.hpp
 
-Quantum instruction adaptation, timing point preparation and crossings. [Open header](../include/qsbit/producer.hpp).
+Quantum instruction adaptation, time point preparation and crossings. [Open header](../include/qsbit/producer.hpp).
 
 (python__backend_8hpp)=
 ## python_backend.hpp

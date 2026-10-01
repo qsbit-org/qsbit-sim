@@ -1,4 +1,4 @@
-# Memory and Response Model
+# Memory requests and responses
 
 `MemoryModel` services the CPU's instruction and data accesses. It owns the
 loaded `ProgramImage` and keeps one pending transaction for each of its two ports.
@@ -9,7 +9,6 @@ A store changes memory when its transaction completes.
 - **Input:** fetch and data requests through separate `MemoryPort` mailboxes.
 - **Output:** responses containing the request ID and either a value or an access fault.
 - **Scheduling:** `Simulator::memory_edge()` calls the model on each CPU rising edge.
-  Memory uses the CPU clock in the current implementation.
 
 ```{graphviz}
 digraph module {
@@ -25,20 +24,19 @@ digraph module {
 
 ## Request, completion and response
 
-A request published by the CPU becomes eligible on the next CPU edge. If the
-port was idle at the start of that edge and its response mailbox has space, the
-memory model accepts it. Completion is scheduled `memory_latency` CPU periods
-after acceptance.
+A CPU request arrives on the next CPU edge. The memory model accepts it
+if the port was idle at the start of the edge and its response mailbox
+has space. It schedules completion `memory_latency` CPU periods later.
 
-When a pending transaction is due and response storage is available, the model
-performs the access and publishes its response. The CPU can receive that response
-only on a later edge. With 5 ns CPU periods and a one-cycle memory latency, a
-request published at 0 ns can be accepted at 5 ns, complete at 10 ns and become
-CPU-visible at 15 ns, provided the port and response path remain available.
+At completion, the model performs the access and publishes a response
+when response storage is available. The CPU receives it on a later edge.
+For a 5 ns CPU period and one-cycle memory latency, a request published
+at 0 ns can be accepted at 5 ns, complete at 10 ns and reach the CPU at
+15 ns.
 
-A port that completes a transaction on an edge cannot accept another on that
-same edge. Fetch and data ports make these decisions independently. Their request
-IDs must increase, preventing repeated stores and reordered requests.
+A port cannot complete one transaction and accept another on the same
+edge. Fetch and data ports operate independently. Request IDs must
+increase on each port.
 
 ## Objects and state
 

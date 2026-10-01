@@ -1,13 +1,11 @@
 # Run your first simulation
 
-This tutorial runs a program that measures one qubit and uses the result to
-choose an operation on another qubit. You will build the simulator, execute the
-program and check its output.
+Build the simulator and run a program that measures qubit 0, reads the result,
+and selects a gate on qubit 1.
 
-You need the [build tools, prepared Conan dependencies, and GNU RISC-V binutils](prerequisites.md).
-The example uses the built-in mock backend, which supplies a fixed
-measurement bit. It exercises the complete control path without installing a
-numerical quantum simulator.
+First install the [prerequisites](prerequisites.md) and prepare the Conan
+dependencies. This example uses the mock backend, so no Python quantum
+packages are needed.
 
 ## Build the simulator and examples
 
@@ -67,12 +65,9 @@ operation at cycle 8 starts at `200 + 8 * 20 = 360 ns`. The trace contains:
 | 505 | The CPU receives the result. |
 | 720 | The branch-selected X starts on qubit 1. |
 
-After receiving the result at 505 ns, the CPU executes the branch and submits
-the selected action. Both branches reach [TCU enqueue](glossary.md#enqueue), which inserts a
-a timing point and its events into the queues, at 680 ns. The program
-advances its [current time point](glossary.md#time-point) from cycle 12 to cycle 26, scheduling output at
-`200 + 26 * 20 = 720 ns`. This leaves two TCU cycles between enqueue and
-output. Waiting for a result does not pause the TCU.
+After receiving the result, the CPU branches and prepares the selected event
+for cycle 26. The TCU enqueues it at 680 ns, then triggers it at
+`200 + 26 * 20 = 720 ns`. The TCU timer continues while QREAD waits.
 
 ## Try the other branch
 

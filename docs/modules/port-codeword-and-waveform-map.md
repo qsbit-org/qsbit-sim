@@ -1,15 +1,15 @@
-# Port-Codeword Action Map
+# Port and codeword map
 
 The port and codeword map defines what a control instruction means for the
 configured device. For example, the default map uses codeword 1 on port 0 for an
 X gate on qubit 0, and codeword 4 for acquisition on that qubit.
 
 The mapping belongs to the simulation profile. Programs select entries by source port
-and codeword; the selected actions can address different physical output ports.
+and codeword; the selected events can address different physical output ports.
 
 ## Connections
 
-- **Input:** source port and codeword from an APPEND operation.
+- **Input:** source port and codeword from a QAPPEND operation.
 - **Output:** a `Mapping` containing one or more `EventSpec` values for codeword decoding.
 - **Owner:** the immutable `Profile`; lookup has no runtime state.
 
@@ -19,28 +19,26 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Port and codeword"];
   owner [label="Profile::mapping"];
-  state [label="Mapping::port and codeword\nMapping::actions\nActionSpec"];
+  state [label="Mapping::port and codeword\nMapping::actions\nEventSpec"];
   output [label="Mapping with EventSpec values"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="value records and configuration"];
 }
 ```
 
-## Action descriptors
+## Event specifications
 
-An action specifies its kind, physical port, targets, resources, output delay
-and duration. The supported kinds are ideal gate, constant pulse, acquisition
-and discriminator arm. Pulse actions include an axis and amplitude; readout
-actions include discriminator timing.
+Each `EventSpec` defines an ideal gate, constant pulse, acquisition or
+discriminator arm. It specifies the output port, targets, resources,
+delay and duration. Pulses also have an axis and amplitude; acquisitions
+have discriminator timing.
 
-An action begins at its timing point's label-trigger tick plus its configured delay.
-A zero delay allows event triggering and physical start at the same tick. Every action
-still has a positive duration, which reserves its port and resources over
-`[start, end)`. An ideal gate changes quantum state at the start of this interval.
+The event starts at `fire_tick + delay` and occupies its port and
+resources over `[start, end)`. Duration must be positive. An ideal gate
+changes quantum state at the start of that interval.
 
-The timing control checks backend support when a mapping is requested. A shared
-profile may therefore include unused pulse entries even when the selected
-backend supports only gates. Arbitrary sampled waveforms and oscillator-register
-operations are not implemented.
+Backend support is checked when a program requests the mapping. A profile
+can therefore contain unused pulse entries when running the Aer backend.
+Sampled waveforms and oscillator-register operations are unsupported.
 
 ## Objects and state
 
@@ -48,7 +46,7 @@ operations are not implemented.
 | --- | --- | --- |
 | `Mapping::port and codeword` | lookup key | Source control port and digital codeword. |
 | `Mapping::actions` | `vector<EventSpec>` | IdealGate, Pulse, Acquire or DiscriminatorArm descriptors. |
-| `EventSpec` | immutable descriptor | Physical port, targets, resources, delay, duration and readout/pulse parameters. |
+| `EventSpec` | event specification | Physical port, targets, resources, timing, and readout and pulse parameters. |
 
 [C++ API](../api.md#controlhpp).
 
@@ -56,7 +54,7 @@ operations are not implemented.
 
 Profile validation rejects malformed or duplicate mappings and invalid timing
 parameters. Lookup rejects unknown ports or codewords. An unsupported requested
-action fails before timing control acceptance.
+event fails before timing control acceptance.
 
 Session reset preserves the map. Select a new profile before constructing a new
 simulator to change these definitions.

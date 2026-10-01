@@ -1,9 +1,8 @@
 # C++ interface contracts
 
-These interfaces connect the CPU, timing control, TCU and trace consumers.
-Their declarations are checked against the current headers.
-See the [control protocol](module-architecture.md) for ordering and the
-[external formats](interfaces.md) for program and JSON inputs.
+The CPU, TCU and control records below connect the simulator's components.
+See [simulation timing](module-architecture.md) for call order and
+[file formats](interfaces.md) for program and JSON inputs.
 
 ## Time and cycle units
 
@@ -16,7 +15,7 @@ contract, not the C++ alias, determines the unit.
 | Mailbox `published` and `eligible`, `TriggeredEvents::fire_tick`, `TraceEvent::tick` | Global simulation ticks, 1 ns each |
 | `ScheduledEvent::start`, `ScheduledEvent::end` | Global simulation ticks |
 | Action `delay`, `duration`, `discriminator_delay` | Nanoseconds |
-| `TimingPoint::interval` | TCU cycles since the preceding timing point |
+| `TimingPoint::interval` | TCU cycles since the preceding time point |
 | TCU `Point::due`, `last_due_`; current time point | Logical TCU cycle in the current epoch |
 | `TraceEvent::cycle` | Kind-specific CPU edge index or logical TCU cycle; see [trace fields](interfaces.md#jsonl-trace) |
 | `memory_latency` | CPU periods after acceptance |
@@ -27,8 +26,7 @@ contract, not the C++ alias, determines the unit.
 New code uses `TimingControl`, `MeasurementResults`, `ConditionalResults`,
 `ControlElectronics`, `ResourceReservations`, `TimingEvents`, `EnqueueReply`,
 `OperationEvent`, `TriggeredEvents`, `ScheduledEvent`, `EventSpec` and
-`MeasurementReference`. These are simulator implementation types.
-
+`MeasurementReference`.
 The headers retain the former names as C++ aliases for existing adapters:
 `TimelineProducer`, `Scoreboard`, `FastHistory`, `DeviceRuntime`,
 `ResourceCalendar`, `Group`, `GroupReply`, `ReservedEvent`, `LaunchBatch`,
@@ -38,9 +36,8 @@ The former accessors and `lower()` and `validate_group()` forward to their
 current equivalents. Adapters must be rebuilt; compiled-library ABI stability
 is not guaranteed.
 
-Machine encodings, JSON schemas, trace event names, fault diagnostics and timing
-remain unchanged. Public data members such as mailbox `eligible` and
-`ControlLinks::groups` retain their names for source compatibility.
+Mailbox `eligible` stores the arrival tick; `ControlLinks::groups` carries
+`TimingEvents` requests.
 
 `control.source_compatibility` compiles existing type names and checks the
 forwarding functions and accessors against the current interfaces.
@@ -76,9 +73,10 @@ public:
 
 ## TCU transition
 
-`step()` checks a due timing point and an optional enqueue candidate at one TCU
-edge. The preflight callback validates physical actions before queue removal.
-`TcuOutput` reports enqueue, the launch batch and delivered fast-result tokens.
+`step()` checks a due time point and an optional enqueue candidate at one TCU
+edge. The `preflight` callback validates physical events before queue removal.
+`TcuOutput` reports queue insertion, triggered events and delivered
+measurement references.
 The method computes the logical cycle from its tick and configured start.
 
 Source: [include/qsbit/tcu.hpp](../include/qsbit/tcu.hpp).
@@ -125,7 +123,7 @@ private:
 
 ## Control records
 
-`TimingEvents` combines one timing point and its resolved events. The manifest lists
+`TimingEvents` combines one time point and its resolved events. The manifest lists
 exact event IDs; `configuration` is the profile fingerprint. Per-port counts
 are computed from the event list.
 
@@ -189,8 +187,7 @@ struct TriggeredEvents {
 ## Trace record
 
 `TraceEvent` stores a timestamp, kind and event-specific fields.
-The kind determines the meaning of `id`, `cycle` and `value`; there are no
-separate clock-domain or status fields. JSONL serialization adds `schema: 1`.
+The kind determines the meaning of `id`, `cycle` and `value`. JSONL serialization adds `schema: 1`.
 
 Source: [include/qsbit/trace.hpp](../include/qsbit/trace.hpp).
 

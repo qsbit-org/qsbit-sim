@@ -34,10 +34,10 @@ Load 32-bit RV32I machine code from an ELF file or raw binary. Keep assembly
 outside the simulator. The examples use GNU assembler macros to encode the
 quantum extension in the RISC-V custom-0 opcode space.
 
-The extension separates building a timing point from admitting it to the TCU. APPEND
-completes after local staging, so several instructions can contribute actions
-to one planned cycle. ADVANCE and FLUSH wait for any required enqueue reply.
-READ_RESULT flushes before waiting for a measurement; END flushes before closing
+QAPPEND stores events for the current time point before they enter the TCU.
+Several instructions can therefore contribute events
+to one planned cycle. QADVANCE and QFLUSH wait for any required enqueue reply.
+QREAD flushes before waiting for a measurement; QEND flushes before closing
 production. The [instruction reference](../interfaces.md#quantum-instruction-encoding)
 defines the encodings and completion rules.
 
@@ -49,13 +49,13 @@ cancelled acquisition would leave its result handle unresolved. QSYNC returns
 
 ### Timing and backend boundary
 
-A validated profile fixes clocks, crossing delays, capacities and action maps
+A validated profile fixes clocks, crossing delays, capacities and event maps
 before simulation starts. The [implementation reference](../implementation.md#default-timing)
-lists the defaults. Committed mailboxes carry payloads and arrival ticks;
+lists the defaults. Mailboxes retain payloads and arrival ticks;
 SystemC events wake processes without carrying the payload themselves.
 
-At each physical boundary, the device barrier checks completion of all due clock transitions before
-processing device actions. This includes actions launched with zero delay on
+At each device event tick, the barrier waits for all due clocked methods
+to finish before processing device events. This includes events triggered with zero output delay on
 that tick. `ControlElectronics` controls evolution intervals, measurements and
 result publication. A backend computes quantum state changes synchronously
 and never advances SystemC time.
@@ -64,7 +64,7 @@ The built-in mock backend supports deterministic protocol tests. Optional
 Python adapters provide Qiskit Aer simulation and a small-system
 piecewise-constant Hamiltonian backend. Each numerical backend maintains one
 shared state across operations and mid-circuit measurements. Capability checks
-run before a complete boundary batch changes state.
+validate all events at a tick before quantum state changes.
 
 ### Replacement interfaces
 
@@ -73,16 +73,15 @@ reference and returns an `ICpuCycleModel`. An external CPU adapter must obey the
 same edge, reset and instruction-publication contracts. The default factory
 creates the three-stage RV32I model.
 
-Quantum backends implement `IQuantumBackend` and reject unsupported actions in `validate()`.
+Quantum backends implement `IQuantumBackend` and reject unsupported events in `validate()`.
 Replacing a backend changes state evolution and measurement results while the
 controller retains ownership of operation timing.
 
 ## Consequences
 
-The initial CPU is small enough to test directly, but its cycle counts do not
-claim compatibility with an existing processor. Classical pipelines may differ
-in an external comparison as long as both produce the required timed quantum
-operations.
+The default CPU provides a testable three-stage model. Its cycle counts depend
+on that pipeline and the configured memory delays. Other CPU implementations
+can use different pipelines while preserving the control interfaces.
 
 The simulator does not execute eQASM binaries. Distributed synchronization and
-conditional acquisition require additional contracts before implementation.
+conditional acquisition are unsupported.

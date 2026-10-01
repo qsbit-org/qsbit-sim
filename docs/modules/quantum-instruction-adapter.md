@@ -1,4 +1,4 @@
-# Quantum Instruction Adapter
+# Quantum instruction adapter
 
 `adapt_quantum()` translates a decoded quantum instruction and its register
 operands into a `ControlOperation`. This keeps binary instruction fields out of
@@ -7,7 +7,7 @@ the CPU-side timing control.
 ## Connections
 
 - **Input:** `rv32::Decoded`, instruction ID, captured operand values and the
-  predicate handle used by QAPPEND_IF.
+  measurement handle used by QAPPEND_IF.
 - **Output:** one `ControlOperation` for `TimingControl::execute()`.
 - **Caller:** the CPU, when the quantum instruction is oldest and may issue its effect.
 
@@ -25,26 +25,23 @@ digraph module {
 
 ## Mapping an instruction
 
-The instruction's `funct3` field selects Append, Advance, Flush, ReadResult,
-End, ConditionalAppend or Synchronize. For example, QAPPEND captures the port
-and codeword register values. QAPPEND_IF also captures the register named by
-`rd` as a predicate-handle source; it does not write that register.
+The `funct3` field selects a `ControlKind`. QAPPEND supplies port and
+codeword register values. QAPPEND_IF also reads the register named by
+`rd` as its measurement handle; it does not write that register.
 
-The adapter performs no queue insertion or waiting. The timing control validates the
-requested mapping and returns an optional result. An absent result keeps the CPU
-instruction blocked; a present result allows it to retire.
+The CPU passes the resulting operation to timing control. An absent
+optional result keeps the instruction blocked; a returned value lets
+it retire. The adapter itself neither queues events nor waits.
 
-See the [instruction reference](../interfaces.md#quantum-instruction-encoding)
-for field encodings and the [timing control](reserve-phase.md) for
-completion rules. Conversion is a direct C++ call within the CPU edge and adds
-no separate cycle.
+See [instruction encodings](../interfaces.md#quantum-instruction-encoding)
+and [reserve-phase behavior](reserve-phase.md).
 
 ## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `rv32::Decoded` | input record | Validated custom-0 encoding. |
-| `ControlOperation` | output record | Instruction ID, operation kind, operands, predicate handle and expected bit. |
+| `ControlOperation` | output record | Instruction ID, operation kind, operands, measurement handle and expected bit. |
 
 [C++ API](../api.md#producerhpp).
 
@@ -63,6 +60,6 @@ Source: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/
 
 **CTest:** `core.isa_decode`, `systemc.use_cases`.
 
-The tests check extension encodings and execute APPEND, ADVANCE, FLUSH,
-READ_RESULT, END and conditional actions. A QSYNC case checks the unsupported
+The tests check extension encodings and execute QAPPEND, QADVANCE, QFLUSH,
+QREAD, QEND and conditional events. A QSYNC case checks the unsupported
 synchronization fault.

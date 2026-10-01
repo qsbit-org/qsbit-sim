@@ -1,13 +1,13 @@
-# Timing Queue
+# Timing queue
 
-The timing queue records when enqueued timing points should trigger. Each entry contains
+The timing queue records when enqueued time points should trigger. Each entry contains
 an interval, label and list of expected event IDs. The TCU uses it alongside the
 per-port event queues to release all associated events at their planned cycle.
 
 ## Connections
 
 - **Input:** a `TimingPoint` enqueued together with its associated events.
-- **Output:** the next label, due cycle and manifest for the TCU event triggering decision;
+- **Output:** the next label, due cycle and manifest for the TCU triggering decision;
   queue occupancy for enqueue checks.
 - **Owner:** `TcuCycleModel::timing_`, updated during the TCU edge transition.
 
@@ -25,21 +25,19 @@ digraph module {
 
 ## Keeping time across queue gaps
 
-Enqueue adds the new interval to `last_due_`, then stores both the original
-timing point and its cumulative due cycle. The first interval is measured from
-logical cycle zero.
+Each enqueue adds its interval to `last_due_` and stores the resulting
+due cycle. The first interval is measured from logical cycle zero.
 
-For example, intervals 4 and 3 describe points due at cycles 4 and 7. If the
-queue empties after cycle 4, a later interval of 3 still describes cycle 7.
-It succeeds only if enqueued before that deadline; arrival time never replaces
-the planned cycle.
+Intervals 4 and 3 therefore specify cycles 4 and 7. Even if the queue
+empties after cycle 4, the second interval still refers to cycle 7 and
+must be enqueued before that cycle.
 
-At a due edge, the TCU checks the head's manifest, conditions and device
-reservations. Once the transition is valid, it removes the timing head and its
-port events together. Only an entry present before the edge can trigger.
+At the due edge, the TCU checks the entry's event IDs, conditions and
+resource requirements. If the transition passes validation, it removes
+the time point and its port events together.
 
-An empty manifest is a valid wait-only point. An empty FIFO means that no point
-is currently queued; the TCU timer continues running.
+A time point with no events represents a wait. An empty queue leaves the
+timer running.
 
 ## Objects and state
 
@@ -54,7 +52,7 @@ is currently queued; the TCU timer continues running.
 ## Reset and errors
 
 Enqueue on or after the due tick raises `LateAdmission`. Missing, extra
-or stale manifested events raise `ManifestMismatch` before the timing point launches.
+or stale manifested events raise `ManifestMismatch` before triggering.
 Reset clears the queue, cumulative due cycle and label sequence.
 
 ## Implementation and tests
@@ -63,5 +61,5 @@ Source: [tcu.cpp](../../src/tcu.cpp) and [tcu.hpp](../../include/qsbit/tcu.hpp).
 
 **CTest:** `control.admission`, `control.empty`.
 
-The tests check queue capacity before event triggering and cumulative due times,
+The tests check queue capacity before triggering and cumulative due times,
 including deadlines retained while the queue is empty.

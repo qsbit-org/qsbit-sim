@@ -1,20 +1,16 @@
 # Follow a program through the controller
 
-This page follows real simulator traces for the Bell and measurement-feedback
-examples. Start with **feedback-one** to see a measurement reach the CPU and
-select the next quantum operation. [Quickstart](quickstart.md) shows how to
-run that program locally.
+Select **feedback-one** to follow a measurement through the controller and
+see how the CPU selects the next gate. [Quickstart](quickstart.md) runs the
+same program locally.
 
-To replay any local trace without building the website, run
+Use **Next event** to advance one trace record or **Next tick** to move to
+the next timestamp. Speed changes playback, not simulation timing.
+
+To replay a local trace, run
 `python3 tools/replay_trace.py PATH/TO/TRACE.jsonl` from the repository root.
-The command opens a local browser tab and serves only the selected trace and
-player assets. Press Ctrl+C to stop it. If a same-stem `.json` summary exists,
-the player also shows derived CPU and TCU clocks from its configuration.
-
-Use **Next event** to advance one record or **Next tick** to move to the next
-simulation timestamp. Each record is a logged observation, not a SystemC
-notification. The speed control changes playback only.
-[Simulation time and execution](simulation-model.md) explains these distinctions.
+The player uses the matching `.json` summary when available to derive clock
+values. Press Ctrl+C to stop the server.
 
 ```{raw} html
 <div id="trace-player" class="trace-player" aria-label="Simulation trace player">
@@ -38,7 +34,7 @@ notification. The speed control changes playback only.
   <details><summary>Input assembly</summary><pre id="trace-program"></pre></details>
   <details><summary>Run configuration</summary><pre id="trace-config"></pre></details>
 </div>
-<noscript>The interactive player requires JavaScript. The timing table and module contracts below remain available.</noscript>
+<noscript>Enable JavaScript to use the execution player.</noscript>
 ```
 
 ## Follow the feedback path
@@ -46,9 +42,9 @@ notification. The speed control changes playback only.
 1. Select **feedback-one** and open **Input assembly**. The program prepares
    qubit 0, measures it and branches on the result.
 2. Jump to `ProducerAccepted`. Its `cycle` is the current time point: the TCU
-   cycle being prepared. Acceptance means the action is staged at the CPU.
+   cycle being prepared. Acceptance means the event is staged at the CPU.
 3. Find `GroupAdmitted` and then `LabelFired`. The first records queue insertion;
-   the second records the planned TCU event triggering edge.
+   the second records the planned TCU triggering edge.
 4. Follow `MeasurementSampled`, `ResultReady` and `CpuResultVisible`. These show
    sampling, discriminator delay and delivery to the CPU.
 5. Continue to the last `OperationStart`. With outcome 1, the program selects X
@@ -58,31 +54,24 @@ Click the component cards to read the relevant module behavior.
 
 ## Read the displayed values
 
-Global tick is simulation time in nanoseconds. The displayed CPU edge index and
-TCU logical cycle are derived from that tick and the profile. Between CPU edges, the
-display retains the last edge index. TCU logical cycles begin at the effective epoch start. These examples contain
-no session reset, so that start equals `profile.start`.
+Global tick is simulation time in nanoseconds. CPU edge index and TCU logical
+cycle are derived from the tick and profile. Between edges, the display
+retains the last index. These examples have no reset, so TCU cycle zero
+occurs at `profile.start`.
 
-Timeline lanes group trace records by subject; they are not C++ owners, SystemC
-processes or clock domains. **Result delivery** includes both CPU reception and
-TCU history commits. Bell uses these deliveries without conditional control.
+**Last observed state** shows recorded values with their observation ticks.
+Queue occupancy, for example, comes from the last enqueue record. The player
+does not update it between observations.
 
-**Last observed state** shows only values recorded by earlier events, together
-with their observation tick. For example, occupancy is the value recorded at
-the last enqueue; it is not a live view of the queue. Retirement records do
-not reveal current pipeline latches.
-
-Several events can share a timestamp. They appear at the same horizontal
-position on the timeline. Moving to the next record at that tick does not
-advance a hardware cycle.
+Timeline lanes collect related records. **Result delivery** includes both
+CPU delivery and TCU result commits. Records with the same tick share a
+horizontal position.
 
 ## Example schedules
 
 The examples use mock measurement bits and set TCU start to 200 ns.
 Other timing settings use their defaults. The first operation at cycle 8 starts
-at 360 ns, after the CPU has had time to prepare the queued timing points.
-The website build runs their ELF programs and checks the schedules before
-publishing the playback data.
+at 360 ns, after the CPU has had time to prepare the queued time points.
 
 | Program | Physical starts (ns) | Outcome |
 | --- | --- | --- |
@@ -94,10 +83,9 @@ In each run, acquisition samples at 480 ns. The result is ready at 500 ns,
 CPU-visible at 505 ns and committed to conditional results at 540 ns. With the 20 ns
 TCU period, conditions can first use that history at 560 ns. `FastResultVisible`
 marks the commit, not use by the condition check already performed at 540 ns.
-The player labels the earliest possible condition edge as derived; use also
-requires the token to remain in history.
+A later condition can use that result only while it remains stored.
 
-In Bell, two measurement APPENDs join one timing point before QREAD submits it.
+In Bell, two measurement QAPPEND instructions join one time point before QREAD submits it.
 In feedback, QREAD completes before the classical branch chooses the final
 operation. Both branches reach enqueue at 680 ns and schedule the selected
 gate for cycle 26 (720 ns), leaving two TCU cycles before output. Neither

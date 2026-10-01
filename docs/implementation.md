@@ -1,22 +1,17 @@
 # Implementation and default profile
 
-This reference lists the current libraries, numerical defaults and supported
-features. The [architecture overview](high-level-design.md) explains the data
-path; the [control protocol](module-architecture.md) defines event ordering.
+The simulator separates clocked controller models from device execution and
+quantum-state calculations.
 
 ## Implementation map
 
-This diagram shows simulator objects and calls. The
-[controller architecture](architecture.md) presents the reserve and trigger phases,
-control output and measurement feedback. Resource checks, numerical adapters,
-mailboxes and SystemC processes below implement that simulation.
+The implementation connects these C++ components:
 
 ```{graphviz} implementation.dot
 :alt: Simulator implementation objects, their owned state and communication paths.
 ```
 
-Solid arrows carry data or calls; dashed arrows show labeled dependencies.
-An object boundary adds no modeled delay unless the timing contract specifies one.
+Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 
 ## Libraries and owners
 
@@ -54,20 +49,18 @@ integers. Architectural registers and addresses use 32 bits.
 | Memory service | 1 CPU period after acceptance |
 | Timing queue capacity | 32 points |
 | Event queue capacity | 32 entries per port |
-| Timing control staging | 16 actions |
+| Timing control staging | 16 events |
 | Measurement slots | 8 |
-| Event triggering width | 1 action per port per timing point |
+| Output width | 1 event per port per time point |
 
-The example run files override TCU start to 200 ns. These are configurable
-values, not fixed hardware constants. Dump the complete current
-profile, including mappings and other settings, with:
+The example run files set TCU start to 200 ns. To inspect all defaults:
 
 ```sh
-build-gcc/qsbit-sim --dump-default-profile out/default-profile.json
+build-clang/qsbit-sim --dump-default-profile out/default-profile.json
 ```
 
 Each run summary records its full validated profile and an FNV-1a fingerprint.
-The fingerprint identifies the configuration; it is not a cryptographic check.
+The fingerprint identifies the configuration.
 `TimingEvents.configuration` carries this string. A summary instead uses
 `configuration_hash` for the fingerprint and `configuration` for the full profile.
 The profile stays fixed throughout the run and all session resets.
@@ -95,26 +88,27 @@ preserves committed bytes.
 
 QAPPEND resolves a mapping and prepares events for the current time point.
 It completes on local acceptance. QADVANCE, QFLUSH, QREAD and QEND submit any
-pending timing point and events when required; only one request can await a reply.
+pending time point and events when required; only one request can await a reply.
 QADVANCE(0) changes neither the time point nor its events.
 
-TCU enqueue inserts the timing point and all event members together.
-It checks capacity before event triggering removes any old entries. The timer selects
-due timing points using cumulative intervals, including across empty-queue gaps.
-Conditions use exact-token history from earlier TCU edges.
+TCU enqueue inserts the time point and all event members together.
+It checks capacity before triggering removes any old entries. The timer selects
+due time points using cumulative intervals, including across empty-queue gaps.
+Conditions use stored measurement references from earlier TCU edges.
 
-The TCU validates the entire transition before committing event triggering and enqueue.
+The TCU validates the entire transition before committing triggering and enqueue.
 A false condition consumes its event with a cancellation record. It does not
 shift subsequent points.
 
-## Device actions
+## Device events
 
-Mappings select `gate`, `pulse`, `acquire` or `arm` actions.
+Mappings select `gate`, `pulse`, `acquire` or `arm` events.
 Physical start is `fire_tick + delay`. All durations are positive, and resources
 are occupied over `[start, end)`.
 
-At each boundary, the runtime evolves the previous drive set, samples ending
-acquisitions, ends old actions, applies starting gates and activates new
+At each device event tick, `ControlElectronics` evolves the preceding interval
+under the active drives, samples ending acquisitions, removes ended events,
+applies starting gates and activates new
 intervals. Ready results are published last. Overlapping permitted pulses are
 evolved jointly. A gate starting on the same target and tick as a measurement
 sample is unsupported.
@@ -138,7 +132,7 @@ Qubit 0 is the least significant statevector bit.
 
 ## Unsupported features
 
-The current profile does not implement privileged execution, interrupts, caches,
+The simulator does not implement privileged execution, interrupts, caches,
 compressed instructions, distributed synchronization, TQEC input, sampled
 waveforms, dissipation or GPU adapters. ECALL and EBREAK raise distinct traps;
 FENCE.I and unselected ISA extensions raise `IllegalInstruction`.

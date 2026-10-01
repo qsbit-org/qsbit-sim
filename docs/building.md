@@ -70,16 +70,10 @@ For a simulator-only build, set `-DQSBIT_BUILD_EXAMPLES=OFF` and leave
 
 ## Conan dependencies
 
-[Prepare dependencies](prerequisites.md#prepare-conan-dependencies) once before
-configuring. The project uses the packages selected by Conan; standalone system
-installations and the CMake user package registry are not searched. No
-`CMAKE_PREFIX_PATH` or shell activation is needed for CMake.
-
-The manifest and lockfile control dependency versions. Generated toolchains
-live in `.conan/`, independently of build directories. Deleting a simulator
-build directory does not delete the dependency setup. Regenerate the Conan
-files when dependencies or compiler configurations change, then configure with
-`--fresh` when replacing an existing toolchain.
+[Prepare Conan dependencies](prerequisites.md#prepare-conan-dependencies)
+before configuring. CMake uses the generated toolchain in `.conan/`.
+Regenerate it when dependencies or compiler settings change, then use
+`cmake --fresh` when replacing an existing toolchain.
 
 To update a dependency deliberately, edit [conanfile.py](../conanfile.py),
 regenerate the lockfile, and prepare and test each supported configuration:

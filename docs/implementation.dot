@@ -3,21 +3,21 @@ digraph implementation {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=14, margin="0.12,0.08", target="_top"];
   edge [color="#607a83", fontname="sans-serif", fontsize=11];
   subgraph cluster_setup { label="Platform and program setup"; color="#bacdd2"; style="rounded";
-    m0 [label="Platform Configuration\nand Clock Adapter", href="modules/platform-and-clock-adapter.html", id="module-platform-and-clock-adapter"];
+    m0 [label="Platform and clocks", href="modules/platform-and-clock-adapter.html", id="module-platform-and-clock-adapter"];
     m1 [label="ELF Loader and Program\nImage", href="modules/elf-loader-and-program-image.html", id="module-elf-loader-and-program-image"];
   }
   subgraph cluster_cpu { label="CPU domain: CpuCycleModel and TimingControl"; color="#bacdd2"; style="rounded";
     m2 [label="ISA Decoder and Semantics", href="modules/isa-decoder-and-semantics.html", id="module-isa-decoder-and-semantics"];
     m3 [label="CPU Cycle Model", href="modules/cpu-cycle-model.html", id="module-cpu-cycle-model"];
-    m4 [label="Memory and Response Model", href="modules/memory-and-response-model.html", id="module-memory-and-response-model"];
+    m4 [label="Memory requests and responses", href="modules/memory-and-response-model.html", id="module-memory-and-response-model"];
     m5 [label="Quantum Instruction\nAdapter", href="modules/quantum-instruction-adapter.html", id="module-quantum-instruction-adapter"];
-    m13 [label="Port-Codeword\nAction Map", href="modules/port-codeword-and-waveform-map.html", id="module-port-codeword-and-waveform-map"];
+    m13 [label="Port and codeword map", href="modules/port-codeword-and-waveform-map.html", id="module-port-codeword-and-waveform-map"];
     m6 [label="Codeword decoding", href="modules/codeword-decoding.html", id="module-codeword-decoding"];
     m7 [label="Reserve phase\nTimingControl", href="modules/reserve-phase.html", id="module-reserve-phase"];
     m17 [label="MeasurementResults\nCPU result storage", href="modules/measurement-results.html", id="module-measurement-results"];
   }
   subgraph cluster_tcu { label="TCU domain: TcuCycleModel"; color="#bacdd2"; style="rounded";
-    m8 [label="Communication latency\nand queue enqueue", href="modules/queue-enqueue.html", id="module-queue-enqueue"];
+    m8 [label="Queue insertion\nand communication latency", href="modules/queue-enqueue.html", id="module-queue-enqueue"];
     m9 [label="Timing Queue", href="modules/timing-queue.html", id="module-timing-queue"];
     m10 [label="Per-Port Event Queues", href="modules/per-port-event-queues.html", id="module-per-port-event-queues"];
     m11 [label="Timing controller\nand event trigger", href="modules/timing-controller.html", id="module-timing-controller"];
@@ -29,9 +29,9 @@ digraph implementation {
     m15 [label="Quantum\nBackends", href="modules/quantum-device-model.html", id="module-quantum-device-model"];
     m16 [label="Acquisition and\nDiscrimination", href="modules/acquisition-and-discrimination.html", id="module-acquisition-and-discrimination"];
   }
-  subgraph cluster_lifecycle { label="Observation and extension boundary"; color="#bacdd2"; style="rounded";
-    m19 [label="Trace Recorder and Stop\nController", href="modules/trace-recorder-and-stop-controller.html", id="module-trace-recorder-and-stop-controller"];
-    m20 [label="Synchronization Extension\nBoundary", href="modules/future-synchronization-adapter.html", id="module-future-synchronization-adapter"];
+  subgraph cluster_lifecycle { label="Tracing and completion"; color="#bacdd2"; style="rounded";
+    m19 [label="Tracing and completion", href="modules/trace-recorder-and-stop-controller.html", id="module-trace-recorder-and-stop-controller"];
+    m20 [label="QSYNC\nUnsupported synchronization", href="modules/future-synchronization-adapter.html", id="module-future-synchronization-adapter"];
   }
   m1 -> m4 [label="ProgramImage"];
   m4 -> m3 [constraint=false, label="MemoryResponse"];

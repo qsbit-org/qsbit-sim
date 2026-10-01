@@ -1,8 +1,7 @@
 # Install build prerequisites
 
-Choose the tools for the workflow you need. A normal simulator build requires
-CMake, a C++20 toolchain, Conan-managed SystemC, and GNU RISC-V binutils
-for the included examples. Tests also require a Python interpreter.
+The default build requires CMake, a C++20 compiler, Conan-managed SystemC and
+GNU RISC-V binutils for examples. Tests also require a Python interpreter.
 
 | Workflow | Required tools |
 | --- | --- |
@@ -15,17 +14,12 @@ A default C++ build does not require Python quantum packages.
 
 ## Ubuntu
 
-CI tests Ubuntu 24.04 and macOS 14. On Ubuntu, copy this entire block to install
-both GCC and Clang, plus the tools for bundled examples and core tests:
+Install GCC, Clang and the tools for examples and core tests:
 
 ```sh
 sudo apt-get update
 sudo apt-get install -y gcc g++ clang git cmake ninja-build python3 python3-venv binutils-riscv64-unknown-elf
 ```
-
-No edits to the package list are needed for either compiler. The dependency
-preparation below selects Clang and configures matching compilers for SystemC
-and the simulator.
 
 The RISC-V tools use the `riscv64-unknown-elf-` prefix but can produce the
 RV32I ELF files used here. Building these examples does not require a RISC-V
@@ -40,9 +34,8 @@ and [Homebrew](https://brew.sh/) once, then copy this block:
 brew install cmake ninja git python uv riscv64-elf-binutils
 ```
 
-The `clang-ninja` preset uses Apple Clang from Xcode Command Line Tools.
-CMake discovers Homebrew's `riscv64-elf-` tools automatically; no aliases or
-custom installation paths are needed. These tools also produce RV32I ELF files.
+The `clang-ninja` preset uses Apple Clang. CMake finds Homebrew's
+`riscv64-elf-` tools, which support the RV32I examples.
 
 ## Prepare Conan dependencies
 
@@ -55,20 +48,13 @@ uv run --frozen --group build --inexact conan config install conan/config
 uv run --frozen --group build --inexact conan install . -pr:a=conan/profiles/clang --build=missing
 ```
 
-This installs the locked Conan version, applies the project's exact binary
-compatibility policy to the Conan user configuration, and prepares SystemC.
-The compatibility policy disables reuse across different compiler settings;
-SystemC requires the same C++ standard as its consumer. The supplied
-profiles detect the selected compiler version and host architecture, select
-C++20, and use matching C, C++, and assembly compilers. Linux uses libstdc++;
-macOS uses libc++.
-No default Conan profile or SystemC installation prefix is needed.
+These commands install the locked Conan version and prepare SystemC with
+matching compiler settings and C++20. The profiles detect the compiler version
+and host architecture. Linux uses libstdc++; macOS uses libc++.
 
-Conan downloads a matching binary when available; otherwise it compiles the
-locked sources during this preparation step. Packages stay in the Conan cache.
-Generated CMake files stay in `.conan/`, separately from simulator build trees.
-Neither directory belongs in Git. Keep the generated files and cached packages
-available during development.
+Conan downloads a matching binary or builds the locked sources. Packages stay
+in the Conan cache; generated toolchains stay in `.conan/`. Keep both available
+for subsequent builds.
 
 On Ubuntu, prepare GCC instead, or in addition to Clang, with:
 
@@ -88,9 +74,9 @@ cmake --preset clang-ninja
 cmake --build --preset clang-ninja --parallel
 ```
 
-New terminals and IDE sessions do not need an activated Python environment or
-`CMAKE_PREFIX_PATH`. Removing `build-clang` or `build-gcc` does not remove the
-prepared dependencies. Existing standalone SystemC installations are not used.
+CMake uses the generated toolchain without shell activation or
+`CMAKE_PREFIX_PATH`. Removing a build directory leaves the prepared
+dependencies intact.
 
 Rerun the install command after changing the Conan manifest, lockfile, compiler,
 or build configuration, or after removing `.conan/` or Conan's cached packages.
@@ -98,8 +84,7 @@ Unchanged dependencies are reused. When switching an existing build to Conan,
 or upgrading a compiler, configure once with `cmake --fresh --preset clang-ninja`.
 
 Dependency requirements are in [conanfile.py](../conanfile.py), recipe revisions
-are pinned in [conan.lock](../conan.lock), and the Conan tool is locked in
-[uv.lock](../uv.lock). The default C++ workflow installs no quantum backends.
+in [conan.lock](../conan.lock), and the Conan version in [uv.lock](../uv.lock).
 
 ## Optional Python backends
 

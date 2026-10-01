@@ -1,4 +1,4 @@
-# ELF Loader and Program Image
+# ELF loader and program image
 
 `ProgramImage` loads an RV32 program into simulated memory and records its
 entry address and segment permissions. The memory model takes ownership of this
@@ -26,17 +26,16 @@ digraph module {
 
 ## Loading and access checks
 
-`ProgramImage::elf()` checks that the file is a little-endian ELF32 RISC-V
-executable. It validates loadable segment bounds, overlaps, permissions and the
-aligned executable entry. It copies segment data into RAM and zero-fills BSS.
+`ProgramImage::elf()` accepts little-endian ELF32 RISC-V executables.
+It validates loadable segments, permissions and the aligned executable
+entry, copies segment data into RAM and zero-fills BSS.
 
-`ProgramImage::raw()` loads a nonempty sequence of 32-bit machine words at the
-specified address. Assembly text must be assembled and linked before loading.
+`ProgramImage::raw()` loads a nonempty sequence of 32-bit machine words
+at the specified address. Assemble and link source text before loading it.
 
-During execution, reads and writes check address range, alignment and segment
-permissions. Unmapped bytes within configured RAM may hold data, but instruction
-fetches must address executable segments. See [program input](../interfaces.md#program-input)
-for the supported file format.
+Runtime accesses check range, alignment and permissions. Unmapped RAM
+can hold data; instruction fetches require an executable segment.
+See [program input](../interfaces.md#program-input) for format requirements.
 
 ## Objects and state
 

@@ -1,8 +1,8 @@
-# Platform Configuration and Clock Adapter
+# Platform and clocks
 
 `Simulator` connects the CPU, memory, TCU and device models to the SystemC
-scheduler. It creates their clocks, calls each model at the right time, and
-applies session resets.
+scheduler. It calls each model on its clock edges or scheduled device ticks
+and applies session resets.
 
 The simulation profile fixes the modeled hardware: clock periods and phases,
 communication delays, queue capacities, and port mappings. `Simulator` validates
@@ -33,36 +33,27 @@ digraph module {
 
 ## Clocks and physical boundaries
 
-The CPU and memory methods run on CPU rising edges. The TCU method runs on
-TCU rising edges. These processes use `dont_initialize()`, so their first execution
-comes from a triggering event rather than an automatic initialization call.
-A clock event at time zero can still invoke them. [Process initialization](../glossary.md#initialization)
-and [sensitivity](../glossary.md#sensitivity) describe these rules.
+CPU and memory methods run on CPU rising edges; the TCU method runs on TCU
+rising edges. With `dont_initialize()`, each method first runs when its
+triggering event occurs, which can be a clock edge at time zero.
 
-Each method checks for reset, advances its model if no reset applies, and records
-that it has finished work for the current tick. It then requests the device
-barrier with `notify(SC_ZERO_TIME)`, which schedules a later delta at the same
-simulation time. It does not call the barrier inline or advance a hardware cycle.
+Each method checks for reset, advances its model, records completion and
+notifies the device barrier for a later delta cycle. The barrier processes
+device events only after all clocked methods due at that tick have finished.
+This includes events triggered with zero output delay.
 
-The barrier returns without processing devices until every clocked method due
-at this tick has finished. It then processes the physical boundary batch.
-It does not suspend with `wait()`. This allows a TCU
-launch with zero output delay to join the complete device batch before quantum
-state changes.
-
-`schedule_wakeup()` selects the earliest pending device boundary, reset or
-watchdog tick. It cancels the previous timed notification before scheduling the
-next one. Event payloads remain in the model objects; `sc_event` only wakes a
-process. See [event ordering](../module-architecture.md#communication-latency-and-tcu-edge-order)
-for communication between models.
+`schedule_wakeup()` selects the earliest device event, reset or watchdog
+deadline. It cancels the previous timed notification before scheduling
+the next one. See [simulation execution](../simulation-model.md) for
+same-tick ordering.
 
 ## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `profile_` | `const Profile` | Validated clocks, capacities, mappings and delays; immutable across reset. |
-| `cpu_clock_, tcu_clock_` | `sc_clock` | CPU and memory and TCU rising-edge activation. |
-| `wake_, barrier_` | `sc_event` | Timed wakeup and zero-time barrier activation; payload lives in owners. |
+| `cpu_clock_, tcu_clock_` | `sc_clock` | Rising edges for the CPU, memory and TCU. |
+| `wake_, barrier_` | `sc_event` | Schedule timed work and same-tick device processing. |
 | `cpu_done_, memory_done_, tcu_done_` | optional tick | Marks which coincident edge transitions have completed. |
 | `epoch_, resets_, last_reset_` | session state | Applies a reset once per requested tick and invalidates old work. |
 

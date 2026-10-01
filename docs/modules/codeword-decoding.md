@@ -1,16 +1,16 @@
 # Codeword decoding
 
-Codeword decoding expands one port and codeword command into the device actions defined
-by the profile. A command can select several actions on different physical ports,
+Codeword decoding expands one port and codeword command into the device events defined
+by the profile. A command can select several events on different physical ports,
 such as acquisition and a separate discriminator arm.
 
 ## Connections
 
 - **Input:** source port and codeword, profile, epoch, instruction ID, first event ID,
-  and any measurement or condition token.
+  and any measurement or condition reference.
 - **Output:** `OperationEvent` values for the timing control's pending events at the current time point.
-- **Caller:** `TimingControl` during APPEND; timing point validation also runs when
-  the timing control submits a timing point and when the TCU checks enqueue.
+- **Caller:** `TimingControl` during QAPPEND; time point validation also runs when
+  the timing control submits a time point and when the TCU checks enqueue.
 
 ```{graphviz}
 digraph module {
@@ -24,41 +24,38 @@ digraph module {
 }
 ```
 
-## Resolving and validating actions
+## Resolving and validating events
 
-`decode_codeword()` looks up the mapping and creates one event per `EventSpec`.
-It assigns consecutive event IDs while preserving the source instruction,
-source port and codeword. Each event also names its physical output port,
-resources, targets and timing parameters.
+`decode_codeword()` creates one `OperationEvent` for each `EventSpec`
+in the selected mapping. It assigns consecutive event IDs and preserves
+the instruction ID, source port and codeword.
 
-Acquisition and arm actions carry the measurement token already reserved by the
-measurement result storage. Timing control collects the returned events at the current time point.
-When the timing point is submitted, it assigns a label and builds a manifest containing
-the exact event IDs.
+Acquisition and discriminator-arm events carry the measurement reference
+reserved by `MeasurementResults`. Timing control collects the events
+for the current time point. On submission, it assigns their timing label
+and records their IDs in `TimingPoint::manifest`.
 
-`validate_timing_events()` checks those identities, the action mappings, acquisition and arm
-pairing and per-port bounds. It validates a complete value before that value is
-inserted into TCU queues. Lookup and validation add no separate simulated stage.
+`validate_timing_events()` checks IDs, mappings, acquisition and arm
+pairing, and per-port limits before queue insertion.
 
 ## Objects and state
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `Profile::mappings` | read-only mappings | Maps a source port and codeword to one or more EventSpec values. |
-| `OperationEvent` | output values | Resolved action plus epoch, event and instruction IDs and optional tokens. |
-| `TimingEvents` | timing control-owned aggregate | Timing point, ordered manifest, events and profile fingerprint. |
+| `OperationEvent` | output values | Resolved event plus epoch, event and instruction IDs and optional measurement references. |
+| `TimingEvents` | timing control-owned aggregate | Time point, ordered manifest, events and profile fingerprint. |
 
 [C++ API](../api.md#controlhpp).
 
 ## Reset and errors
 
 Unknown mappings, inconsistent identities, invalid acquisition and arm pairs and
-impossible timing point sizes raise typed faults. Timing control checks reject staging and
-per-port capacity violations before accepting the APPEND.
+event counts above the configured limits raise faults. Timing control checks
+staging and per-port limits before accepting QAPPEND.
 
-Codeword decoding retains no mutable state. Reset discards the timing control's generated
-events; the profile mappings remain unchanged. Multi-point microcode expansion
-is not implemented.
+Reset discards pending events while preserving the profile mappings.
+One codeword expands into events at one time point.
 
 ## Implementation and tests
 
@@ -66,5 +63,5 @@ Source: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsb
 
 **CTest:** `control.mapping`, `protocol.capacity`.
 
-The tests reject invalid mappings and manifests, and timing points that exceed
+The tests reject invalid mappings and manifests, and time points that exceed
 staging or result capacity.

@@ -1,6 +1,6 @@
 # Timing controller and event trigger
 
-The TCU timer determines when enqueued timing points trigger. On each TCU rising edge,
+The TCU timer determines when enqueued time points trigger. On each TCU rising edge,
 it checks whether the timing-queue head is due and uses its label to select the
 corresponding port events.
 
@@ -8,7 +8,7 @@ corresponding port events.
 
 - **Input:** current tick, configured start and TCU period, and the existing
   timing-queue head.
-- **Output:** a validated `TriggeredEvents` and `LabelFired` record when a timing point is due.
+- **Output:** a validated `TriggeredEvents` and `LabelFired` record when a time point is due.
 - **Scheduling:** `TcuCycleModel::step()` runs on each TCU rising edge.
 
 ```{graphviz}
@@ -25,22 +25,18 @@ digraph module {
 
 ## From logical cycle to global tick
 
-Let the effective start tick of the current epoch be S and the TCU period be P. Logical cycle n occurs at
-`S + n * P`; cycle zero is the start edge. Before S, timing points can enter the queues
-but cannot trigger. The current cycle is calculated on each call rather than stored
-as an incrementing counter.
+For epoch start S and TCU period P, logical cycle n occurs at `S + n * P`.
+Before S, time points can enter the queues but cannot trigger.
 
-For example, S = 100 ns and P = 20 ns place cycle 4 at 180 ns. A timing point enqueued
-at 160 ns can trigger there. Enqueue at 180 ns is too late. These example values
-are separate from the [default profile](../implementation.md#default-timing).
+With S = 100 ns and P = 20 ns, cycle 4 occurs at 180 ns. A time point
+enqueued at 160 ns can trigger then; enqueue at 180 ns is too late.
 
-The due label selects all associated events. Manifest checks, condition
-evaluation and device preflight happen within this TCU transition before queue
-removal. A new enqueue on this edge cannot become its event triggering candidate.
+The TCU checks the head's event IDs, evaluates conditions and validates
+selected events before removing anything from the queues. New results
+are committed after condition evaluation and become usable on later edges.
 
-The timer continues through empty queues and CPU stalls. It neither waits for
-the next timing point nor shifts later deadlines. Incoming fast results are committed
-after the event triggering decision and become usable on later edges.
+The timer continues through empty queues and CPU stalls. It does not
+shift deadlines to accommodate a late request.
 
 ## Objects and state
 
@@ -48,19 +44,19 @@ after the event triggering decision and become usable on later edges.
 | --- | --- | --- |
 | `start_` | global tick | Start of the current epoch timeline. |
 | Local variable `cycle` | derived logical cycle | Calculated from current tick and period; not a stored running counter. |
-| `timing_.front().due` | next due cycle | Selects the timing point already queued when the edge begins. |
+| `timing_.front().due` | next due cycle | Selects the time point already queued when the edge begins. |
 | `closed_` | closure state | Input closed after validated EndOfStream; queues may still drain. |
 
 [C++ API](../api.md#tcuhpp).
 
 ## Reset and errors
 
-A queued point that misses its due edge or a timing point enqueued too late raises
+A queued point that misses its due edge or a time point enqueued too late raises
 `LateAdmission`. Time arithmetic is checked for overflow.
 
 Reset clears the TCU queues and history. The new start is the first TCU edge at
 or after `reset_tick + profile.start`. SystemC time continues from the reset tick.
-The current TCU has no pause and resume interface; QSYNC is unsupported.
+QSYNC raises `UnsupportedSynchronization`.
 
 ## Implementation and tests
 
@@ -68,4 +64,6 @@ Source: [tcu.cpp](../../src/tcu.cpp) and [tcu.hpp](../../include/qsbit/tcu.hpp).
 
 **CTest:** `control.empty`, `systemc.tcu_trace`.
 
-`control.empty` asserts cumulative launch ticks across empty gaps and late-enqueue rejection. `systemc.tcu_trace` checks that its clocked harness drains and writes the label trace.
+`control.empty` checks cumulative trigger ticks across empty gaps and
+late-enqueue rejection. `systemc.tcu_trace` checks completion and label output
+in a clocked harness.

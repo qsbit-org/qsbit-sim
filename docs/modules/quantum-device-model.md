@@ -7,7 +7,7 @@ All ports in a run share this backend state.
 ## Connections
 
 - **Input:** reset parameters, active drives over an interval, ideal-gate batches
-  and measurement tokens.
+  and measurement references.
 - **Output:** evolved state, measurement bits and optional statevector inspection.
 - **Interface:** `IQuantumBackend`, implemented natively or through `PythonBackend`.
 
@@ -25,24 +25,20 @@ digraph module {
 
 ## Calls at a physical boundary
 
-Before changing quantum state, the runtime checks the complete boundary batch.
-It calls `evolve(start, end, drives)` with every drive active over the preceding
-interval. It then measures ending acquisitions and applies the new ideal gates
-in the order defined by the [device protocol](../module-architecture.md#device-batches-and-feedback).
-Ports never advance shared quantum state independently.
+`ControlElectronics` calls `evolve(start, end, drives)` with all drives
+active over the preceding interval. It then measures ending acquisitions
+and applies starting gates. All ports share one backend state.
 
-The mock backend returns configured measurement bits and has no statevector.
-The Aer quantum backend supports ideal gates and state-derived measurements with collapse.
-The pulse quantum backend additionally evolves jointly under constant X, Y and Z drives.
-See [backend integration](../backends.md) for installation and adapter methods.
+The mock backend supplies configured bits without quantum evolution.
+Aer applies ideal gates and measurements with state collapse. The pulse
+backend also integrates constant X, Y and Z drives. See
+[backend setup](../backends.md) for installation and adapter methods.
 
-Calls are synchronous. A slow numerical calculation increases host execution
-time but does not change any simulated timestamp. Measurement readiness and
-receiver visibility remain device and communication delays.
+Backend calls are synchronous and do not advance simulation time. Output
+timing and result delivery remain controlled by the simulator.
 
-Qubit 0 is the least significant statevector bit. Pulse amplitudes are angular
-frequencies in radians per nanosecond; rotation-gate amplitudes are angles
-in radians.
+Qubit 0 is the least significant statevector bit. Pulse amplitudes use
+radians per nanosecond; rotation-gate amplitudes use radians.
 
 ## Objects and state
 
@@ -57,9 +53,9 @@ in radians.
 
 ## Reset and errors
 
-Requested actions are checked for backend support before timing control acceptance
+Requested events are checked for backend support before timing control acceptance
 and again before device mutation. Numerical or adapter failures terminate the
-run. An adapter need not support every kind of action or statevector inspection.
+run. An adapter need not support every kind of event or statevector inspection.
 
 Session reset calls the backend with the configured qubit count and seed,
 creating the initial state for the new epoch.

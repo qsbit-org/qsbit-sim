@@ -1,14 +1,13 @@
-# Acquisition and Discrimination
+# Acquisition and discrimination
 
-[Readout](../glossary.md#readout) separates measurement sampling from result availability.
-Discrimination is represented by a delay; no raw waveform classifier runs here.
-`ControlElectronics` samples the backend at acquisition end, then waits for the
-discriminator timing before publishing the bit to the CPU and optional fast path.
+`ControlElectronics` samples the backend at acquisition end and publishes the
+bit after the discriminator delay. Results travel to the CPU and, when enabled,
+the TCU.
 
 ## Connections
 
-- **Input:** an acquisition action, its existing measurement token and any
-  separately mapped discriminator-arm action.
+- **Input:** an acquisition event, its existing measurement reference and any
+  separately mapped discriminator-arm event.
 - **Output:** one tagged `Completion` to each enabled feedback path.
 - **Owner:** `ControlElectronics::readouts_`, updated at acquisition, arm and result-ready
   physical boundaries.
@@ -27,23 +26,22 @@ digraph module {
 
 ## From acquisition to result
 
-The timing control has already reserved the measurement token and delivery capacity.
-Readout does not allocate another token. If acquisition requires a separate arm,
-timing point validation requires one matching arm with the same token and target.
-Otherwise the discriminator is implicitly armed at acquisition start.
+Timing control reserves the measurement reference and result-delivery
+capacity before queue insertion. If the acquisition requires a separate
+discriminator arm, the mapping must include one arm with the same
+measurement reference and target. Otherwise arming occurs at acquisition
+start.
 
-Let E be acquisition end, A the arm start and L the discriminator delay.
-The backend samples and collapses state at E; the bit becomes ready at
-`max(E, A) + L`.
+For acquisition end E, arm start A and discriminator delay L, sampling
+occurs at E and the result becomes ready at `max(E, A) + L`.
 
-For example, an acquisition ending at 480 ns with an earlier arm and a 20 ns
-delay produces `ResultReady` at 500 ns. With the default crossings, the CPU
-receives the bit at 505 ns and the TCU commits it at 540 ns.
+An acquisition ending at 480 ns with an earlier arm and a 20 ns delay
+therefore produces `ResultReady` at 500 ns. With the default communication
+latencies, the CPU receives it at 505 ns and the TCU commits it at 540 ns.
 
-The runtime stores the sample until readiness, publishes the same token and bit
-to both enabled paths, then removes the readout record. A zero discriminator
-delay can make sampling and readiness share a tick. It still cannot make a
-clocked receiver consume the result on that tick.
+The model retains the sampled bit until readiness, publishes it to each
+enabled result path and removes the readout record. Even when L is zero,
+receivers consume the result only on a later clock edge.
 
 ## Objects and state
 
@@ -58,9 +56,8 @@ clocked receiver consume the result on that tick.
 
 ## Reset and errors
 
-Missing or duplicate arms, mismatched targets or tokens, and overflowing
-readiness times fail validation. The backend supplies measurement bits; raw
-waveform discrimination is not implemented.
+Missing or duplicate arms, mismatched targets or measurement references, and overflowing
+readiness times fail validation.
 
 Session reset removes pending readouts and physical callbacks. Receivers reject
 or discard stale completions according to their epoch checks.
@@ -71,5 +68,5 @@ Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/
 
 **CTest:** `protocol.readout`.
 
-The readout tests check delayed arms, exact sampling and readiness ticks, token
+The readout tests check delayed arms, exact sampling and readiness ticks, measurement reference
 matching, and delivery through the separate CPU and fast-feedback paths.

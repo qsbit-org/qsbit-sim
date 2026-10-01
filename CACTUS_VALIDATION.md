@@ -3,7 +3,7 @@
 The `reference.cactus_golden` CTest case runs RV32I extension programs with
 qsbit-sim and compares their observable events with traces captured from
 [CACTUS](https://github.com/gtaifu/CACTUS). CI runs the test on every push and
-pull request. The test uses checked in reference traces, so CI does not build
+pull request. The test uses checked-in reference traces, so CI does not build
 CACTUS. The raw JSONL and normalized golden events are under
 [`tests/data/cactus`](tests/data/cactus).
 
@@ -27,8 +27,10 @@ two. The programs encode the same ordered operation groups. qsbit-sim executes
 its ELF without reading the CACTUS schedule. All measurements have
 deterministic basis state results. CACTUS uses QuantumSim, while qsbit-sim uses
 Aer. The mapping covers seven qubits. Each mapped command has a 40 ns delay;
-single qubit gates and measurements have a 20 ns duration. Both native
-profiles start at 1040 ns and set CPU result latency to 12 ns.
+single-qubit gates and measurements have a 20 ns duration. Both native
+profiles start at 1040 ns and set `cpu_result_latency` to 12 CPU receiver
+edges. At the default 5 ns period, a result published on a CPU edge arrives
+60 ns later.
 
 | Workload | Operation sequence and purpose |
 | --- | --- |
@@ -36,7 +38,7 @@ profiles start at 1040 ns and set CPU result latency to 12 ns.
 | `zero_measure` | Z on qubit 0, then measurement; checks result zero. |
 | `parallel` | X on qubits 0 and 1, then simultaneous measurements. |
 | `repeat` | X, measure, X, measure on qubit 0; checks repeated results. |
-| `entangle_uncompute` | H on 0 and 3, two CZ operations, H on both, then measurements; checks a two qubit path returning to a basis state. |
+| `entangle_uncompute` | H on 0 and 3, two CZ operations, H on both, then measurements; checks a two-qubit path returning to a basis state. |
 | `pressure` | Forty alternating X groups on qubits 0 and 1, then two measurements; the native timing and event capacities are two. |
 | `feedback_0` | Z and measurement on qubit 0, then a branch selects Z on qubit 1. |
 | `feedback_1` | X and measurement on qubit 0, then a branch selects X on qubit 1. |
@@ -55,7 +57,7 @@ The test compares TCU label output; device operation, targets, and start tick;
 and measurement result readiness. It also compares CPU result visibility where
 CACTUS exposes that event. Independent events at the same tick are sorted before
 comparison. Timestamps use one common nanosecond origin, with zero tolerance
-and no event by event realignment. The runner reports the first divergent event
+and no event-by-event realignment. The runner reports the first divergent event
 or an event count mismatch. Before running qsbit-sim, it normalizes each raw
 CACTUS trace and checks it against the stored golden JSON.
 
@@ -78,7 +80,7 @@ integer wrapper with the wrong value. The corrected variant changes only those
 two expressions. Its patch is stored in the reference fixture directory. CPU
 visibility is omitted for the six unmodified binary cases. In `repeat`, CACTUS
 publishes only the latest result after all pending measurements on that target
-finish. Both modes therefore omit per measurement CPU visibility for this
+finish. Both modes therefore omit per-measurement CPU visibility for this
 workload.
 
 These comparisons do not establish operation end timing, private CPU pipeline
@@ -98,7 +100,7 @@ cmake --build --preset clang-ninja
 ctest --test-dir build-clang -R '^reference\.cactus_golden$' --output-on-failure
 ```
 
-The test assembles the checked in RV32I source with the build's RISC-V tools.
+The test assembles the checked-in RV32I source with the build's RISC-V tools.
 It writes ELF files, native traces, summaries, and logs under
 `build-clang/cactus-golden`. It does not rewrite the fixtures. `manifest.json`
 names each case, its probe set, event count, and trace and binary hashes. `traces/`
@@ -115,4 +117,3 @@ with `binary-measurement-fixes.patch` for corrected cases. Use
 `assembly-hardware.json` for assembly mode and `hardware.json` for binary mode;
 both modes use `gates.json` and `log-levels.json`. Review the raw trace,
 normalized diff, binaries, and revision hashes before updating a golden file.
-The original 16 program runs passed 308 compared events with zero tick error.

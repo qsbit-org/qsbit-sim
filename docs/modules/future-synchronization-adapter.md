@@ -1,4 +1,4 @@
-# Synchronization Extension Boundary
+# Synchronization
 
 QSYNC reserves an instruction encoding for distributed synchronization.
 The current simulator recognizes that encoding and raises
@@ -25,19 +25,15 @@ digraph module {
 
 ## Current behavior
 
-The adapter converts QSYNC to `ControlKind::Synchronize`.
-`TimingControl::execute()` raises the fault without completing the instruction.
-It creates no timing point and leaves the TCU timer running.
-
-A distributed implementation would need peer-message timing, synchronization
-booking, pause and resume behavior and reset handling. During a local TCU pause,
-global time and physical quantum evolution would still have to continue.
-There are no peer queues or pause state in the current implementation.
+`adapt_quantum()` converts QSYNC to `ControlKind::Synchronize`.
+`TimingControl::execute()` raises `UnsupportedSynchronization` without
+completing the instruction or creating a time point. The simulator then
+stops with failure.
 
 ## Objects and state
 
 The decoded instruction and `ControlOperation` are temporary values.
-The current implementation stores no synchronization state.
+No synchronization state is retained.
 
 [C++ API](../api.md#producerhpp).
 

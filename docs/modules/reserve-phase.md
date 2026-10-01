@@ -27,29 +27,28 @@ digraph module {
 
 ## Preparing and enqueueing events
 
-QAPPEND resolves a port and codeword, validates its events and adds them to
-bounded pending storage. Acquisition also reserves a measurement result slot.
-The instruction can retire before enqueue, allowing several instructions to
-prepare events for the same time point.
+QAPPEND looks up the port and codeword, validates the resulting events and
+stores them for the current time point. An acquisition also reserves a
+measurement result slot. QAPPEND can retire before the events enter the TCU,
+so several instructions can contribute to one time point.
 
-Positive QADVANCE submits the pending timing point and events, waits for the
-matching `EnqueueReply`, then advances the time point by the requested TCU
-cycles. QADVANCE(0) changes nothing. QFLUSH submits without advancing;
-further QAPPEND instructions require a positive QADVANCE first.
+Positive QADVANCE enqueues the pending time point, waits for acknowledgment,
+then advances by the requested number of TCU cycles. QADVANCE(0) does nothing.
+QFLUSH enqueues without advancing; another QAPPEND then requires a positive
+QADVANCE.
 
-For example, two QAPPEND instructions at time point 4 followed by QADVANCE(3)
-enqueue both events for cycle 4. The current time point becomes 7 after the
-reply arrives. Neither operation changes the running TCU timer.
+For example, two QAPPEND instructions at cycle 4 followed by QADVANCE(3)
+enqueue both events for cycle 4. The current time point becomes 7 after
+acknowledgment. The TCU timer continues independently.
 
-QREAD waits for any required enqueue reply and then the requested measurement.
-QEND waits for any required enqueue reply and publishes closure. At most one
-enqueue request can be outstanding. A blocked instruction retains its ID and
-operands across retries.
+QREAD and QEND also wait for any required enqueue acknowledgment. QREAD then
+waits for its measurement result; QEND publishes an `EndOfStream` message.
+Only one enqueue request can be pending. A blocked instruction keeps the
+same ID and operands across retries.
 
-The untouched origin needs no enqueue request. A positive QADVANCE creates a
-time point that is subsequently enqueued even if it has no events.
-The [timing contract](../module-architecture.md#reserve-phase-operations-and-progress)
-specifies all completion cases.
+At startup, the untouched time point zero needs no queue entry. A positive
+QADVANCE creates a time point that must later be enqueued even if no events
+are added. See [instruction completion](../module-architecture.md#reserve-phase-operations-and-progress).
 
 ## Objects and state
 
@@ -80,5 +79,5 @@ Source: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/
 **CTest:** `protocol.producer`, `protocol.capacity`, `systemc.use_cases`.
 
 Tests check stable instruction identity across retries, exactly one enqueue,
-time-point advancement after acknowledgment, bounded storage, and multiple
+time point advancement after acknowledgment, bounded storage, and multiple
 QAPPEND instructions separated by QADVANCE(0) at the same time point.

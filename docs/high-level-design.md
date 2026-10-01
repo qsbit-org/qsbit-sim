@@ -1,81 +1,79 @@
 # Architecture overview
 
-qsbit-sim models a programmable quantum controller: a classical processor
-prepares operations, timing and event queues retain them, and a timing controller
-triggers their output at the specified time points. Measurements return results
-for classical feedback or fast conditional execution.
+qsbit-sim executes a classical program that schedules quantum operations.
+The CPU prepares port and codeword events, the timing control unit (TCU)
+queues them, and the timing controller triggers them at the requested
+time points. Measurement results return to the CPU and to conditional
+execution in the TCU.
 
 ## Reserve phase and trigger phase
 
-During the **reserve phase**, the processor decodes instructions and enqueues
-timing points and their associated operation events. A timing point specifies
-when events should occur. Each output port has an event queue.
+During the **reserve phase**, the CPU prepares events for a time point and
+enqueues them. The timing queue records when the events are due; each
+output port has an event queue. A timing label associates each time point
+with its events.
 
-During the **trigger phase**, the timing controller reaches a queued time point
-and triggers the corresponding events. The timing queue decouples instruction
-execution from precise output timing. A CPU stall does not pause the running
-TCU timer in the current model.
+During the **trigger phase**, the timing controller selects the due time
+point and triggers its events. The TCU timer runs independently of the
+CPU, so a CPU stall does not delay events already queued.
 
-These phase names follow [eQASM, Section 3.1](https://arxiv.org/abs/1808.02449).
-[QuMA, Section 5.2](https://arxiv.org/abs/1708.07677) defines the timing queue,
-event queues and timing controller. Its timing labels associate events with
-time points; a label is an identifier, not a timestamp.
+This separation follows [eQASM, Section 3.1](https://arxiv.org/abs/1808.02449).
+The timing queue, event queues and timing labels follow
+[QuMA, Section 5.2](https://arxiv.org/abs/1708.07677).
 
 ## Ports, codewords and time points
 
-A control instruction selects a port and a codeword. The configuration maps
-them to output events, including pulse generation, acquisition and discrimination.
-The program specifies the time point for each event. This follows the control
-abstraction in [HISQ, Sections 2.2 and 3.1.2](https://arxiv.org/html/2509.04798v1#S3.SS1.SSS2).
+A port and codeword select one or more operations from the simulation profile.
+Each operation specifies its output port, qubit targets, duration and output
+delay. The program supplies the time point, expressed as a TCU cycle.
 
-For example, two codeword instructions can prepare events for TCU cycle 8.
-The simulator collects those events before enqueueing their timing point and
-event entries together. At cycle 8 the timing controller triggers both events.
-Configured output delays determine when the corresponding control outputs start.
-The enqueue request must reach the queues before the trigger edge.
+For example, two instructions can prepare events for cycle 8. Their time
+point and event entries enter the queues together, before cycle 8. The TCU
+triggers both at that cycle; each output starts after its configured delay.
+
+Ports, codewords and time points are also the control abstraction used by
+[HISQ](https://arxiv.org/html/2509.04798v1#S3.SS1.SSS2).
 
 ## Measurement and feedback
 
-The measurement path includes acquisition and discrimination. The model samples
-at acquisition end and delivers the resulting bit after discriminator and
-communication delays.
+The backend samples a measurement at acquisition end. After the discriminator
+delay, the result travels independently to the CPU and, when enabled, the TCU.
 
-Classical feedback reads a measurement result into a CPU register and uses
-ordinary branches to choose subsequent operations. Fast conditional execution
-tests a measurement result at the event trigger, avoiding a CPU branch. Both
-paths preserve the existing timing points.
+For classical feedback, QREAD returns the bit to a CPU register. The program
+can then branch and schedule another operation. For fast conditional
+execution, QAPPEND_IF attaches a measurement reference and expected bit to an
+event. The TCU tests that condition when the event is due.
 
-[eQASM, Sections 2.3.7–2.3.8 and 3.5–3.6](https://arxiv.org/abs/1808.02449) defines
-measurement result registers and execution flags. qsbit-sim currently selects
-an individual measurement by reference; it does not implement eQASM's per-qubit
-register and derived execution-flag semantics. The result references and retained
-measurements are specified in the [simulator interfaces](interfaces.md#quantum-instruction-encoding).
+Conditions select an individual measurement. eQASM instead provides per-qubit
+measurement registers and derived execution flags; those register semantics
+are not implemented here.
 
 ## Implemented instruction profile
 
-The current executable accepts RV32I and its existing custom-0 control encodings.
-QAPPEND supplies the port and codeword; QADVANCE advances the requested time
-point. Their roles correspond to HISQ's `cw` and `wait`. Their encodings and
-completion rules remain those of the [existing profile](interfaces.md#quantum-instruction-encoding).
+The executable accepts RV32I and seven custom-0 control encodings:
 
-QREAD reads a local measurement reference. QFLUSH and QEND submit pending events
-and control program completion. QAPPEND_IF attaches a measurement condition.
-These instructions are simulator interface extensions, not HISQ instructions.
-QSYNC remains unsupported; HISQ `send`, `recv`, synchronization and distributed
-control are not implemented.
+| Instruction | Purpose |
+| --- | --- |
+| QAPPEND | Prepare port and codeword events at the current time point. |
+| QADVANCE | Enqueue pending events, then advance the time point. |
+| QFLUSH | Enqueue pending events without advancing. |
+| QREAD | Enqueue pending events and read a measurement result. |
+| QEND | Enqueue pending events and end the program. |
+| QAPPEND_IF | Prepare events conditioned on a measurement result. |
+| QSYNC | Raise `UnsupportedSynchronization`. |
+
+The [instruction reference](interfaces.md#quantum-instruction-encoding)
+specifies operands, encodings and completion rules. These encodings are not
+compatible with eQASM or HISQ. Distributed communication and synchronization
+are not implemented.
 
 ## Simulation implementation
 
-The [controller diagram](architecture.md) shows the control path. The
-[implementation map](implementation.md#implementation-map) separately shows
-C++ objects, communication, numerical adapters and SystemC scheduling.
+`TimingControl` prepares events. `TcuCycleModel` owns the timing queue,
+per-port event queues and timer. `ControlElectronics` schedules output,
+acquisition and result readiness, and calls the selected quantum backend.
 
-`TimingControl` implements reserve-phase preparation. `TcuCycleModel` owns
-the timing and event queues. `ControlElectronics` schedules control output,
-acquisition and discriminator delay. A quantum backend supplies shared quantum
-state and measurement calculations; it is a simulator interface for the quantum
-device. The resource conflict checker is also a simulation facility.
-
-`Simulator` schedules these objects with SystemC. Message arrival times,
-same-tick processing, reset epochs and result-slot reuse are defined in the
-[simulation timing contract](module-architecture.md).
+`Simulator` runs these components with SystemC. See the
+[controller diagram](architecture.md), [implementation map](implementation.md#implementation-map)
+and [timing reference](module-architecture.md) for their connections and
+execution order.

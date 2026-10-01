@@ -16,7 +16,7 @@ digraph architecture {
   measurement [label="Acquisition and discrimination", href="modules/acquisition-and-discrimination.html"];
   results [label="Measurement results", href="modules/measurement-results.html"];
   cpu -> reserve [label="decoded instructions"];
-  reserve -> timing [label="timing points"];
+  reserve -> timing [label="time points"];
   reserve -> events [label="operation events"];
   timing -> trigger [label="due time point"];
   trigger -> events [label="timing label"];
