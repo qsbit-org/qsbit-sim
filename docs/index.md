@@ -3,7 +3,7 @@
 qsbit-sim simulates an RV32I quantum controller. It executes a program, schedules
 quantum operations at specified times, and returns measurement results to the
 program. You can use it to study instruction timing, control queues and
-measurement feedback with a scripted or numerical quantum backend.
+measurement feedback with a mock or numerical quantum backend.
 
 The simulator uses C++20 and SystemC. Its timing control unit follows QuMA's
 separation of command preparation from timed output. The CPU pipeline, instruction
@@ -12,7 +12,7 @@ adapter and quantum backend have separate interfaces.
 ## Start here
 
 [Run your first simulation](quickstart.md) to build the controller, execute a
-measurement-feedback program and inspect its result. The default scripted backend
+measurement-feedback program and inspect its result. The default mock backend
 requires no Python quantum packages.
 
 Start with the [architecture overview](high-level-design.md) and

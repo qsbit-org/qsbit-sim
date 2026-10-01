@@ -16,9 +16,9 @@ public:
   virtual std::vector<bool> measure(std::span<const MeasurementReference> tokens) = 0;
   [[nodiscard]] virtual std::vector<std::complex<double>> state() const = 0;
 };
-class ScriptedBackend final : public IQuantumBackend {
+class MockBackend final : public IQuantumBackend {
 public:
-  explicit ScriptedBackend(std::map<Id, bool> outcomes = {}) : outcomes_(std::move(outcomes)) {}
+  explicit MockBackend(std::map<Id, bool> outcomes = {}) : outcomes_(std::move(outcomes)) {}
   void validate(const EventSpec &action) const override;
   void reset(std::uint32_t qubits, std::uint32_t seed) override;
   void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) override;

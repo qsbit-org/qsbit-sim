@@ -231,7 +231,7 @@ start and end timestamps. Output occupies the half-open interval
 
 ### Quantum backend
 
-The numerical or scripted implementation of the quantum device.
+The numerical or mock implementation of the quantum device.
 `IQuantumBackend` defines validation, evolution, gate application and measurement.
 It is a simulator API, not a controller hardware module.
 

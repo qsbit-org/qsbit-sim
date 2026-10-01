@@ -78,7 +78,7 @@ advance a hardware cycle.
 
 ## Example schedules
 
-The examples use scripted measurement bits and set TCU start to 200 ns.
+The examples use mock measurement bits and set TCU start to 200 ns.
 Other timing settings use their defaults. The first operation at cycle 8 starts
 at 360 ns, after the CPU has had time to prepare the queued timing points.
 The website build runs their ELF programs and checks the schedules before
@@ -86,7 +86,7 @@ publishing the playback data.
 
 | Program | Physical starts (ns) | Outcome |
 | --- | --- | --- |
-| Bell | H: 360; CX: 400; both acquisitions: 440 | Both scripted bits are 1. |
+| Bell | H: 360; CX: 400; both acquisitions: 440 | Both mock bits are 1. |
 | Feedback, outcome 1 | X: 360; acquisition: 440; branch-selected X: 720 | Memory word 4096 is 1. |
 | Feedback, outcome 0 | X: 360; acquisition: 440; branch-selected Z: 720 | Memory word 4096 is 0. |
 
@@ -103,6 +103,6 @@ operation. Both branches reach enqueue at 680 ns and schedule the selected
 gate for cycle 26 (720 ns), leaving two TCU cycles before output. Neither
 waiting for a result nor an empty queue pauses the TCU timer.
 
-The scripted backend demonstrates control timing. Use the
+The mock backend demonstrates control timing. Use the
 [Aer example](backends.md#install-an-optional-backend) to obtain bits from
 quantum-state evolution.

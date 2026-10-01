@@ -9,17 +9,17 @@ custom-0; compressed instructions and relaxation are disabled.
 
 ## Control-only run
 
-The default C++ build can execute a scripted feedback scenario without Python:
+The default C++ build can execute a mock feedback scenario without Python:
 
 ```sh
-build/qsbit-sim --config build/examples/runs/scripted.json
+build/qsbit-sim --config build/examples/runs/mock.json
 ```
 
-Results are in `build/runs/scripted.json` and `build/runs/scripted.jsonl`.
+Results are in `build/runs/mock.json` and `build/runs/mock.jsonl`.
 For the remaining examples, enable the Python bridge and install the selected
 [backend extra](../docs/backends.md). Run each configuration with the simulator
 from the same build directory. For example, a `clang-ninja` preset build uses
-`build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json`.
+`build-clang/qsbit-sim --config build-clang/examples/runs/mock.json`.
 
 ## Bell pair
 
@@ -39,10 +39,10 @@ it does not define a common random stream with another simulator library.
 
 `feedback.S` applies X to qubit 0, measures it, waits through QREAD, and takes an RV32I
 branch. Result one schedules X on qubit 1; result zero schedules Z. Aer deterministically
-returns one for this preparation, yielding `|11>`. Scripted runs cover both branches:
+returns one for this preparation, yielding `|11>`. Mock runs cover both branches:
 
 ```sh
-build/qsbit-sim --config build/examples/runs/feedback.json --backend scripted --outcomes 0
+build/qsbit-sim --config build/examples/runs/feedback.json --backend mock --outcomes 0
 ```
 
 The CPU receives the result at 505 ns. Both branches submit a group that the TCU

@@ -31,18 +31,18 @@ Python quantum packages are optional. See [build options](docs/building.md).
 The default build includes the example programs and run configurations.
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json
+build-clang/qsbit-sim --config build-clang/examples/runs/mock.json
 ```
 
-This runs the feedback program with a scripted measurement result. It exercises
+This runs the feedback program with a mock measurement result. It exercises
 the control pipeline without a quantum-state library. Results are written to
-`build-clang/runs/scripted.json`; timestamped events are in `build-clang/runs/scripted.jsonl`.
+`build-clang/runs/mock.json`; timestamped events are in `build-clang/runs/mock.jsonl`.
 The summary should contain `"success": true` and memory word `"4096": 1`.
 
 Replay the recorded trace in your browser with one command:
 
 ```sh
-python3 tools/replay_trace.py build-clang/runs/scripted.jsonl
+python3 tools/replay_trace.py build-clang/runs/mock.jsonl
 ```
 
 The player opens a local browser tab. Press Ctrl+C in the terminal to stop it.

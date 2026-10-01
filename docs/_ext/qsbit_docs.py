@@ -18,9 +18,9 @@ def run(command, **kwargs):
 
 def make_demo(root, build, output, name, program, outcomes):
     trace, summary = output / f'{name}.jsonl', output / f'{name}.summary.json'
-    config = build / 'examples/runs' / ('bell.json' if program == 'bell' else 'scripted.json')
+    config = build / 'examples/runs' / ('bell.json' if program == 'bell' else 'mock.json')
     run([str(build / 'qsbit-sim'), '--config', str(config),
-         '--backend', 'scripted', '--outcomes', outcomes, '--trace', str(trace),
+         '--backend', 'mock', '--outcomes', outcomes, '--trace', str(trace),
          '--summary', str(summary), '--inspect', '4096'])
     state = json.loads(summary.read_text())
     events = [json.loads(line) for line in trace.read_text().splitlines()]

@@ -69,7 +69,7 @@ void capacity_test() {
 }
 void calendar_test() {
   auto p = default_profile();
-  ScriptedBackend backend;
+  MockBackend backend;
   Trace trace;
   ControlElectronics device(p, backend, trace);
   auto first = launch(p, 0, 1, 100);
@@ -101,7 +101,7 @@ void readout_test() {
   p.validate();
   MeasurementResults slots(p);
   const auto token = slots.reserve(1, 0);
-  ScriptedBackend backend({{token.measurement, true}});
+  MockBackend backend({{token.measurement, true}});
   Trace trace;
   ControlLinks links(p);
   ControlElectronics device(p, backend, trace);
@@ -131,7 +131,7 @@ void overflow_test() {
   auto p = default_profile();
   p.mappings[3].actions[0].duration = 1;
   p.mappings[3].actions[0].discriminator_delay = 10;
-  ScriptedBackend backend;
+  MockBackend backend;
   Trace trace;
   ControlElectronics device(p, backend, trace);
   MeasurementResults slots(p);
@@ -148,7 +148,7 @@ void overflow_test() {
 void reset_test() {
   auto p = default_profile();
   MeasurementResults slots(p);
-  ScriptedBackend backend;
+  MockBackend backend;
   Trace trace;
   ControlLinks links(p);
   ControlElectronics device(p, backend, trace);
@@ -162,7 +162,7 @@ void reset_test() {
 }
 void sample_collision_test() {
   auto p = default_profile();
-  ScriptedBackend backend;
+  MockBackend backend;
   Trace trace;
   ControlElectronics device(p, backend, trace);
   MeasurementResults slots(p);

@@ -92,7 +92,7 @@ for the executable's option list.
 | --- | --- |
 | `--config FILE` | Read a schema-1 JSON run file. Paths inside it are relative to that file. |
 | `--program FILE` | Load an ELF program, or raw input when `--raw-base` is supplied. |
-| `--backend scripted\|aer\|pulse\|MODULE:CLASS` | Select a [backend](backends.md); default is scripted. |
+| `--backend mock\|aer\|pulse\|MODULE:CLASS` | Select a [backend](backends.md); default is mock. |
 | `--profile FILE` | Overlay a strict JSON profile on the current settings. |
 | `--dump-default-profile FILE` | Write the complete default profile and exit. |
 | `--seed N` and `--start TICK` | Override the seed and TCU startup offset, respectively. |
@@ -101,7 +101,7 @@ for the executable's option list.
 | `--trace FILE` and `--summary FILE` | Write JSONL events and JSON final state. |
 | `--inspect ADDRESS` | Include a final 32-bit memory word; repeatable. |
 | `--memory-dump FILE` | Write all RAM bytes starting at memory base. |
-| `--outcomes 0,1,...` | Set scripted bits indexed by measurement issue ID, starting at one. |
+| `--outcomes 0,1,...` | Set mock bits indexed by measurement issue ID, starting at one. |
 | `--reset TICK` | Schedule a session reset; repeated ticks must be sorted and unique. |
 | `--reverse-registration` | Reverse process registration for diagnostic runs. |
 | `--python-path DIRECTORY` | Add a module directory for the selected Python adapter. |
@@ -127,7 +127,7 @@ A run file combines the program, backend, profile and output paths:
 {
   "schema": 1,
   "program": "feedback.elf",
-  "backend": "scripted",
+  "backend": "mock",
   "outcomes": [true],
   "inspect": [4096],
   "trace": "results/feedback.jsonl",
@@ -150,7 +150,7 @@ Output parent directories are created as needed.
 | `memory_base`, `memory_size`, `raw_base` | RAM addresses and size and optional raw load address. |
 | `resets` | Array of integer reset ticks. |
 | `inspect` | Array of 32-bit addresses to inspect. |
-| `outcomes` | Array of booleans for scripted measurements. |
+| `outcomes` | Array of booleans for mock measurements. |
 | `reverse_registration` | Boolean diagnostic option. |
 
 Program, profile, output and module paths all resolve relative to the run file.
@@ -274,4 +274,4 @@ on one target still applies. A consumer must reject unknown schema versions.
 The JSON summary contains success status, stop tick, backend, complete profile,
 fingerprint, final registers and PC, requested memory words, unread result slots
 and statevector entries as `[real, imaginary]` pairs.
-The scripted backend has no statevector.
+The mock backend has no statevector.

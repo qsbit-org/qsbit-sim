@@ -60,7 +60,7 @@ that tick. `ControlElectronics` controls evolution intervals, measurements and
 result publication. A backend computes quantum state changes synchronously
 and never advances SystemC time.
 
-The built-in scripted backend supports deterministic protocol tests. Optional
+The built-in mock backend supports deterministic protocol tests. Optional
 Python adapters provide Qiskit Aer simulation and a small-system
 piecewise-constant Hamiltonian backend. Each numerical backend maintains one
 shared state across operations and mid-circuit measurements. Capability checks

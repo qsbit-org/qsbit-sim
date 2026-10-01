@@ -29,7 +29,7 @@ For pip, create and activate `.venv`, then use
 Select another simulator build with `-D qsbit_build=BUILD_DIRECTORY`.
 
 Sphinx extracts declarations from the current headers and runs the compiled
-Bell and feedback programs with scripted outcomes. It checks their event
+Bell and feedback programs with mock outcomes. It checks their event
 times before writing the trace data used by the player. Generated HTML, XML
 and traces stay under the output directory.
 

@@ -17,8 +17,7 @@ int sc_main(int argc, char **argv) {
     auto profile = default_profile();
     profile.start = 200;
     const bool outcome = scenario != "feedback_zero";
-    auto backend =
-        std::make_unique<ScriptedBackend>(std::map<Id, bool>{{1, outcome}, {2, outcome}});
+    auto backend = std::make_unique<MockBackend>(std::map<Id, bool>{{1, outcome}, {2, outcome}});
     const bool reverse = argc > 3 && std::string(argv[3]) == "reverse";
     Simulator sim("sim", profile, std::move(image), std::move(backend), {}, reverse);
     sc_core::sc_start(sc_core::sc_time::from_value(profile.watchdog + 20));

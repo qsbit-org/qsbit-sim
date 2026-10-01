@@ -2,9 +2,9 @@
   "schema": 1,
   "profile": {"start": 200},
   "program": "../feedback.elf",
-  "backend": "scripted",
+  "backend": "mock",
   "outcomes": [true],
   "inspect": [4096],
-  "trace": "../../runs/scripted.jsonl",
-  "summary": "../../runs/scripted.json"
+  "trace": "../../runs/mock.jsonl",
+  "summary": "../../runs/mock.json"
 }

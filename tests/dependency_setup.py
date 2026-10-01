@@ -46,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix='qsbit-dependencies-') as directory:
     assert examples.returncode == 0, examples.stdout + examples.stderr
     for name in ('bell', 'feedback', 'pulse', 'overlap'):
         assert (root / 'configured' / 'examples' / f'{name}.elf').read_bytes()[:4] == b'\x7fELF'
-    assert (root / 'configured' / 'examples' / 'runs' / 'scripted.json').is_file()
+    assert (root / 'configured' / 'examples' / 'runs' / 'mock.json').is_file()
 
     minimal = subprocess.run(
         [*command, '-B', str(root / 'minimal'),

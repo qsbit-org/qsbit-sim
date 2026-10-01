@@ -8,7 +8,7 @@ contains the extracted declarations, including private state named by the
 (backend_8hpp)=
 ## backend.hpp
 
-Quantum backend operations and the scripted implementation. [Open header](../include/qsbit/backend.hpp).
+Quantum backend operations and the mock implementation. [Open header](../include/qsbit/backend.hpp).
 
 (control_8hpp)=
 ## control.hpp

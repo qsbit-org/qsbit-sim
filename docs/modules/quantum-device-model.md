@@ -17,7 +17,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Physical event batch and drives"];
   owner [label="IQuantumBackend and ControlElectronics"];
-  state [label="IQuantumBackend\nScriptedBackend\nPythonBackend"];
+  state [label="IQuantumBackend\nMockBackend\nPythonBackend"];
   output [label="Evolution and sampled bits and state"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -31,7 +31,7 @@ interval. It then measures ending acquisitions and applies the new ideal gates
 in the order defined by the [device protocol](../module-architecture.md#device-batches-and-feedback).
 Ports never advance shared quantum state independently.
 
-The scripted backend returns configured measurement bits and has no statevector.
+The mock backend returns configured measurement bits and has no statevector.
 The Aer quantum backend supports ideal gates and state-derived measurements with collapse.
 The pulse quantum backend additionally evolves jointly under constant X, Y and Z drives.
 See [backend integration](../backends.md) for installation and adapter methods.
@@ -49,7 +49,7 @@ in radians.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `IQuantumBackend` | replaceable interface | Defines validation, reset, evolution, gate application, measurement and state inspection. |
-| `ScriptedBackend` | deterministic outcomes | Returns configured measurement bits; no quantum statevector. |
+| `MockBackend` | deterministic outcomes | Returns configured measurement bits; no quantum statevector. |
 | `PythonBackend` | optional bridge | Calls a selected Python adapter; Aer and pulse packages are optional. |
 | `ControlElectronics::active_` | drive source | Provides the joint drive set for the preceding interval. |
 
@@ -70,6 +70,6 @@ Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../
 
 **CTest:** `systemc.bell.normal`, `systemc.pulse.normal`.
 
-These tests run complete device sequences with the scripted backend. Optional
+These tests run complete device sequences with the mock backend. Optional
 `numerical.*` tests check numerical Aer and pulse evolution; `python.plugin` checks
 loading and calls to an external adapter.

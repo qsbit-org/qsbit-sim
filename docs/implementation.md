@@ -127,7 +127,7 @@ feedback still crosses to a strictly later receiver edge.
 
 | Backend | Supported behavior | Limits |
 | --- | --- | --- |
-| Scripted | Fixed measurement bits indexed by measurement ID. | No quantum state. |
+| Mock | Fixed measurement bits indexed by measurement ID. | No quantum state. |
 | Aer | Persistent statevector, supported one- and two-qubit gates, joint measurement and collapse. | 1–20 qubits; no pulse integration or noise model. |
 | Pulse | Aer gates and measurement, plus joint constant X, Y and Z Hamiltonian evolution with SciPy `expm`. | 1–8 qubits; no sampled waveforms or dissipative solver. |
 

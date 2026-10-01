@@ -94,7 +94,7 @@ if(QSBIT_BUILD_EXAMPLES OR BUILD_TESTING)
   find_program(RISCV_AS NAMES riscv64-unknown-elf-as riscv64-elf-as REQUIRED)
   find_program(RISCV_LD NAMES riscv64-unknown-elf-ld riscv64-elf-ld REQUIRED)
   file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples")
-  foreach(run bell feedback overlap pulse scripted)
+  foreach(run bell feedback overlap pulse mock)
     configure_file("examples/runs/${run}.json.in"
       "${CMAKE_CURRENT_BINARY_DIR}/examples/runs/${run}.json" COPYONLY)
   endforeach()
@@ -176,10 +176,10 @@ if(BUILD_TESTING)
     --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"
     --source "${CMAKE_CURRENT_SOURCE_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/use-cases")
   set_tests_properties(systemc.use_cases PROPERTIES TIMEOUT 120 LABELS "fast;integration")
-  add_test(NAME cli.scripted COMMAND "${Python3_EXECUTABLE}"
+  add_test(NAME cli.mock COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
-    --build "${CMAKE_CURRENT_BINARY_DIR}" --scenarios scripted)
-  set_tests_properties(cli.scripted PROPERTIES TIMEOUT 30 LABELS "fast;integration")
+    --build "${CMAKE_CURRENT_BINARY_DIR}" --scenarios mock)
+  set_tests_properties(cli.mock PROPERTIES TIMEOUT 30 LABELS "fast;integration")
   add_executable(adapter_tests tests/adapter_tests.cpp)
   target_link_libraries(adapter_tests PRIVATE qsbit_systemc)
   foreach(scenario normal reset)

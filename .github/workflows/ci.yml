@@ -98,13 +98,13 @@ jobs:
             -DQSBIT_ARCH_TEST_SOURCE="$PWD/build/riscv-arch-test"
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel 2
-      - name: Run scripted example
+      - name: Run mock example
         env:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: |
-          ./${{ matrix.build_dir }}/qsbit-sim --config ${{ matrix.build_dir }}/examples/runs/scripted.json
-          python -c "import json; from pathlib import Path; result = json.loads(Path('${{ matrix.build_dir }}/runs/scripted.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
+          ./${{ matrix.build_dir }}/qsbit-sim --config ${{ matrix.build_dir }}/examples/runs/mock.json
+          python -c "import json; from pathlib import Path; result = json.loads(Path('${{ matrix.build_dir }}/runs/mock.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
       - name: Test
         env:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
@@ -141,10 +141,10 @@ jobs:
         run: |
           cmake --preset clang-ninja
           cmake --build --preset clang-ninja --parallel 3
-      - name: Run scripted example
+      - name: Run mock example
         run: |
-          build-clang/qsbit-sim --config build-clang/examples/runs/scripted.json
-          python3 -c "import json; from pathlib import Path; result = json.loads(Path('build-clang/runs/scripted.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
+          build-clang/qsbit-sim --config build-clang/examples/runs/mock.json
+          python3 -c "import json; from pathlib import Path; result = json.loads(Path('build-clang/runs/mock.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
       - name: Build and run core tests
         run: |
           cmake --preset clang-ninja -DBUILD_TESTING=ON

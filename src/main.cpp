@@ -72,7 +72,7 @@ int sc_main(int argc, char **argv) {
   try {
     sc_core::sc_set_time_resolution(1, sc_core::SC_NS);
     auto profile = default_profile();
-    std::string program, backend_name = "scripted", trace_path = "trace.jsonl",
+    std::string program, backend_name = "mock", trace_path = "trace.jsonl",
                          summary_path = "summary.json";
     std::string module_directory = QSBIT_PYTHON_MODULE_DIRECTORY;
     std::string memory_dump;
@@ -91,7 +91,7 @@ int sc_main(int argc, char **argv) {
         std::cout
             << "qsbit-sim --config FILE | --program FILE [options]\n"
                "  --config FILE (JSON run configuration; paths relative to config file)\n"
-               "  --raw-base ADDRESS --backend scripted|aer|pulse|MODULE:CLASS\n"
+               "  --raw-base ADDRESS --backend mock|aer|pulse|MODULE:CLASS\n"
                "  --profile FILE --trace FILE --summary FILE --seed INTEGER --start TICK\n"
                "  --memory-base ADDRESS --memory-size BYTES --outcomes 0,1,...\n"
                "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"
@@ -231,8 +231,8 @@ int sc_main(int argc, char **argv) {
 #ifdef QSBIT_HAS_PYTHON
     std::unique_ptr<PythonSession> python;
 #endif
-    if (backend_name == "scripted")
-      backend = std::make_unique<ScriptedBackend>(outcomes);
+    if (backend_name == "mock")
+      backend = std::make_unique<MockBackend>(outcomes);
     else {
       std::string module, class_name;
       if (backend_name == "aer") {
@@ -246,7 +246,7 @@ int sc_main(int argc, char **argv) {
         require(separator != std::string::npos && separator > 0 &&
                     separator + 1 < backend_name.size() &&
                     backend_name.find(':', separator + 1) == std::string::npos,
-                ErrorCode::InvalidOperand, "backend must be scripted, aer, pulse, or MODULE:CLASS");
+                ErrorCode::InvalidOperand, "backend must be mock, aer, pulse, or MODULE:CLASS");
         module = backend_name.substr(0, separator);
         class_name = backend_name.substr(separator + 1);
       }

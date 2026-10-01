@@ -28,9 +28,9 @@ for name in args.scenarios:
     assert summary['configuration']['start'] == 200, name
     starts = [e['tick'] for e in trace if e['kind'] == 'OperationStart']
     expected = {'bell': [360, 400, 440, 440], 'feedback': [360, 440, 720],
-                'scripted': [360, 440, 720], 'pulse': [360, 440], 'overlap': [360, 360]}
+                'mock': [360, 440, 720], 'pulse': [360, 440], 'overlap': [360, 360]}
     assert starts == expected[name], (name, starts)
-    if name == 'scripted':
+    if name == 'mock':
         assert summary['memory']['4096'] == 1, summary
     elif name == 'bell':
         assert summary['memory']['4096'] == summary['memory']['4100'], summary
@@ -39,4 +39,4 @@ for name in args.scenarios:
     else:
         assert len([event for event in trace if event['kind'] == 'OperationStart']) == 2, name
 
-print(f'PASS {len(args.scenarios)} JSON-configured numerical examples')
+print(f'PASS {len(args.scenarios)} JSON-configured examples')

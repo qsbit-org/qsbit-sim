@@ -6,7 +6,7 @@ readout delays.
 
 | Backend | Use | Installation |
 | --- | --- | --- |
-| `scripted` | Return fixed measurement bits for control tests; no quantum state. | Included in the C++ build. |
+| `mock` | Return fixed measurement bits for control tests; no quantum state. | Included in the C++ build. |
 | `aer` | Apply ideal gates and perform state-derived measurements with collapse. | Python bridge and `aer` extra. |
 | `pulse` | Evolve constant Hamiltonian drives jointly, with Aer gates and measurements. | Python bridge and `pulse` extra. |
 | `package.module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |

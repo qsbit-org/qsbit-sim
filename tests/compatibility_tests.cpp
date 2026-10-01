@@ -47,7 +47,7 @@ int main() {
     }
     validate_group(request, p);
     validate_timing_events(request, p);
-    ScriptedBackend backend;
+    MockBackend backend;
     DeviceRuntime electronics(p, backend, trace);
     CHECK(&electronics.calendar() == &electronics.resources());
     std::cout << "PASS source compatibility\n";

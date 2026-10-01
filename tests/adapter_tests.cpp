@@ -39,8 +39,7 @@ int sc_main(int argc, char **argv) {
     const bool reset = argc > 1 && std::string(argv[1]) == "reset";
     Simulator sim(
         "sim", default_profile(), ProgramImage::raw(bytes, 0, 0, 4096),
-        std::make_unique<ScriptedBackend>(), reset ? std::vector<Tick>{100} : std::vector<Tick>{},
-        true,
+        std::make_unique<MockBackend>(), reset ? std::vector<Tick>{100} : std::vector<Tick>{}, true,
         [](Clock, std::uint32_t entry, Trace &) { return std::make_unique<ExternalCpu>(entry); });
     sc_core::sc_start(5000, sc_core::SC_NS);
     CHECK(sim.success() && sim.cpu().pc() == 12 && sim.cpu().registers()[1] == 3);
