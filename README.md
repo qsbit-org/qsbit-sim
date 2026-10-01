@@ -119,9 +119,11 @@ Before opening a pull request, run the [local checks](docs/engineering-and-testi
 
 ## Timing control
 
-The CPU prepares quantum operations ahead of time. A timing control unit (TCU)
-buffers those operations and releases them at their scheduled cycles. Measurement
-results return to the CPU or feed conditional TCU output.
+During the reserve phase, the CPU prepares port and codeword events at specified
+time points. The timing control unit (TCU) stores timing points and per-port
+events. During the trigger phase, its timing controller triggers the events at
+their scheduled cycles. Measurement results support classical feedback and fast
+conditional execution.
 
 The core ideas behind this control model come from QuMA and eQASM: operations
 are prepared ahead of time, then released by a timed control path. We also
@@ -138,7 +140,11 @@ Architectural references for this control model are:
 - [Distributed-HISQ: A Distributed Quantum Control Architecture](https://arxiv.org/abs/2509.04798) — RISC-V quantum-control extensions and distributed control.
 
 See the [architecture overview](docs/high-level-design.md) for the implemented
-control path and [timing protocol](docs/module-architecture.md) for its exact rules.
+control path and [simulation timing contract](docs/module-architecture.md) for
+the executable model's exact rules. The existing custom-0 instruction encodings
+remain supported; they are not HISQ binaries. The
+[implementation map](docs/implementation.md#implementation-map) documents C++
+objects, resource checks, numerical backends and SystemC scheduling separately.
 
 ## Design
 

@@ -11,7 +11,7 @@ namespace qsbit {
 struct CpuPorts {
   MemoryPort &fetch;
   MemoryPort &data;
-  std::function<std::optional<std::uint32_t>(const ProducerOperation &)> control;
+  std::function<std::optional<std::uint32_t>(const ControlOperation &)> control;
 };
 // Adapter contract intentionally contains no SystemC types or concrete pipeline latches.
 class ICpuCycleModel {

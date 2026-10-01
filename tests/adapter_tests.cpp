@@ -16,8 +16,8 @@ public:
   void step(Tick, Epoch, CpuPorts &ports) override {
     if (halted())
       return;
-    const std::array<ProducerOperation, 3> operations{
-        {{1, ProducerKind::Advance, 8}, {2, ProducerKind::Append, 0, 1}, {3, ProducerKind::End}}};
+    const std::array<ControlOperation, 3> operations{
+        {{1, ControlKind::Advance, 8}, {2, ControlKind::Append, 0, 1}, {3, ControlKind::End}}};
     if (ports.control(operations[index_])) {
       ++index_;
       pc_ += 4;

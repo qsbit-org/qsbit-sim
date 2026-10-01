@@ -68,10 +68,10 @@ operation at cycle 8 starts at `200 + 8 * 20 = 360 ns`. The trace contains:
 | 720 | The branch-selected X starts on qubit 1. |
 
 After receiving the result at 505 ns, the CPU executes the branch and submits
-the selected action. Both branches reach [TCU admission](glossary.md#admission), which inserts a
-complete group into the queues, at 680 ns. The program
-advances its [producer cursor](glossary.md#producer-cursor) from cycle 12 to cycle 26, scheduling output at
-`200 + 26 * 20 = 720 ns`. This leaves two TCU cycles between admission and
+the selected action. Both branches reach [TCU enqueue](glossary.md#enqueue), which inserts a
+a timing point and its events into the queues, at 680 ns. The program
+advances its [current time point](glossary.md#time-point) from cycle 12 to cycle 26, scheduling output at
+`200 + 26 * 20 = 720 ns`. This leaves two TCU cycles between enqueue and
 output. Waiting for a result does not pause the TCU.
 
 ## Try the other branch

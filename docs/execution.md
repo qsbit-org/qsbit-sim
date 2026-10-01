@@ -45,10 +45,10 @@ notification. The speed control changes playback only.
 
 1. Select **feedback-one** and open **Input assembly**. The program prepares
    qubit 0, measures it and branches on the result.
-2. Jump to `ProducerAccepted`. Its `cycle` is the producer cursor: the TCU
+2. Jump to `ProducerAccepted`. Its `cycle` is the current time point: the TCU
    cycle being prepared. Acceptance means the action is staged at the CPU.
 3. Find `GroupAdmitted` and then `LabelFired`. The first records queue insertion;
-   the second records the planned TCU firing edge.
+   the second records the planned TCU event triggering edge.
 4. Follow `MeasurementSampled`, `ResultReady` and `CpuResultVisible`. These show
    sampling, discriminator delay and delivery to the CPU.
 5. Continue to the last `OperationStart`. With outcome 1, the program selects X
@@ -69,7 +69,7 @@ TCU history commits. Bell uses these deliveries without conditional control.
 
 **Last observed state** shows only values recorded by earlier events, together
 with their observation tick. For example, occupancy is the value recorded at
-the last admission; it is not a live view of the queue. Retirement records do
+the last enqueue; it is not a live view of the queue. Retirement records do
 not reveal current pipeline latches.
 
 Several events can share a timestamp. They appear at the same horizontal
@@ -80,7 +80,7 @@ advance a hardware cycle.
 
 The examples use scripted measurement bits and set TCU start to 200 ns.
 Other timing settings use their defaults. The first operation at cycle 8 starts
-at 360 ns, after the CPU has had time to prepare the queued groups.
+at 360 ns, after the CPU has had time to prepare the queued timing points.
 The website build runs their ELF programs and checks the schedules before
 publishing the playback data.
 
@@ -91,15 +91,15 @@ publishing the playback data.
 | Feedback, outcome 0 | X: 360; acquisition: 440; branch-selected Z: 720 | Memory word 4096 is 0. |
 
 In each run, acquisition samples at 480 ns. The result is ready at 500 ns,
-CPU-visible at 505 ns and committed to fast history at 540 ns. With the 20 ns
+CPU-visible at 505 ns and committed to conditional results at 540 ns. With the 20 ns
 TCU period, conditions can first use that history at 560 ns. `FastResultVisible`
 marks the commit, not use by the condition check already performed at 540 ns.
 The player labels the earliest possible condition edge as derived; use also
 requires the token to remain in history.
 
-In Bell, two measurement APPENDs join one group before QREAD seals it.
+In Bell, two measurement APPENDs join one timing point before QREAD submits it.
 In feedback, QREAD completes before the classical branch chooses the final
-operation. Both branches reach admission at 680 ns and schedule the selected
+operation. Both branches reach enqueue at 680 ns and schedule the selected
 gate for cycle 26 (720 ns), leaving two TCU cycles before output. Neither
 waiting for a result nor an empty queue pauses the TCU timer.
 

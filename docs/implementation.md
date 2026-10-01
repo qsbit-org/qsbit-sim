@@ -4,11 +4,25 @@ This reference lists the current libraries, numerical defaults and supported
 features. The [architecture overview](high-level-design.md) explains the data
 path; the [control protocol](module-architecture.md) defines event ordering.
 
+## Implementation map
+
+This diagram shows simulator objects and calls. The
+[controller architecture](architecture.md) presents the reserve and trigger phases,
+control output and measurement feedback. Resource checks, numerical adapters,
+mailboxes and SystemC processes below implement that simulation.
+
+```{graphviz} implementation.dot
+:alt: Simulator implementation objects, their owned state and communication paths.
+```
+
+Solid arrows carry data or calls; dashed arrows show labeled dependencies.
+An object boundary adds no modeled delay unless the timing contract specifies one.
+
 ## Libraries and owners
 
 | Library | Contents | Dependencies |
 | --- | --- | --- |
-| `qsbit_core` | ISA, memory, CPU interface and model, producer, TCU, feedback and devices. | C++20; no SystemC or Python link dependency. |
+| `qsbit_core` | ISA, memory, CPU interface and model, timing control, TCU, feedback and devices. | C++20; no SystemC or Python link dependency. |
 | `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Core and SystemC. |
 | `qsbit_config` | JSON run and profile parsing. | Core and the configured JSON library. |
 | `qsbit_python` | Calls to optional Python backend adapters. | Python development library and pybind11; built only when enabled. |
@@ -40,9 +54,9 @@ integers. Architectural registers and addresses use 32 bits.
 | Memory service | 1 CPU period after acceptance |
 | Timing queue capacity | 32 points |
 | Event queue capacity | 32 entries per port |
-| Producer staging | 16 actions |
+| Timing control staging | 16 actions |
 | Measurement slots | 8 |
-| Firing width | 1 action per port per group |
+| Event triggering width | 1 action per port per timing point |
 
 The example run files override TCU start to 200 ns. These are configurable
 values, not fixed hardware constants. Dump the complete current
@@ -54,21 +68,22 @@ build-gcc/qsbit-sim --dump-default-profile out/default-profile.json
 
 Each run summary records its full validated profile and an FNV-1a fingerprint.
 The fingerprint identifies the configuration; it is not a cryptographic check.
-`Group.configuration` carries this string. A summary instead uses
+`TimingEvents.configuration` carries this string. A summary instead uses
 `configuration_hash` for the fingerprint and `configuration` for the full profile.
 The profile stays fixed throughout the run and all session resets.
 
 ## CPU and memory
 
 The default CPU is a single-issue, in-order pipeline with fetch, decode and
-execute/commit stages. [CPU terms](glossary.md#programs-and-cpu-execution) define
-stages, latches, hazards and retirement. Each latch advances at most once per CPU edge.
+execute stages; execution also commits results. The
+[CPU glossary](glossary.md#programs-and-cpu-execution) introduces the model.
+Each latch advances at most once per CPU edge.
 An older instruction retires before a younger instruction entering execute
 captures its operands.
 
 A load or blocked extension holds execute. A taken branch discards younger
 instructions and invalidates pending fetch generations. Only the oldest
-instruction can publish a store or producer operation. Speculative fetch faults
+instruction can publish a store or control operation. Speculative fetch faults
 become fatal only when their instruction is oldest.
 
 Memory has separate fetch and data ports, each with one pending transaction.
@@ -76,19 +91,19 @@ Request crossing, service time and response crossing are distinct delays.
 Stores occur once at completion. Reset cancels pending transactions and
 preserves committed bytes.
 
-## Producer and TCU
+## Timing control and TCU
 
-QAPPEND resolves a mapping and stages actions for the current producer cursor.
-It completes on local acceptance. QADVANCE, QFLUSH, QREAD and QEND seal the open
-group when required; only one submission can await an admission reply.
-QADVANCE(0) changes neither cursor nor group.
+QAPPEND resolves a mapping and prepares events for the current time point.
+It completes on local acceptance. QADVANCE, QFLUSH, QREAD and QEND submit any
+pending timing point and events when required; only one request can await a reply.
+QADVANCE(0) changes neither the time point nor its events.
 
-TCU admission inserts the timing point and all event members together.
-It checks capacity before firing removes any old entries. The timer selects
-due groups using cumulative intervals, including across empty-queue gaps.
+TCU enqueue inserts the timing point and all event members together.
+It checks capacity before event triggering removes any old entries. The timer selects
+due timing points using cumulative intervals, including across empty-queue gaps.
 Conditions use exact-token history from earlier TCU edges.
 
-The TCU validates the entire transition before committing firing and admission.
+The TCU validates the entire transition before committing event triggering and enqueue.
 A false condition consumes its event with a cancellation record. It does not
 shift subsequent points.
 

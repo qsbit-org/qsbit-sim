@@ -1,12 +1,12 @@
-# Output Channels and Resource Calendar
+# Control output and simulation resource checks
 
-`DeviceRuntime` schedules physical actions after the TCU fires a group.
-Its resource calendar reserves the complete future interval for each action,
+`ControlElectronics` schedules physical actions after the TCU triggers a timing point.
+Its resource checker reserves the complete future interval for each action,
 including actions whose output delay means they have not started yet.
 
 ## Connections
 
-- **Input:** validated TCU `LaunchBatch` values with resolved action descriptors.
+- **Input:** validated TCU `TriggeredEvents` values with resolved action descriptors.
 - **Output:** physical starts and ends, active pulse drives, backend calls and
   measurement completions.
 - **Scheduling:** the SystemC barrier calls `process()` at the next physical
@@ -16,11 +16,11 @@ including actions whose output delay means they have not started yet.
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Immutable TCU launch batch"];
-  owner [label="DeviceRuntime"];
-  state [label="calendar_\nboundaries_\nactive_"];
-  output [label="Physical actions / backend calls / Completion"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  input [label="TriggeredEvents"];
+  owner [label="ControlElectronics"];
+  state [label="reservations_\nboundaries_\nactive_"];
+  output [label="Physical actions and backend calls and Completion"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
@@ -37,7 +37,7 @@ It checks the complete batch against existing reservations and then installs
 all intervals. Resource occupancy is half-open, `[start, end)`, so one action
 can end at the exact tick another begins.
 
-At a physical boundary, the runtime validates the whole boundary batch. It
+At a physical boundary, the model validates all scheduled work at that tick. It
 evolves quantum state under the previously active drives up to this tick,
 samples ending acquisitions, removes ended actions, applies starting ideal
 gates and activates new intervals. Ready results are published last.
@@ -53,9 +53,9 @@ with the first drive, [20,30) with both, and [30,40) with the second.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `calendar_` | `ResourceCalendar` | Future half-open physical reservations and action identities. |
+| `reservations_` | `ResourceReservations` | Future half-open physical reservations and action identities. |
 | `boundaries_` | `map<Tick, Boundary>` | Scheduled starts, ends and result-ready IDs. |
-| `active_` | `map<Id, PhysicalAction>` | Operations currently occupying physical intervals. |
+| `active_` | `map<Id, ScheduledEvent>` | Operations currently occupying physical intervals. |
 | `last_tick_, processed_tick_` | global ticks | Last evolution point and guard against repeated physical processing. |
 
 [C++ API](../api.md#devicehpp).

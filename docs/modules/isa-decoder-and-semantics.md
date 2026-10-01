@@ -16,10 +16,10 @@ digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Instruction word and operands"];
-  owner [label="rv32::decode / evaluate"];
+  owner [label="rv32::decode and evaluate"];
   state [label="Decoded\nEffect"];
-  output [label="Decoded / Effect or typed fault"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="value records / configuration"];
+  output [label="Decoded and Effect or typed fault"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="value records and configuration"];
 }
 ```
 
@@ -35,7 +35,7 @@ memory. RV32I arithmetic uses 32-bit wraparound; time and protocol IDs use check
 arithmetic elsewhere in the simulator.
 
 The CPU sends decoded quantum instructions through
-[`adapt_quantum()`](quantum-instruction-adapter.md). That path creates a producer
+[`adapt_quantum()`](quantum-instruction-adapter.md). That path creates a timing control
 operation instead of executing a quantum effect inside the ISA library.
 Both functions are synchronous C++ calls and add no simulated delay.
 

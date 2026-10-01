@@ -13,7 +13,8 @@ struct ResourceUse {
   bool exclusive = true;
   bool operator==(const ResourceUse &) const = default;
 };
-struct ActionSpec {
+// Simulator parameters for a codeword-triggered event, not a hardware module.
+struct EventSpec {
   ActionKind kind = ActionKind::IdealGate;
   std::uint32_t port = 0;
   std::string operation = "x";
@@ -23,11 +24,11 @@ struct ActionSpec {
   double amplitude = 0.0;
   std::string axis = "x";
   bool separate_arm = false;
-  bool operator==(const ActionSpec &) const = default;
+  bool operator==(const EventSpec &) const = default;
 };
 struct Mapping {
   std::uint32_t port = 0, codeword = 0;
-  std::vector<ActionSpec> actions;
+  std::vector<EventSpec> actions;
 };
 struct Profile {
   Clock cpu{5, 0}, tcu{20, 0};
@@ -43,22 +44,24 @@ struct Profile {
   [[nodiscard]] const Mapping &mapping(std::uint32_t port, std::uint32_t codeword) const;
   [[nodiscard]] std::string fingerprint() const;
 };
-struct Token {
+// Tracks an individual measurement through delayed delivery and slot reuse.
+// This is not the per-qubit measurement register defined by eQASM.
+struct MeasurementReference {
   Epoch epoch = 0;
   Id measurement = 0;
   std::uint32_t slot = 0, generation = 0, handle = 0, target = 0;
-  bool operator==(const Token &) const = default;
+  bool operator==(const MeasurementReference &) const = default;
 };
 struct Condition {
-  Token token;
+  MeasurementReference token;
   bool expected = false;
 };
-struct ReservedEvent {
+struct OperationEvent {
   Epoch epoch = 0;
   Id id = 0, instruction = 0, label = 0;
   std::uint32_t source_port = 0, codeword = 0;
-  ActionSpec action;
-  std::optional<Token> token;
+  EventSpec action;
+  std::optional<MeasurementReference> token;
   std::optional<Condition> condition;
 };
 struct TimingPoint {
@@ -67,35 +70,56 @@ struct TimingPoint {
   Tick interval = 0;
   std::vector<Id> manifest;
 };
-struct Group {
+// One enqueue request: a timing point and its associated operation events.
+struct TimingEvents {
   TimingPoint point;
-  std::vector<ReservedEvent> events;
+  std::vector<OperationEvent> events;
   std::string configuration;
 };
-struct GroupReply {
+struct EnqueueReply {
   Id label = 0;
 };
 struct EndOfStream {
   Id last_label = 0;
 };
 struct Completion {
-  Token token;
+  MeasurementReference token;
   bool value = false;
 };
-struct LaunchBatch {
+struct TriggeredEvents {
   Epoch epoch = 0;
   Id label = 0;
   Tick fire_tick = 0;
-  std::vector<ReservedEvent> events;
+  std::vector<OperationEvent> events;
 };
-struct PhysicalAction {
-  ReservedEvent event;
+struct ScheduledEvent {
+  OperationEvent event;
   Tick start = 0, end = 0;
 };
 
-[[nodiscard]] std::vector<ReservedEvent> lower(const Profile &profile, std::uint32_t port,
-                                               std::uint32_t codeword, Epoch epoch, Id instruction,
-                                               Id first_event, std::optional<Token> token = {},
-                                               std::optional<Condition> condition = {});
-void validate_group(const Group &group, const Profile &profile);
+[[nodiscard]] std::vector<OperationEvent>
+decode_codeword(const Profile &profile, std::uint32_t port, std::uint32_t codeword, Epoch epoch,
+                Id instruction, Id first_event, std::optional<MeasurementReference> token = {},
+                std::optional<Condition> condition = {});
+void validate_timing_events(const TimingEvents &events, const Profile &profile);
+
+// Source compatibility for existing simulator adapters. New code uses the names above.
+using ActionSpec = EventSpec;
+using Token = MeasurementReference;
+using ReservedEvent = OperationEvent;
+using Group = TimingEvents;
+using GroupReply = EnqueueReply;
+using LaunchBatch = TriggeredEvents;
+using PhysicalAction = ScheduledEvent;
+inline std::vector<OperationEvent> lower(const Profile &profile, std::uint32_t port,
+                                         std::uint32_t codeword, Epoch epoch, Id instruction,
+                                         Id first_event,
+                                         std::optional<MeasurementReference> token = {},
+                                         std::optional<Condition> condition = {}) {
+  return decode_codeword(profile, port, codeword, epoch, instruction, first_event, token,
+                         condition);
+}
+inline void validate_group(const TimingEvents &events, const Profile &profile) {
+  validate_timing_events(events, profile);
+}
 } // namespace qsbit

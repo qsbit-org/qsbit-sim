@@ -117,7 +117,7 @@ void apply_profile(Profile &p, const Json &input) {
       for (const auto &spec : mapping["actions"]) {
         keys(spec, {"kind", "port", "operation", "targets", "resources", "delay", "duration",
                     "discriminator_delay", "amplitude", "axis", "separate_arm"});
-        ActionSpec action;
+        EventSpec action;
         action.port = map.port;
         action.kind = kind_value(spec.value("kind", std::string("gate")));
         action.operation = spec.value("operation", std::string("x"));

@@ -9,14 +9,14 @@
 namespace qsbit {
 struct TcuOutput {
   bool admitted = false;
-  std::optional<LaunchBatch> launch;
-  std::vector<Token> fast_delivered;
+  std::optional<TriggeredEvents> launch;
+  std::vector<MeasurementReference> fast_delivered;
 };
 class TcuCycleModel {
 public:
-  using Preflight = std::function<void(const LaunchBatch &)>;
+  using Preflight = std::function<void(const TriggeredEvents &)>;
   TcuCycleModel(const Profile &profile, Trace &trace);
-  TcuOutput step(Tick now, Epoch epoch, const Group *candidate,
+  TcuOutput step(Tick now, Epoch epoch, const TimingEvents *candidate,
                  const std::vector<Completion> &results, const Preflight &preflight);
   void close(const EndOfStream &end);
   void reset(Tick epoch_origin = 0);
@@ -25,7 +25,7 @@ public:
   [[nodiscard]] std::size_t port_size(std::uint32_t port) const { return events_.at(port).size(); }
   [[nodiscard]] Id last_label() const { return last_label_; }
   [[nodiscard]] Tick last_due() const { return last_due_; }
-  [[nodiscard]] const FastHistory &history() const { return history_; }
+  [[nodiscard]] const ConditionalResults &history() const { return history_; }
 
 private:
   struct Point {
@@ -35,8 +35,8 @@ private:
   const Profile &profile_;
   Trace &trace_;
   std::deque<Point> timing_;
-  std::vector<std::deque<ReservedEvent>> events_;
-  FastHistory history_;
+  std::vector<std::deque<OperationEvent>> events_;
+  ConditionalResults history_;
   Tick last_due_ = 0;
   Tick start_ = 0;
   Id last_label_ = 0;

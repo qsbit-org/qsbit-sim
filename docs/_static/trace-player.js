@@ -8,10 +8,10 @@
   const $ = id => document.getElementById(`trace-${id}`);
   const lanes = [
     ['cpu', 'CPU', 'cpu-cycle-model'],
-    ['producer', 'Producer', 'timeline-reservation-manager'],
-    ['tcu', 'TCU', 'tcu-timer-and-label-broadcaster'],
-    ['device', 'Device', 'output-channels-and-resource-calendar'],
-    ['feedback', 'Result delivery', 'measurement-scoreboard-and-cpu-feedback'],
+    ['producer', 'Reserve phase', 'reserve-phase'],
+    ['tcu', 'TCU', 'timing-controller'],
+    ['device', 'Control output', 'control-output'],
+    ['feedback', 'Result delivery', 'measurement-results'],
     ['lifecycle', 'Run lifecycle', 'trace-recorder-and-stop-controller'],
   ];
   const lane = e => {
@@ -86,9 +86,9 @@
     const observed = new Map();
     for (let i = 0; i <= index; i++) {
       const e = demo.events[i];
-      if (['ProducerAccepted', 'GroupSubmitted'].includes(e.kind)) observed.set('Producer cursor (last recorded)', `${e.cycle} at ${e.tick} ns`);
+      if (['ProducerAccepted', 'GroupSubmitted'].includes(e.kind)) observed.set('Time point (last recorded)', `${e.cycle} at ${e.tick} ns`);
       if (e.kind === 'InstructionRetired') observed.set('Retired instruction', `PC 0x${e.pc.toString(16)} → 0x${e.next_pc.toString(16)} at ${e.tick} ns`);
-      if (e.kind === 'GroupAdmitted') observed.set('Timing queue occupancy (at last admission)', `${e.value} at ${e.tick} ns`);
+      if (e.kind === 'GroupAdmitted') observed.set('Timing queue occupancy (at last enqueue)', `${e.value} at ${e.tick} ns`);
       if (e.kind === 'LabelFired') observed.set('Last fired label', `${e.label} at ${e.tick} ns`);
       if (e.kind === 'CpuResultVisible') observed.set(`CPU measurement ${e.id}`, `${e.value} visible at ${e.tick} ns`);
       if (e.kind === 'FastResultVisible') observed.set(`TCU measurement ${e.id}`, profile?.tcu?.period > 0 ? `${e.value} committed at ${e.tick} ns; earliest condition edge (derived): ${e.tick + profile.tcu.period} ns` : `${e.value} committed at ${e.tick} ns`);

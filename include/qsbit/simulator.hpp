@@ -7,7 +7,7 @@
 #include <systemc>
 
 namespace qsbit {
-// Clocked owners use committed mailboxes. DeviceRuntime has an explicit tick barrier
+// Clocked owners use committed mailboxes. ControlElectronics has an explicit tick barrier
 // that waits for every coincident owner, independently of process registration order.
 class Simulator final : public sc_core::sc_module {
 public:
@@ -19,7 +19,10 @@ public:
   [[nodiscard]] const Trace &trace() const { return trace_; }
   [[nodiscard]] const ICpuCycleModel &cpu() const { return *cpu_; }
   [[nodiscard]] const ProgramImage &memory() const { return memory_.image(); }
-  [[nodiscard]] const Scoreboard &scoreboard() const { return scoreboard_; }
+  [[nodiscard]] const MeasurementResults &measurement_results() const {
+    return measurement_results_;
+  }
+  [[nodiscard]] const MeasurementResults &scoreboard() const { return measurement_results(); }
   [[nodiscard]] const IQuantumBackend &backend() const { return *backend_; }
   [[nodiscard]] bool success() const { return success_; }
   [[nodiscard]] const std::optional<ErrorCode> &fault() const { return fault_; }
@@ -39,14 +42,14 @@ private:
   const Profile profile_;
   Trace trace_;
   std::unique_ptr<IQuantumBackend> backend_;
-  Scoreboard scoreboard_;
-  TimelineProducer producer_;
+  MeasurementResults measurement_results_;
+  TimingControl timing_control_;
   ControlLinks links_;
   MemoryPort fetch_port_, data_port_;
   MemoryModel memory_;
   std::unique_ptr<ICpuCycleModel> cpu_;
   TcuCycleModel tcu_;
-  DeviceRuntime device_;
+  ControlElectronics device_;
   sc_core::sc_clock cpu_clock_, tcu_clock_;
   sc_core::sc_event wake_, barrier_;
   std::optional<Tick> cpu_done_, memory_done_, tcu_done_, last_reset_;

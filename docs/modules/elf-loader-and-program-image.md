@@ -20,7 +20,7 @@ digraph module {
   owner [label="ProgramImage"];
   state [label="bytes_\nsegments_\nbase_, entry_"];
   output [label="Validated ProgramImage and entry PC"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
@@ -43,7 +43,7 @@ for the supported file format.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `bytes_` | `vector<uint8_t>` | RAM bytes, including loaded segments and zero-filled BSS. |
-| `segments_` | `vector<Segment>` | Mapped ranges and read/write/execute permissions. |
+| `segments_` | `vector<Segment>` | Mapped ranges and read, write and execute permissions. |
 | `base_, entry_` | 32-bit addresses | Memory base and initial CPU PC. |
 
 [C++ API](../api.md#imagehpp).

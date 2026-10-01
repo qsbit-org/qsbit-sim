@@ -3,16 +3,16 @@
 #include <limits>
 
 namespace qsbit {
-Scoreboard::Scoreboard(const Profile &profile)
+MeasurementResults::MeasurementResults(const Profile &profile)
     : profile_(profile), slots_(profile.result_slots), generations_(profile.result_slots, 0) {}
-bool Scoreboard::has_slot() const {
+bool MeasurementResults::has_slot() const {
   return std::any_of(slots_.begin(), slots_.end(),
                      [](const Slot &s) { return s.state == State::Free; });
 }
-bool Scoreboard::has_fast_credit() const {
+bool MeasurementResults::has_fast_credit() const {
   return !profile_.fast_feedback || fast_pending_.size() < profile_.result_slots;
 }
-Token Scoreboard::reserve(Epoch epoch, std::uint32_t target) {
+MeasurementReference MeasurementResults::reserve(Epoch epoch, std::uint32_t target) {
   require(target < profile_.qubits, ErrorCode::InvalidOperand, "measurement target is invalid");
   require(has_slot() && has_fast_credit(), ErrorCode::Capacity,
           "measurement reservation capacity exhausted");
@@ -24,12 +24,12 @@ Token Scoreboard::reserve(Epoch epoch, std::uint32_t target) {
   require(handle <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::TimeOverflow,
           "measurement handle exhausted");
   const auto following = checked_add(next_measurement_, 1);
-  Token result{epoch,
-               next_measurement_,
-               slot,
-               static_cast<std::uint32_t>(generation),
-               static_cast<std::uint32_t>(handle),
-               target};
+  MeasurementReference result{epoch,
+                              next_measurement_,
+                              slot,
+                              static_cast<std::uint32_t>(generation),
+                              static_cast<std::uint32_t>(handle),
+                              target};
   *it = Slot{State::Pending, result, false};
   generations_[slot] = result.generation;
   next_measurement_ = following;
@@ -37,7 +37,7 @@ Token Scoreboard::reserve(Epoch epoch, std::uint32_t target) {
     fast_pending_.emplace(result.measurement, result);
   return result;
 }
-Token Scoreboard::token(std::uint32_t handle, Epoch epoch) const {
+MeasurementReference MeasurementResults::token(std::uint32_t handle, Epoch epoch) const {
   require(handle > 0, ErrorCode::InvalidToken, "zero measurement handle");
   const auto index = (handle - 1) % profile_.result_slots;
   const auto &s = slots_[index];
@@ -45,7 +45,7 @@ Token Scoreboard::token(std::uint32_t handle, Epoch epoch) const {
           ErrorCode::InvalidToken, "unknown, consumed, or stale measurement handle");
   return s.token;
 }
-void Scoreboard::deliver(const Completion &completion, Epoch epoch) {
+void MeasurementResults::deliver(const Completion &completion, Epoch epoch) {
   if (completion.token.epoch != epoch)
     return;
   const auto expected = token(completion.token.handle, epoch);
@@ -56,7 +56,7 @@ void Scoreboard::deliver(const Completion &completion, Epoch epoch) {
   slot.value = completion.value;
   slot.state = State::Visible;
 }
-void Scoreboard::acknowledge_fast(const Token &token_value, Epoch epoch) {
+void MeasurementResults::acknowledge_fast(const MeasurementReference &token_value, Epoch epoch) {
   if (token_value.epoch != epoch)
     return;
   const auto it = fast_pending_.find(token_value.measurement);
@@ -64,7 +64,7 @@ void Scoreboard::acknowledge_fast(const Token &token_value, Epoch epoch) {
           "unknown or duplicate fast delivery credit");
   fast_pending_.erase(it);
 }
-std::optional<bool> Scoreboard::consume(std::uint32_t handle, Epoch epoch) {
+std::optional<bool> MeasurementResults::consume(std::uint32_t handle, Epoch epoch) {
   const auto selected = token(handle, epoch);
   auto &slot = slots_[selected.slot];
   if (slot.state == State::Pending)
@@ -73,18 +73,18 @@ std::optional<bool> Scoreboard::consume(std::uint32_t handle, Epoch epoch) {
   slot.state = State::Free;
   return value;
 }
-bool Scoreboard::deliveries_pending() const {
+bool MeasurementResults::deliveries_pending() const {
   return !fast_pending_.empty() || std::any_of(slots_.begin(), slots_.end(), [](const Slot &slot) {
     return slot.state == State::Pending;
   });
 }
-void Scoreboard::reset() {
+void MeasurementResults::reset() {
   for (auto &slot : slots_)
     slot = Slot{};
   fast_pending_.clear();
   next_measurement_ = 1;
 }
-bool FastHistory::evaluate(const Condition &condition) const {
+bool ConditionalResults::evaluate(const Condition &condition) const {
   require(condition.token.target < history_.size(), ErrorCode::InvalidToken,
           "condition target is invalid");
   const auto &history = history_[condition.token.target];
@@ -94,7 +94,7 @@ bool FastHistory::evaluate(const Condition &condition) const {
           "required fast-condition history is unavailable");
   return it->value == condition.expected;
 }
-void FastHistory::commit(const Completion &completion, Epoch epoch) {
+void ConditionalResults::commit(const Completion &completion, Epoch epoch) {
   if (completion.token.epoch != epoch)
     return;
   require(completion.token.target < history_.size(), ErrorCode::InvalidToken,
@@ -107,7 +107,7 @@ void FastHistory::commit(const Completion &completion, Epoch epoch) {
   if (history.size() > profile_.history_depth)
     history.pop_front();
 }
-void FastHistory::reset() {
+void ConditionalResults::reset() {
   for (auto &history : history_)
     history.clear();
 }

@@ -6,7 +6,7 @@ Profile default_profile() {
   Profile p;
   for (std::uint32_t q = 0; q < p.qubits; ++q) {
     for (std::uint32_t code = 1; code <= 5; ++code) {
-      ActionSpec a;
+      EventSpec a;
       a.port = q;
       a.targets = {q};
       a.resources = {{q, true}};
@@ -29,7 +29,7 @@ Profile default_profile() {
       p.mappings.push_back({q, code, {a}});
     }
   }
-  ActionSpec cx;
+  EventSpec cx;
   cx.port = 0;
   cx.operation = "cx";
   cx.targets = {0, 1};

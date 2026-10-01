@@ -17,9 +17,9 @@ Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
                      bool reverse_registration, CpuFactory cpu_factory)
     : sc_module(name), profile_(validated(std::move(profile))),
-      backend_(validated(std::move(backend))), scoreboard_(profile_),
-      producer_(profile_, scoreboard_, trace_,
-                [this](const ActionSpec &a) { backend_->validate(a); }),
+      backend_(validated(std::move(backend))), measurement_results_(profile_),
+      timing_control_(profile_, measurement_results_, trace_,
+                      [this](const EventSpec &a) { backend_->validate(a); }),
       links_(profile_), fetch_port_(profile_.cpu), data_port_(profile_.cpu),
       memory_(std::move(image), profile_.cpu, profile_.memory_latency),
       cpu_(cpu_factory
@@ -80,8 +80,8 @@ bool Simulator::reset_at(Tick now) {
     data_port_.reset();
     memory_.reset();
     cpu_->reset(memory_.image().entry());
-    producer_.reset();
-    scoreboard_.reset();
+    timing_control_.reset();
+    measurement_results_.reset();
     tcu_.reset(now);
     device_.reset(now, epoch_);
     last_reset_ = now;
@@ -107,9 +107,9 @@ void Simulator::cpu_edge() {
   const Tick now = sc_core::sc_time_stamp().value();
   try {
     if (!reset_at(now)) {
-      producer_.receive(now, epoch_, links_);
-      CpuPorts ports{fetch_port_, data_port_, [&](const ProducerOperation &op) {
-                       return producer_.execute(op, now, epoch_, links_);
+      timing_control_.receive(now, epoch_, links_);
+      CpuPorts ports{fetch_port_, data_port_, [&](const ControlOperation &op) {
+                       return timing_control_.execute(op, now, epoch_, links_);
                      }};
       cpu_->step(now, epoch_, ports);
     }
@@ -151,10 +151,10 @@ void Simulator::tcu_edge() {
           trace_.emit({now, epoch_, "StaleCompletionDiscarded"});
       }
       auto output = tcu_.step(now, epoch_, group ? &group->value : nullptr, results,
-                              [&](const LaunchBatch &batch) { device_.preflight(batch); });
+                              [&](const TriggeredEvents &batch) { device_.preflight(batch); });
       if (output.admitted) {
         const auto accepted = links_.groups.take(now);
-        links_.replies.publish(now, epoch_, GroupReply{accepted->value.point.label});
+        links_.replies.publish(now, epoch_, EnqueueReply{accepted->value.point.label});
       }
       if (output.launch)
         device_.accept(*output.launch);
@@ -201,8 +201,9 @@ void Simulator::barrier() {
   try {
     if (!reset_at(now) && device_.next_boundary() == now)
       device_.process(now, epoch_, links_);
-    if (cpu_->halted() && producer_.closed() && !producer_.pending() && tcu_.drained() &&
-        device_.drained() && !scoreboard_.deliveries_pending() && links_empty() && memory_.idle()) {
+    if (cpu_->halted() && timing_control_.closed() && !timing_control_.pending() &&
+        tcu_.drained() && device_.drained() && !measurement_results_.deliveries_pending() &&
+        links_empty() && memory_.idle()) {
       success_ = true;
       stopped_ = true;
       trace_.emit({now, epoch_, "SimulationCompleted"});

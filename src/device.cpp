@@ -4,14 +4,14 @@
 
 namespace qsbit {
 namespace {
-bool common_target(const ActionSpec &a, const ActionSpec &b) {
+bool common_target(const EventSpec &a, const EventSpec &b) {
   return std::any_of(a.targets.begin(), a.targets.end(), [&](auto q) {
     return std::find(b.targets.begin(), b.targets.end(), q) != b.targets.end();
   });
 }
-bool is_arm(const ActionSpec &a) { return a.kind == ActionKind::DiscriminatorArm; }
+bool is_arm(const EventSpec &a) { return a.kind == ActionKind::DiscriminatorArm; }
 } // namespace
-void ResourceCalendar::pair(const PhysicalAction &a, const PhysicalAction &b) {
+void ResourceReservations::pair(const ScheduledEvent &a, const ScheduledEvent &b) {
   const auto &x = a.event.action;
   const auto &y = b.event.action;
   const bool overlap = a.start < b.end && b.start < a.end;
@@ -33,7 +33,7 @@ void ResourceCalendar::pair(const PhysicalAction &a, const PhysicalAction &b) {
             "measurement sample and ideal gate share a target and tick");
   }
 }
-void ResourceCalendar::check(std::span<const PhysicalAction> actions) const {
+void ResourceReservations::check(std::span<const ScheduledEvent> actions) const {
   std::set<Id> ids;
   for (std::size_t i = 0; i < actions.size(); ++i) {
     const auto &action = actions[i];
@@ -46,19 +46,20 @@ void ResourceCalendar::check(std::span<const PhysicalAction> actions) const {
       pair(action, actions[j]);
   }
 }
-void ResourceCalendar::reserve(std::span<const PhysicalAction> actions) {
+void ResourceReservations::reserve(std::span<const ScheduledEvent> actions) {
   check(actions);
   reservations_.insert(reservations_.end(), actions.begin(), actions.end());
 }
-void ResourceCalendar::discard_before(Tick now) {
-  std::erase_if(reservations_, [&](const PhysicalAction &action) { return action.end < now; });
+void ResourceReservations::discard_before(Tick now) {
+  std::erase_if(reservations_, [&](const ScheduledEvent &action) { return action.end < now; });
 }
-DeviceRuntime::DeviceRuntime(const Profile &profile, IQuantumBackend &backend, Trace &trace)
+ControlElectronics::ControlElectronics(const Profile &profile, IQuantumBackend &backend,
+                                       Trace &trace)
     : profile_(profile), backend_(backend), trace_(trace) {
   backend_.reset(profile.qubits, profile.seed);
 }
-std::vector<PhysicalAction> DeviceRuntime::resolve(const LaunchBatch &batch) const {
-  std::vector<PhysicalAction> actions;
+std::vector<ScheduledEvent> ControlElectronics::resolve(const TriggeredEvents &batch) const {
+  std::vector<ScheduledEvent> actions;
   for (const auto &event : batch.events) {
     require(event.epoch == batch.epoch && event.label == batch.label, ErrorCode::Protocol,
             "launch event identity mismatch");
@@ -68,11 +69,11 @@ std::vector<PhysicalAction> DeviceRuntime::resolve(const LaunchBatch &batch) con
   }
   return actions;
 }
-void DeviceRuntime::preflight(const LaunchBatch &batch) const {
+void ControlElectronics::preflight(const TriggeredEvents &batch) const {
   const auto actions = resolve(batch);
-  calendar_.check(actions);
+  reservations_.check(actions);
   std::map<Id, unsigned> acquisitions, arms;
-  std::map<Id, Token> identities;
+  std::map<Id, MeasurementReference> identities;
   for (const auto &action : actions) {
     const auto &e = action.event;
     if (e.action.kind == ActionKind::Acquire || is_arm(e.action)) {
@@ -108,10 +109,10 @@ void DeviceRuntime::preflight(const LaunchBatch &batch) const {
   require(!processed_tick_ || batch.fire_tick > *processed_tick_, ErrorCode::Protocol,
           "launch arrived after its physical barrier");
 }
-void DeviceRuntime::accept(const LaunchBatch &batch) {
+void ControlElectronics::accept(const TriggeredEvents &batch) {
   preflight(batch);
   const auto actions = resolve(batch);
-  calendar_.reserve(actions);
+  reservations_.reserve(actions);
   for (const auto &action : actions) {
     const auto &e = action.event;
     boundaries_[action.start].starts.push_back(action);
@@ -134,15 +135,15 @@ void DeviceRuntime::accept(const LaunchBatch &batch) {
     trace_.emit(std::move(record));
   }
 }
-void DeviceRuntime::process(Tick now, Epoch epoch, ControlLinks &links) {
+void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
   require(now >= last_tick_ && (!processed_tick_ || now > *processed_tick_), ErrorCode::Protocol,
           "physical boundary replay or decreasing time");
   const auto it = boundaries_.find(now);
   if (it == boundaries_.end())
     return;
   const auto &boundary = it->second;
-  std::vector<Token> samples;
-  std::vector<ActionSpec> gates, drives;
+  std::vector<MeasurementReference> samples;
+  std::vector<EventSpec> gates, drives;
   for (const auto &[id, action] : active_) {
     (void)id;
     if (action.event.action.kind == ActionKind::Pulse)
@@ -219,19 +220,19 @@ void DeviceRuntime::process(Tick now, Epoch epoch, ControlLinks &links) {
   last_tick_ = now;
   processed_tick_ = now;
   boundaries_.erase(it);
-  calendar_.discard_before(now);
+  reservations_.discard_before(now);
 }
-std::optional<Tick> DeviceRuntime::next_boundary() const {
+std::optional<Tick> ControlElectronics::next_boundary() const {
   return boundaries_.empty() ? std::nullopt : std::optional<Tick>{boundaries_.begin()->first};
 }
-void DeviceRuntime::reset(Tick now, Epoch epoch) {
-  for (const auto &action : calendar_.reservations())
+void ControlElectronics::reset(Tick now, Epoch epoch) {
+  for (const auto &action : reservations_.reservations())
     if (action.end >= now)
       trace_.emit({now, epoch, "ResetAborted", action.event.id, action.event.label});
   boundaries_.clear();
   active_.clear();
   readouts_.clear();
-  calendar_.reset();
+  reservations_.reset();
   backend_.reset(profile_.qubits, profile_.seed);
   last_tick_ = now;
   processed_tick_.reset();

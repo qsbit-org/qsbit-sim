@@ -9,14 +9,14 @@ not implemented.
 
 - **Input:** a legally encoded QSYNC at the CPU's oldest execute stage.
 - **Output:** a typed fault recorded by `Simulator`.
-- **Scheduling:** rejection occurs in the producer call on a CPU edge.
+- **Scheduling:** rejection occurs in the timing control call on a CPU edge.
 
 ```{graphviz}
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="QSYNC"];
-  owner [label="TimelineProducer rejection"];
+  owner [label="TimingControl rejection"];
   state [label="No retained synchronization state"];
   output [label="UnsupportedSynchronization"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="state"];
@@ -25,18 +25,18 @@ digraph module {
 
 ## Current behavior
 
-The adapter converts QSYNC to `ProducerKind::Synchronize`.
-`TimelineProducer::execute()` raises the fault without completing the instruction.
+The adapter converts QSYNC to `ControlKind::Synchronize`.
+`TimingControl::execute()` raises the fault without completing the instruction.
 It creates no timing point and leaves the TCU timer running.
 
 A distributed implementation would need peer-message timing, synchronization
-booking, pause/resume behavior and reset handling. During a local TCU pause,
+booking, pause and resume behavior and reset handling. During a local TCU pause,
 global time and physical quantum evolution would still have to continue.
 There are no peer queues or pause state in the current implementation.
 
 ## Objects and state
 
-The decoded instruction and `ProducerOperation` are temporary values.
+The decoded instruction and `ControlOperation` are temporary values.
 The current implementation stores no synchronization state.
 
 [C++ API](../api.md#producerhpp).

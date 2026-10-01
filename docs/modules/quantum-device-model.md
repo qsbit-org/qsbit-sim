@@ -1,7 +1,7 @@
-# Quantum Backends
+# Quantum device simulation
 
 A backend calculates quantum evolution and measurement outcomes.
-`DeviceRuntime` supplies the physical times and orders all calls that change that state.
+`ControlElectronics` supplies the physical times and orders all calls that change that state.
 All ports in a run share this backend state.
 
 ## Connections
@@ -16,10 +16,10 @@ digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Physical event batch and drives"];
-  owner [label="IQuantumBackend / DeviceRuntime"];
+  owner [label="IQuantumBackend and ControlElectronics"];
   state [label="IQuantumBackend\nScriptedBackend\nPythonBackend"];
-  output [label="Evolution / sampled bits / state"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  output [label="Evolution and sampled bits and state"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
@@ -50,14 +50,14 @@ in radians.
 | --- | --- | --- |
 | `IQuantumBackend` | replaceable interface | Defines validation, reset, evolution, gate application, measurement and state inspection. |
 | `ScriptedBackend` | deterministic outcomes | Returns configured measurement bits; no quantum statevector. |
-| `PythonBackend` | optional bridge | Calls a selected Python adapter; Aer/pulse packages are optional. |
-| `DeviceRuntime::active_` | drive source | Provides the joint drive set for the preceding interval. |
+| `PythonBackend` | optional bridge | Calls a selected Python adapter; Aer and pulse packages are optional. |
+| `ControlElectronics::active_` | drive source | Provides the joint drive set for the preceding interval. |
 
 [C++ API](../api.md#backendhpp).
 
 ## Reset and errors
 
-Requested actions are checked for backend support before producer acceptance
+Requested actions are checked for backend support before timing control acceptance
 and again before device mutation. Numerical or adapter failures terminate the
 run. An adapter need not support every kind of action or statevector inspection.
 

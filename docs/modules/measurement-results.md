@@ -1,26 +1,29 @@
-# Measurement Scoreboard and CPU Result Delivery
+# Measurement results and CPU feedback
 
-The scoreboard reserves a result slot when the producer accepts a measurement.
+The measurement result storage reserves a result slot when the timing control accepts a measurement.
 It tracks that measurement until its bit reaches the CPU and QREAD consumes it.
 Each slot carries a token so delayed results cannot overwrite a reused slot.
 
+These slots identify individual measurements. They are not the per-qubit
+last-result registers specified by eQASM.
+
 ## Connections
 
-- **Input:** a measurement reservation from the producer, a tagged CPU completion,
+- **Input:** a measurement reservation from the timing control, a tagged CPU completion,
   or a QREAD handle.
 - **Output:** a token and 32-bit handle, a result bit, or an incomplete read.
 - **Scheduling:** reservation and consumption occur in the CPU control call.
-  `TimelineProducer::receive()` delivers eligible results before the CPU steps.
+  `TimingControl::receive()` delivers arrived results before the CPU steps.
 
 ```{graphviz}
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Acquisition acceptance and completion"];
-  owner [label="Scoreboard"];
+  owner [label="MeasurementResults"];
   state [label="slots_\ngenerations_\nfast_pending_"];
-  output [label="Token / visible result / released slot"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  output [label="MeasurementReference and visible result and released slot"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
@@ -31,7 +34,7 @@ The token includes epoch, measurement ID, slot, generation, handle and target.
 The returned handle is what the program stores in a register.
 
 `deliver()` checks the full token and changes Pending to **Visible**. A QREAD
-first flushes any open group, then waits if its slot is still Pending. Once
+first flushes any pending events at the current time point, then waits if its slot is still Pending. Once
 Visible, consumption returns the bit and makes the slot Free.
 
 Acquisition end, result readiness, CPU visibility and consumption are separate
@@ -49,7 +52,7 @@ Visible CPU slots as final state.
 | --- | --- | --- |
 | `slots_` | `vector<Slot>` | Each slot has Free, Pending or Visible state, token and result bit. |
 | `generations_` | per-slot generation | Persists across reset so a reused slot does not revive an old handle. |
-| `fast_pending_` | `map<measurement ID, Token>` | Independent fast-delivery credits, released by acknowledgment. |
+| `fast_pending_` | `map<measurement ID, MeasurementReference>` | Independent fast-delivery credits, released by acknowledgment. |
 | `next_measurement_` | checked ID | Next measurement identity within the epoch. |
 
 [C++ API](../api.md#feedbackhpp).

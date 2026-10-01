@@ -17,7 +17,7 @@ int sc_main(int argc, char **argv) {
     if (scenario == "joint") {
       PythonBackend backend("qsbit_backend", "PulseBackend");
       backend.reset(2, 1);
-      ActionSpec x;
+      EventSpec x;
       x.kind = ActionKind::Pulse;
       x.port = 0;
       x.targets = {0};
@@ -26,7 +26,7 @@ int sc_main(int argc, char **argv) {
       auto z = x;
       z.axis = "z";
       z.port = 1;
-      std::vector<ActionSpec> drives{x, z};
+      std::vector<EventSpec> drives{x, z};
       backend.evolve(0, 10, drives);
       const auto state = backend.state();
       const auto expected = std::complex<double>{0, -1 / std::sqrt(2.0)};
@@ -42,7 +42,7 @@ int sc_main(int argc, char **argv) {
     } else if (scenario == "capability") {
       PythonBackend backend("qsbit_backend", "AerBackend");
       backend.reset(2, 1);
-      ActionSpec pulse;
+      EventSpec pulse;
       pulse.kind = ActionKind::Pulse;
       pulse.targets = {0};
       faults(ErrorCode::UnsupportedCapability, [&] { backend.validate(pulse); });
@@ -57,7 +57,7 @@ int sc_main(int argc, char **argv) {
       if (scenario == "overlap") {
         p.mappings.clear();
         for (std::uint32_t port : {0U, 1U}) {
-          ActionSpec drive;
+          EventSpec drive;
           drive.kind = ActionKind::Pulse;
           drive.port = port;
           drive.targets = {0};

@@ -32,13 +32,13 @@ five `SC_METHOD` processes:
 
 | Process | Trigger | Model work |
 | --- | --- | --- |
-| CPU edge | CPU rising edge | Receive eligible results and replies, then step the CPU and timeline producer. |
+| CPU edge | CPU rising edge | Receive results and replies, then step the CPU and reserve-phase preparation. |
 | Memory edge | CPU rising edge | Service instruction and data transactions. |
-| TCU edge | TCU rising edge | Check firing, admission and incoming fast results. |
+| TCU edge | TCU rising edge | Check event triggering, enqueue and incoming fast results. |
 | Timed wakeup | Earliest scheduled device, reset or watchdog time | Apply reset if due and request device processing. |
 | Device barrier | Next-delta notification | Check edge completion, process physical work and test for drain. |
 
-A logical module in the architecture diagram names a responsibility. A C++ owner
+A component in the implementation map names a responsibility. A C++ owner
 stores and changes state. A SystemC process schedules an invocation. These are
 separate boundaries: several responsibilities can share one object, and several
 objects can be called by one process. An owner boundary adds no delay by itself.
@@ -55,7 +55,7 @@ CPU instruction keeps its state and operands; the next CPU edge retries it.
 Other clocks and device boundaries continue to run during that modeled stall.
 
 When CPU and TCU edges coincide, the kernel can run their ready methods in
-either order. Messages have explicit eligibility timestamps, so a newly
+either order. Messages have explicit arrival timestamps, so a newly
 published message cannot be consumed on that same edge. Each clocked method
 also marks that it has completed its work and requests the device barrier in
 a later delta cycle at the same simulation time.
@@ -70,19 +70,19 @@ channel such as `sc_signal` applies a requested write in the kernel update phase
 The ordinary C++ models apply changes according to their own transition order:
 CPU operand capture can read a value retired earlier on the same edge, while
 TCU conditions read history committed before the current edge. The
-[TCU transition](module-architecture.md#crossing-and-tcu-edge-order) specifies
+[TCU transition](module-architecture.md#communication-latency-and-tcu-edge-order) specifies
 which changes commit together after validation.
 
 ## Messages and direct calls
 
-A mailbox stores a message and its epoch, publication tick and eligibility tick.
-Eligibility is the earliest allowed reception, not a promise of acceptance.
-A full destination queue can leave an eligible group pending until a later edge;
-its original firing deadline still applies.
+A mailbox stores a message and its epoch, publication tick and arrival tick.
+Arrival time is the earliest allowed reception, not a promise of acceptance.
+A full destination queue can leave an arrived enqueue request pending until a later edge;
+its original event triggering deadline still applies.
 
 For a one-edge crossing to a TCU clock with edges at 20 and 40 ns, publication
-at 20 ns first becomes eligible at 40 ns. With two-edge latency it becomes
-eligible at 60 ns. The latency is counted in receiver edges, not CPU cycles.
+at 20 ns arrives at 40 ns. With two-edge latency it arrives
+at 60 ns. The latency is counted in receiver edges, not CPU cycles.
 
 Direct calls, including action lookup and device preflight, carry values without
 an added communication stage. Only connections declared as timed mailboxes use
@@ -98,19 +98,19 @@ Each descriptor names a physical output port, ordered qubit targets, resources,
 output delay and duration. The source port need not equal a target qubit or the
 physical output port.
 
-The timeline producer gives the actions control-event identities and collects
-them into an open group at its cursor. Sealing fixes that group for submission.
-Admission puts its timing point and all port events into the TCU queues together.
-Firing releases the condition-selected events as one launch batch.
+`TimingControl` assigns event identifiers and collects the events for the
+current time point. The enqueue request contains that timing point and all
+of its events; its contents remain fixed while the TCU queues are full.
+Event triggering releases the selected events together.
 
 Each action starts at `fire_tick + delay`. A launch with delays 0 and 10 ns
 produces starts at different physical boundaries. Conversely, actions from
-different launches can meet at the same boundary. `DeviceRuntime` processes that
+different launches can meet at the same boundary. `ControlElectronics` processes that
 complete physical boundary batch against shared quantum state.
 
 An ideal gate changes state at its start and reserves resources until its end.
 A pulse drive instead contributes to evolution throughout its interval. A
-resource calendar detects overlaps, including conflicts between different ports
+resource conflict checker detects overlaps, including conflicts between different ports
 that share a resource. Available queue space does not imply available physical
 resources.
 

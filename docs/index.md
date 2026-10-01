@@ -15,17 +15,19 @@ adapter and quantum backend have separate interfaces.
 measurement-feedback program and inspect its result. The default scripted backend
 requires no Python quantum packages.
 
-To understand the model, read [Simulation time and execution](simulation-model.md)
-and the [glossary](glossary.md), then the [architecture overview](high-level-design.md),
-then [follow an execution](execution.md). The [architecture diagram](architecture.md)
-links to each module's inputs, outputs, state and behavior.
+Start with the [architecture overview](high-level-design.md) and
+[controller diagram](architecture.md), then [follow an execution](execution.md).
+[Simulation time and execution](simulation-model.md) explains the scheduler;
+the [implementation map](implementation.md#implementation-map) links the C++
+components and their state. The [glossary](glossary.md) separates controller
+terminology from simulator implementation terms.
 
 | You want to… | Read |
 | --- | --- |
 | Install tools or change build options | [Prerequisites](prerequisites.md) and [building](building.md) |
 | Use Aer, pulses or a custom backend | [Quantum backends](backends.md) |
 | Write a run configuration or interpret a trace | [Program and file formats](interfaces.md) |
-| Check a timing or ordering rule | [Control protocol](module-architecture.md) |
+| Check a timing or ordering rule | [Simulation timing contract](module-architecture.md) |
 | Find a class or replace the CPU model | [C++ interfaces](cpp-interfaces.md) and [API reference](api.md) |
 | Run tests or edit the website | [Testing](engineering-and-testing.md) and [website development](website.md) |
 

@@ -13,8 +13,8 @@ struct TimingHarness : sc_module {
   Profile profile;
   Trace trace;
   TcuCycleModel tcu;
-  Mailbox<Group> requests;
-  Mailbox<GroupReply> replies;
+  Mailbox<TimingEvents> requests;
+  Mailbox<EnqueueReply> replies;
   Mailbox<EndOfStream> closure;
   sc_clock clock;
   std::vector<Tick> intervals;
@@ -37,10 +37,10 @@ struct TimingHarness : sc_module {
       const auto now = sc_time_stamp().value();
       const auto *pending = requests.peek(now);
       auto out =
-          tcu.step(now, 1, pending ? &pending->value : nullptr, {}, [](const LaunchBatch &) {});
+          tcu.step(now, 1, pending ? &pending->value : nullptr, {}, [](const TriggeredEvents &) {});
       if (out.admitted) {
         const auto message = requests.take(now);
-        replies.publish(now, 1, GroupReply{message->value.point.label});
+        replies.publish(now, 1, EnqueueReply{message->value.point.label});
       }
       if (auto end = closure.take(now))
         tcu.close(end->value);
@@ -58,7 +58,7 @@ struct TimingHarness : sc_module {
       wait(1, SC_NS);
       Id label = 0;
       for (auto interval : intervals) {
-        Group group;
+        TimingEvents group;
         group.point = {1, ++label, interval, {}};
         group.configuration = profile.fingerprint();
         requests.publish(sc_time_stamp().value(), 1, group);

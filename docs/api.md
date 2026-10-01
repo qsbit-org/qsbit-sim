@@ -13,7 +13,7 @@ Quantum backend operations and the scripted implementation. [Open header](../inc
 (control_8hpp)=
 ## control.hpp
 
-Profiles, action mappings, group records and measurement tokens. [Open header](../include/qsbit/control.hpp).
+Profiles, action mappings, timing point records and measurement tokens. [Open header](../include/qsbit/control.hpp).
 
 (cpu_8hpp)=
 ## cpu.hpp
@@ -43,7 +43,7 @@ CPU result slots and TCU measurement history. [Open header](../include/qsbit/fee
 (image_8hpp)=
 ## image.hpp
 
-ELF/raw loading, memory bytes and segment permissions. [Open header](../include/qsbit/image.hpp).
+ELF or raw loading, memory bytes and segment permissions. [Open header](../include/qsbit/image.hpp).
 
 (isa_8hpp)=
 ## isa.hpp
@@ -53,17 +53,17 @@ Decoded RV32I instructions and architectural effects. [Open header](../include/q
 (mailbox_8hpp)=
 ## mailbox.hpp
 
-Bounded messages with explicit receiver eligibility ticks. [Open header](../include/qsbit/mailbox.hpp).
+Bounded messages with explicit arrival ticks. [Open header](../include/qsbit/mailbox.hpp).
 
 (memory_8hpp)=
 ## memory.hpp
 
-Fetch/data ports and timed memory service. [Open header](../include/qsbit/memory.hpp).
+Fetch and data ports with timed memory service. [Open header](../include/qsbit/memory.hpp).
 
 (producer_8hpp)=
 ## producer.hpp
 
-Quantum instruction adaptation, group preparation and crossings. [Open header](../include/qsbit/producer.hpp).
+Quantum instruction adaptation, timing point preparation and crossings. [Open header](../include/qsbit/producer.hpp).
 
 (python__backend_8hpp)=
 ## python_backend.hpp

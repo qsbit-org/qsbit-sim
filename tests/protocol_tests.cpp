@@ -7,28 +7,27 @@
 #include <map>
 
 using namespace qsbit;
-LaunchBatch launch(const Profile &p, std::uint32_t port, std::uint32_t code, Tick now, Id id = 1,
-                   std::optional<Token> token = {}) {
-  auto events = lower(p, port, code, 1, id, id, token);
+TriggeredEvents launch(const Profile &p, std::uint32_t port, std::uint32_t code, Tick now,
+                       Id id = 1, std::optional<MeasurementReference> token = {}) {
+  auto events = decode_codeword(p, port, code, 1, id, id, token);
   for (auto &event : events)
     event.label = id;
   return {1, id, now, std::move(events)};
 }
 void producer_test() {
   auto p = default_profile();
-  Scoreboard slots(p);
+  MeasurementResults slots(p);
   Trace trace;
   ControlLinks links(p);
-  TimelineProducer producer(p, slots, trace, [](const ActionSpec &) {});
-  CHECK(producer.execute({1, ProducerKind::Advance, 8}, 0, 1, links) == 0);
-  CHECK(producer.execute({2, ProducerKind::Append, 0, 1}, 5, 1, links) == 0);
-  CHECK(producer.execute({3, ProducerKind::Append, 1, 1}, 10, 1, links) == 0);
-  const ProducerOperation advance{4, ProducerKind::Advance, 3};
+  TimingControl producer(p, slots, trace, [](const EventSpec &) {});
+  CHECK(producer.execute({1, ControlKind::Advance, 8}, 0, 1, links) == 0);
+  CHECK(producer.execute({2, ControlKind::Append, 0, 1}, 5, 1, links) == 0);
+  CHECK(producer.execute({3, ControlKind::Append, 1, 1}, 10, 1, links) == 0);
+  const ControlOperation advance{4, ControlKind::Advance, 3};
   CHECK(!producer.execute(advance, 15, 1, links));
-  CHECK(producer.pending() && producer.cursor() == 8);
+  CHECK(producer.pending() && producer.time_point() == 8);
   CHECK(!producer.execute(advance, 20, 1, links));
-  faults(ErrorCode::Protocol,
-         [&] { (void)producer.execute({5, ProducerKind::End}, 20, 1, links); });
+  faults(ErrorCode::Protocol, [&] { (void)producer.execute({5, ControlKind::End}, 20, 1, links); });
   auto group = links.groups.take(20);
   CHECK(group && group->value.events.size() == 2 && group->value.point.interval == 8);
   CHECK(group->value.point.manifest[0] != group->value.point.manifest[1]);
@@ -36,43 +35,43 @@ void producer_test() {
   producer.receive(20, 1, links);
   CHECK(producer.pending());
   producer.receive(25, 1, links);
-  CHECK(producer.execute(advance, 25, 1, links) == 0 && producer.cursor() == 11);
-  CHECK(producer.execute({6, ProducerKind::Advance, 0}, 30, 1, links) == 0);
-  CHECK(producer.cursor() == 11);
-  CHECK(!producer.execute({7, ProducerKind::End}, 35, 1, links));
+  CHECK(producer.execute(advance, 25, 1, links) == 0 && producer.time_point() == 11);
+  CHECK(producer.execute({6, ControlKind::Advance, 0}, 30, 1, links) == 0);
+  CHECK(producer.time_point() == 11);
+  CHECK(!producer.execute({7, ControlKind::End}, 35, 1, links));
   auto final = links.groups.take(40);
   CHECK(final && final->value.events.empty() && final->value.point.interval == 3);
   links.replies.publish(40, 1, {2});
   producer.receive(45, 1, links);
-  CHECK(producer.execute({7, ProducerKind::End}, 45, 1, links) == 0);
+  CHECK(producer.execute({7, ControlKind::End}, 45, 1, links) == 0);
   CHECK(producer.closed() && links.closure.take(60)->value.last_label == 2);
   faults(ErrorCode::Protocol,
-         [&] { (void)producer.execute({8, ProducerKind::Flush}, 50, 1, links); });
+         [&] { (void)producer.execute({8, ControlKind::Flush}, 50, 1, links); });
 }
 void capacity_test() {
   auto p = default_profile();
   p.result_slots = 1;
-  Scoreboard slots(p);
+  MeasurementResults slots(p);
   Trace trace;
   ControlLinks links(p);
-  TimelineProducer producer(p, slots, trace, [](const ActionSpec &) {});
-  const auto handle = producer.execute({1, ProducerKind::Append, 0, 4}, 0, 1, links);
+  TimingControl producer(p, slots, trace, [](const EventSpec &) {});
+  const auto handle = producer.execute({1, ControlKind::Append, 0, 4}, 0, 1, links);
   CHECK(handle && *handle != 0);
   faults(ErrorCode::Capacity,
-         [&] { (void)producer.execute({2, ProducerKind::Append, 1, 4}, 5, 1, links); });
+         [&] { (void)producer.execute({2, ControlKind::Append, 1, 4}, 5, 1, links); });
   CHECK(trace.events().size() == 1);
   producer.reset();
   slots.reset();
-  CHECK(producer.execute({1, ProducerKind::Append, 0, 1}, 10, 2, links) == 0);
+  CHECK(producer.execute({1, ControlKind::Append, 0, 1}, 10, 2, links) == 0);
   faults(ErrorCode::Capacity,
-         [&] { (void)producer.execute({2, ProducerKind::Append, 0, 2}, 15, 2, links); });
+         [&] { (void)producer.execute({2, ControlKind::Append, 0, 2}, 15, 2, links); });
   CHECK(trace.events().size() == 2);
 }
 void calendar_test() {
   auto p = default_profile();
   ScriptedBackend backend;
   Trace trace;
-  DeviceRuntime device(p, backend, trace);
+  ControlElectronics device(p, backend, trace);
   auto first = launch(p, 0, 1, 100);
   device.accept(first);
   const auto calls = backend.calls();
@@ -81,10 +80,10 @@ void calendar_test() {
   conflict.events.push_back(independent.events.front());
   conflict.events.back().label = conflict.label;
   faults(ErrorCode::ResourceConflict, [&] { device.accept(conflict); });
-  CHECK(device.calendar().reservations().size() == 1 && backend.calls() == calls);
+  CHECK(device.resources().reservations().size() == 1 && backend.calls() == calls);
   CHECK(trace.events().size() == 1);
   device.accept(launch(p, 0, 1, 120, 4));
-  CHECK(device.calendar().reservations().size() == 2);
+  CHECK(device.resources().reservations().size() == 2);
 }
 void readout_test() {
   auto p = default_profile();
@@ -92,7 +91,7 @@ void readout_test() {
   CHECK(map.actions[0].kind == ActionKind::Acquire);
   map.actions[0].separate_arm = true;
   map.actions[0].discriminator_delay = 0;
-  ActionSpec arm = map.actions[0];
+  EventSpec arm = map.actions[0];
   arm.kind = ActionKind::DiscriminatorArm;
   arm.port = 2;
   arm.resources = {{20, true}};
@@ -100,17 +99,17 @@ void readout_test() {
   arm.duration = 1;
   map.actions.push_back(arm);
   p.validate();
-  Scoreboard slots(p);
+  MeasurementResults slots(p);
   const auto token = slots.reserve(1, 0);
   ScriptedBackend backend({{token.measurement, true}});
   Trace trace;
   ControlLinks links(p);
-  DeviceRuntime device(p, backend, trace);
+  ControlElectronics device(p, backend, trace);
   auto batch = launch(p, 0, 4, 100, 1, token);
   auto corrupted = batch;
   ++corrupted.events.back().token->generation;
   faults(ErrorCode::InvalidToken, [&] { device.accept(corrupted); });
-  CHECK(device.drained() && device.calendar().reservations().empty());
+  CHECK(device.drained() && device.resources().reservations().empty());
   device.accept(batch);
   for (Tick tick : {100U, 140U, 180U, 181U})
     device.process(tick, 1, links);
@@ -134,13 +133,13 @@ void overflow_test() {
   p.mappings[3].actions[0].discriminator_delay = 10;
   ScriptedBackend backend;
   Trace trace;
-  DeviceRuntime device(p, backend, trace);
-  Scoreboard slots(p);
+  ControlElectronics device(p, backend, trace);
+  MeasurementResults slots(p);
   const auto token = slots.reserve(1, 0);
   const auto calls = backend.calls();
   faults(ErrorCode::TimeOverflow,
          [&] { device.accept(launch(p, 0, 4, std::numeric_limits<Tick>::max() - 5, 1, token)); });
-  CHECK(device.drained() && device.calendar().reservations().empty());
+  CHECK(device.drained() && device.resources().reservations().empty());
   CHECK(trace.events().empty() && backend.calls() == calls);
   faults(ErrorCode::TimeOverflow,
          [] { (void)Clock{1, 0}.after(std::numeric_limits<Tick>::max()); });
@@ -148,11 +147,11 @@ void overflow_test() {
 }
 void reset_test() {
   auto p = default_profile();
-  Scoreboard slots(p);
+  MeasurementResults slots(p);
   ScriptedBackend backend;
   Trace trace;
   ControlLinks links(p);
-  DeviceRuntime device(p, backend, trace);
+  ControlElectronics device(p, backend, trace);
   device.accept(launch(p, 0, 4, 100, 1, slots.reserve(1, 0)));
   device.process(100, 1, links);
   device.reset(140, 2);
@@ -165,17 +164,17 @@ void sample_collision_test() {
   auto p = default_profile();
   ScriptedBackend backend;
   Trace trace;
-  DeviceRuntime device(p, backend, trace);
-  Scoreboard slots(p);
+  ControlElectronics device(p, backend, trace);
+  MeasurementResults slots(p);
   device.accept(launch(p, 0, 4, 100, 1, slots.reserve(1, 0)));
   faults(ErrorCode::ResourceConflict, [&] { device.accept(launch(p, 0, 1, 140, 2)); });
-  CHECK(device.calendar().reservations().size() == 1);
+  CHECK(device.resources().reservations().size() == 1);
 }
 void history_test() {
   auto p = default_profile();
   p.history_depth = 1;
-  Scoreboard slots(p);
-  FastHistory history(p);
+  MeasurementResults slots(p);
+  ConditionalResults history(p);
   const auto first = slots.reserve(1, 0);
   const auto other = slots.reserve(1, 1);
   const auto last = slots.reserve(1, 0);

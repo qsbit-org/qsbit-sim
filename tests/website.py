@@ -93,7 +93,14 @@ def check_browser(site, module_pages):
             assert page.get_by_role('heading', name='Example schedules', exact=True).count() == 1
             page.goto(base + '/architecture.html')
             diagram = page.locator('object[type="image/svg+xml"]').first
-            page.wait_for_function("document.querySelector('object')?.contentDocument?.querySelectorAll('a').length >= 21")
+            page.wait_for_function("document.querySelector('object')?.contentDocument?.querySelectorAll('a').length === 10")
+            labels = diagram.evaluate("el => el.contentDocument.documentElement.textContent")
+            for label in ['Reserve phase', 'Timing Queue', 'Per-port Event Queues',
+                          'Trigger phase', 'Quantum device', 'Measurement results']:
+                assert label in labels, label
+            for implementation_name in ['TimelineProducer', 'DeviceRuntime', 'QuantumBackend',
+                                        'ResourceReservations', 'Device barrier']:
+                assert implementation_name not in labels, implementation_name
             page.wait_for_function("document.querySelector('object').style.width !== ''")
             initial_width = diagram.evaluate('el => parseFloat(el.style.width)')
             page.click('#diagram-in')

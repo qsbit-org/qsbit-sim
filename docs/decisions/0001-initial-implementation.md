@@ -15,7 +15,8 @@ Use C++20 and SystemC. Keep instruction semantics and state transitions in
 ordinary C++ objects. `Simulator` owns the SystemC processes and calls those
 objects at CPU edges, TCU edges and scheduled device boundaries.
 
-The initial CPU has three in-order stages: fetch, decode and execute/commit.
+The initial CPU has three in-order stages: fetch, decode and execute.
+The execute stage also commits results.
 Each stage advances at most once per CPU edge. Operands are read on entry to
 execute, with forwarding from the instruction that commits on that edge. A
 load holds execute until its response arrives. A taken branch flushes younger
@@ -33,9 +34,9 @@ Load 32-bit RV32I machine code from an ELF file or raw binary. Keep assembly
 outside the simulator. The examples use GNU assembler macros to encode the
 quantum extension in the RISC-V custom-0 opcode space.
 
-The extension separates building a group from admitting it to the TCU. APPEND
+The extension separates building a timing point from admitting it to the TCU. APPEND
 completes after local staging, so several instructions can contribute actions
-to one planned cycle. ADVANCE and FLUSH wait for any required admission reply.
+to one planned cycle. ADVANCE and FLUSH wait for any required enqueue reply.
 READ_RESULT flushes before waiting for a measurement; END flushes before closing
 production. The [instruction reference](../interfaces.md#quantum-instruction-encoding)
 defines the encodings and completion rules.
@@ -50,12 +51,12 @@ cancelled acquisition would leave its result handle unresolved. QSYNC returns
 
 A validated profile fixes clocks, crossing delays, capacities and action maps
 before simulation starts. The [implementation reference](../implementation.md#default-timing)
-lists the defaults. Committed mailboxes carry payloads and eligibility ticks;
+lists the defaults. Committed mailboxes carry payloads and arrival ticks;
 SystemC events wake processes without carrying the payload themselves.
 
 At each physical boundary, the device barrier checks completion of all due clock transitions before
 processing device actions. This includes actions launched with zero delay on
-that tick. `DeviceRuntime` controls evolution intervals, measurements and
+that tick. `ControlElectronics` controls evolution intervals, measurements and
 result publication. A backend computes quantum state changes synchronously
 and never advances SystemC time.
 

@@ -1,13 +1,15 @@
-# Module reference
+# Simulator component reference
 
 Use these pages to look up a module's connections, behavior, stored state and
 tests. Start with the [architecture overview](../high-level-design.md) for the
 complete data path, or select a module in the
 [architecture diagram](../architecture.md).
 
-The names describe logical responsibilities. `Simulator` schedules C++ owners;
-the boxes do not each represent a separate SystemC process or clock stage.
-The [control protocol](../module-architecture.md) defines the shared timing rules.
+These pages document C++ responsibilities, stored state and simulation checks.
+The [implementation map](../implementation.md#implementation-map) connects all
+components. The controller diagram contains the architectural control path;
+software helpers and numerical adapters belong to this implementation reference.
+The [timing contract](../module-architecture.md) defines shared ordering rules.
 
 ## Setup and CPU
 
@@ -18,30 +20,30 @@ The [control protocol](../module-architecture.md) defines the shared timing rule
 | [ISA decoder](isa-decoder-and-semantics.md) | Decodes instructions and calculates architectural effects. |
 | [CPU cycle model](cpu-cycle-model.md) | Advances the pipeline, handles stalls and retires instructions. |
 | [Memory](memory-and-response-model.md) | Completes timed fetches, loads and stores. |
-| [Quantum instruction adapter](quantum-instruction-adapter.md) | Converts instruction fields and operands into producer operations. |
+| [Quantum instruction adapter](quantum-instruction-adapter.md) | Converts instruction fields and operands into control operations. |
 
 ## Command preparation and TCU
 
 | Module | What it does |
 | --- | --- |
 | [Port-codeword action map](port-codeword-and-waveform-map.md) | Selects device actions from the simulation profile. |
-| [Operation lowerer](operation-lowerer-and-device-distributor.md) | Expands commands into identified per-port events. |
-| [Timeline producer](timeline-reservation-manager.md) | Collects actions for a planned cycle and seals groups. |
-| [Crossing and admission](command-crossing-and-admission.md) | Transfers groups and inserts all their queue entries together. |
+| [Codeword decoding](codeword-decoding.md) | Expands commands into identified per-port events. |
+| [Reserve phase](reserve-phase.md) | Prepares events at a time point and requests queue insertion. |
+| [Communication latency and enqueue](queue-enqueue.md) | Transfers requests and inserts timing and event entries together. |
 | [Timing queue](timing-queue.md) | Retains intervals, due cycles and member lists. |
-| [Per-port event queues](per-port-event-queues.md) | Retain actions until their group's label fires. |
-| [TCU timer](tcu-timer-and-label-broadcaster.md) | Selects the due group on each TCU edge. |
-| [Conditions and launch checks](condition-gate-and-launch-preflight.md) | Filters conditional actions and checks the complete launch. |
+| [Per-port event queues](per-port-event-queues.md) | Retain actions until their timing point's label triggers. |
+| [TCU timer](timing-controller.md) | Selects the due timing point on each TCU edge. |
+| [Conditional execution checks](conditional-execution.md) | Tests measurement conditions and validates the selected events. |
 
 ## Devices, feedback and completion
 
 | Module | What it does |
 | --- | --- |
-| [Output channels and resource calendar](output-channels-and-resource-calendar.md) | Reserve and execute physical intervals. |
-| [Quantum backend](quantum-state-service-and-backends.md) | Evolves shared state and returns measurement outcomes. |
+| [Output channels and simulation resource checks](control-output.md) | Reserve and execute physical intervals. |
+| [Quantum backend](quantum-device-model.md) | Evolves shared state and returns measurement outcomes. |
 | [Acquisition and discrimination](acquisition-and-discrimination.md) | Samples measurements and schedules result readiness. |
-| [Scoreboard and CPU result delivery](measurement-scoreboard-and-cpu-feedback.md) | Track handles and deliver results to QREAD. |
-| [Fast-condition history](fast-condition-history.md) | Retains exact-token results for conditional TCU output. |
+| [Measurement results and CPU feedback](measurement-results.md) | Tracks individual measurements and delivers results to QREAD. |
+| [Results for conditional execution](conditional-results.md) | Retains individual results for conditional TCU output. |
 | [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
 | [Synchronization boundary](future-synchronization-adapter.md) | Rejects QSYNC; distributed synchronization is not implemented. |
 
@@ -58,19 +60,19 @@ isa-decoder-and-semantics
 cpu-cycle-model
 memory-and-response-model
 quantum-instruction-adapter
-operation-lowerer-and-device-distributor
-timeline-reservation-manager
-command-crossing-and-admission
+codeword-decoding
+reserve-phase
+queue-enqueue
 timing-queue
 per-port-event-queues
-tcu-timer-and-label-broadcaster
-condition-gate-and-launch-preflight
+timing-controller
+conditional-execution
 port-codeword-and-waveform-map
-output-channels-and-resource-calendar
-quantum-state-service-and-backends
+control-output
+quantum-device-model
 acquisition-and-discrimination
-measurement-scoreboard-and-cpu-feedback
-fast-condition-history
+measurement-results
+conditional-results
 trace-recorder-and-stop-controller
 future-synchronization-adapter
 ```

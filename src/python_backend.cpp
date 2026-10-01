@@ -6,7 +6,7 @@
 namespace py = pybind11;
 namespace qsbit {
 namespace {
-py::dict descriptor(const ActionSpec &a) {
+py::dict descriptor(const EventSpec &a) {
   const char *kind = "gate";
   if (a.kind == ActionKind::Pulse)
     kind = "pulse";
@@ -23,7 +23,7 @@ py::dict descriptor(const ActionSpec &a) {
   out["axis"] = a.axis;
   return out;
 }
-py::list descriptors(std::span<const ActionSpec> actions) {
+py::list descriptors(std::span<const EventSpec> actions) {
   py::list out;
   for (const auto &action : actions)
     out.append(descriptor(action));
@@ -65,7 +65,7 @@ PythonBackend::PythonBackend(const std::string &module, const std::string &class
   }
 }
 PythonBackend::~PythonBackend() = default;
-void PythonBackend::validate(const ActionSpec &action) const {
+void PythonBackend::validate(const EventSpec &action) const {
   try {
     impl_->backend.attr("validate")(descriptor(action));
   } catch (const py::error_already_set &e) {
@@ -79,21 +79,21 @@ void PythonBackend::reset(std::uint32_t qubits, std::uint32_t seed) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }
 }
-void PythonBackend::evolve(Tick from, Tick to, std::span<const ActionSpec> drives) {
+void PythonBackend::evolve(Tick from, Tick to, std::span<const EventSpec> drives) {
   try {
     impl_->backend.attr("evolve")(from, to, descriptors(drives));
   } catch (const py::error_already_set &e) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }
 }
-void PythonBackend::apply(std::span<const ActionSpec> gates) {
+void PythonBackend::apply(std::span<const EventSpec> gates) {
   try {
     impl_->backend.attr("apply")(descriptors(gates));
   } catch (const py::error_already_set &e) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }
 }
-std::vector<bool> PythonBackend::measure(std::span<const Token> tokens) {
+std::vector<bool> PythonBackend::measure(std::span<const MeasurementReference> tokens) {
   try {
     py::list inputs;
     for (const auto &t : tokens) {

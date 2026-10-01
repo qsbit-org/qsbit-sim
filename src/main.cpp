@@ -285,12 +285,13 @@ int sc_main(int argc, char **argv) {
       result["statevector"].push_back({amplitude.real(), amplitude.imag()});
     for (auto address : inspect)
       result["memory"][std::to_string(address)] = sim.memory().read(address, 4);
-    for (const auto &slot : sim.scoreboard().slots())
-      if (slot.state != Scoreboard::State::Free)
-        result["result_slots"].push_back({{"handle", slot.token.handle},
-                                          {"measurement", slot.token.measurement},
-                                          {"visible", slot.state == Scoreboard::State::Visible},
-                                          {"value", slot.value}});
+    for (const auto &slot : sim.measurement_results().slots())
+      if (slot.state != MeasurementResults::State::Free)
+        result["result_slots"].push_back(
+            {{"handle", slot.token.handle},
+             {"measurement", slot.token.measurement},
+             {"visible", slot.state == MeasurementResults::State::Visible},
+             {"value", slot.value}});
     write_json(summary_path, result);
     if (!memory_dump.empty()) {
       ensure_parent(memory_dump);

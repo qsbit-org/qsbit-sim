@@ -52,10 +52,10 @@ void Profile::validate() const {
     if (separate) {
       const auto acquisition =
           std::find_if(map.actions.begin(), map.actions.end(),
-                       [](const ActionSpec &a) { return a.kind == ActionKind::Acquire; });
-      const auto arm =
-          std::find_if(map.actions.begin(), map.actions.end(),
-                       [](const ActionSpec &a) { return a.kind == ActionKind::DiscriminatorArm; });
+                       [](const EventSpec &a) { return a.kind == ActionKind::Acquire; });
+      const auto arm = std::find_if(map.actions.begin(), map.actions.end(), [](const EventSpec &a) {
+        return a.kind == ActionKind::DiscriminatorArm;
+      });
       require(acquisition->targets == arm->targets, ErrorCode::InvalidProfile,
               "acquisition and discriminator arm must address the same target");
     }
@@ -100,11 +100,13 @@ std::string Profile::fingerprint() const {
   out << std::hex << std::setfill('0') << std::setw(16) << hash;
   return out.str();
 }
-std::vector<ReservedEvent> lower(const Profile &profile, std::uint32_t port, std::uint32_t codeword,
-                                 Epoch epoch, Id instruction, Id first_event,
-                                 std::optional<Token> token, std::optional<Condition> condition) {
+std::vector<OperationEvent> decode_codeword(const Profile &profile, std::uint32_t port,
+                                            std::uint32_t codeword, Epoch epoch, Id instruction,
+                                            Id first_event,
+                                            std::optional<MeasurementReference> token,
+                                            std::optional<Condition> condition) {
   const auto &map = profile.mapping(port, codeword);
-  std::vector<ReservedEvent> events;
+  std::vector<OperationEvent> events;
   for (const auto &action : map.actions) {
     const bool readout =
         action.kind == ActionKind::Acquire || action.kind == ActionKind::DiscriminatorArm;
@@ -114,14 +116,14 @@ std::vector<ReservedEvent> lower(const Profile &profile, std::uint32_t port, std
             "conditional measurement is unsupported");
     require(!condition || profile.fast_feedback, ErrorCode::UnsupportedCapability,
             "fast feedback is disabled");
-    ReservedEvent event{
+    OperationEvent event{
         epoch,  checked_add(first_event, events.size()), instruction, 0, port, codeword,
         action, readout ? token : std::nullopt,          condition};
     events.push_back(std::move(event));
   }
   return events;
 }
-void validate_group(const Group &group, const Profile &profile) {
+void validate_timing_events(const TimingEvents &group, const Profile &profile) {
   require(group.configuration == profile.fingerprint(), ErrorCode::Protocol,
           "group profile mismatch");
   require(group.events.size() == group.point.manifest.size(), ErrorCode::ManifestMismatch,

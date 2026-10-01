@@ -19,7 +19,7 @@ digraph module {
   owner [label="MemoryModel"];
   state [label="image_\npending_[0], pending_[1]\nlast_id_"];
   output [label="MemoryResponse or access fault"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
@@ -45,9 +45,9 @@ IDs must increase, preventing repeated stores and reordered requests.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `image_` | `ProgramImage` | Runtime RAM and segment permissions. |
-| `pending_[0], pending_[1]` | optional Pending | Independent fetch/data request, completion tick and epoch. |
+| `pending_[0], pending_[1]` | optional Pending | Independent fetch and data request, completion tick and epoch. |
 | `last_id_` | request IDs | Rejects repeated or out-of-order requests per port. |
-| `MemoryPort` | request/response mailboxes | One request slot and one response slot for each CPU port. |
+| `MemoryPort` | request and response mailboxes | One request slot and one response slot for each CPU port. |
 
 [C++ API](../api.md#memoryhpp).
 
@@ -66,5 +66,5 @@ Source: [memory.cpp](../../src/memory.cpp) and [memory.hpp](../../include/qsbit/
 
 **CTest:** `core.memory`, `systemc.use_cases`.
 
-The tests check memory service times, load/store hazards and access faults,
+The tests check memory service times, load and store hazards and access faults,
 including their effect on CPU execution.

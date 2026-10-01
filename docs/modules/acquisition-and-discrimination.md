@@ -2,7 +2,7 @@
 
 [Readout](../glossary.md#readout) separates measurement sampling from result availability.
 Discrimination is represented by a delay; no raw waveform classifier runs here.
-`DeviceRuntime` samples the backend at acquisition end, then waits for the
+`ControlElectronics` samples the backend at acquisition end, then waits for the
 discriminator timing before publishing the bit to the CPU and optional fast path.
 
 ## Connections
@@ -10,7 +10,7 @@ discriminator timing before publishing the bit to the CPU and optional fast path
 - **Input:** an acquisition action, its existing measurement token and any
   separately mapped discriminator-arm action.
 - **Output:** one tagged `Completion` to each enabled feedback path.
-- **Owner:** `DeviceRuntime::readouts_`, updated at acquisition, arm and result-ready
+- **Owner:** `ControlElectronics::readouts_`, updated at acquisition, arm and result-ready
   physical boundaries.
 
 ```{graphviz}
@@ -18,18 +18,18 @@ digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Acquisition and discriminator triggers"];
-  owner [label="DeviceRuntime::readouts_"];
-  state [label="Readout::token\nReadout::end / arm / ready\nReadout::sample"];
+  owner [label="ControlElectronics::readouts_"];
+  state [label="Readout::token\nReadout::end and arm and ready\nReadout::sample"];
   output [label="Completion to CPU and fast mailboxes"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
 ## From acquisition to result
 
-The producer has already reserved the measurement token and delivery capacity.
+The timing control has already reserved the measurement token and delivery capacity.
 Readout does not allocate another token. If acquisition requires a separate arm,
-group validation requires one matching arm with the same token and target.
+timing point validation requires one matching arm with the same token and target.
 Otherwise the discriminator is implicitly armed at acquisition start.
 
 Let E be acquisition end, A the arm start and L the discriminator delay.
@@ -49,10 +49,10 @@ clocked receiver consume the result on that tick.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Readout::token` | `Token` | Measurement identity reserved by the producer/scoreboard. |
-| `Readout::end / arm / ready` | global ticks | Acquisition end, arm start and result-ready ticks. |
+| `Readout::token` | `MeasurementReference` | Measurement identity reserved by the timing control and measurement result storage. |
+| `Readout::end and arm and ready` | global ticks | Acquisition end, arm start and result-ready ticks. |
 | `Readout::sample` | `optional<bool>` | Empty until the backend samples the measurement at acquisition end. |
-| `ControlLinks::cpu_results / fast_results` | independent mailboxes | One completion published to each enabled delivery path. |
+| `ControlLinks::cpu_results and fast_results` | independent mailboxes | One completion published to each enabled delivery path. |
 
 [C++ API](../api.md#devicehpp).
 

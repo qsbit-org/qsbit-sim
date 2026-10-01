@@ -59,7 +59,7 @@ configured CTest suites.
 | Test family | Main assertions |
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
-| `control.*` | Atomic admission, manifests, queue bounds, deadlines, result slots and predicates. |
+| `control.*` | Atomic enqueue, manifests, queue bounds, deadlines, result slots and predicates. |
 | `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and token history. |
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
 | `adapter.*` | Replacement CPU construction through `ICpuCycleModel` and session reset. |
@@ -74,12 +74,12 @@ describes what those tests establish.
 When changing a protocol, check the boundary case that distinguishes the old
 and new behavior. The existing suite includes:
 
-- Two APPENDs at one cursor, including ADVANCE(0), followed by one complete admission.
-- Requests published exactly on a receiver edge, and admission while a full
-  queue fires. The receiver cannot consume a newly published request on that edge or reuse
-  a slot freed by that edge's firing.
+- Two APPENDs at one time point, including ADVANCE(0), followed by one complete enqueue.
+- Requests published exactly on a receiver edge, and enqueue while a full
+  queue triggers. The receiver cannot consume a newly published request on that edge or reuse
+  a slot freed by that edge's event triggering.
 - Empty timing queues during CPU result waits. The timer continues and
-  late groups fail without shifting their deadlines.
+  late timing points fail without shifting their deadlines.
 - Taken branches and older faults that discard younger control instructions.
 - Overlapping resource intervals, adjacent intervals and same-target sampling
   collisions. Invalid batches must not partially change device state.

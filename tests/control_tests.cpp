@@ -12,11 +12,11 @@ Profile profile() {
   p.qubits = 2;
   p.timing_capacity = 1;
   p.event_capacity = 1;
-  ActionSpec a;
+  EventSpec a;
   a.port = 0;
   a.targets = {0};
   a.resources = {{0, true}};
-  ActionSpec b = a;
+  EventSpec b = a;
   b.port = 1;
   b.targets = {1};
   b.resources = {{1, true}};
@@ -24,12 +24,13 @@ Profile profile() {
   p.validate();
   return p;
 }
-Group group(const Profile &p, Id label, Tick interval, std::initializer_list<std::uint32_t> ports) {
-  Group g;
+TimingEvents group(const Profile &p, Id label, Tick interval,
+                   std::initializer_list<std::uint32_t> ports) {
+  TimingEvents g;
   g.point = {1, label, interval, {}};
   g.configuration = p.fingerprint();
   for (auto port : ports) {
-    auto e = lower(p, port, 1, 1, label, label * 100 + port).front();
+    auto e = decode_codeword(p, port, 1, 1, label, label * 100 + port).front();
     e.label = label;
     g.point.manifest.push_back(e.id);
     g.events.push_back(e);
@@ -40,7 +41,7 @@ void admission_test() {
   auto p = profile();
   Trace trace;
   TcuCycleModel tcu(p, trace);
-  const auto ok = [](const LaunchBatch &) {};
+  const auto ok = [](const TriggeredEvents &) {};
   auto first = group(p, 1, 0, {0, 1});
   auto second = group(p, 2, 2, {0});
   CHECK(tcu.step(20, 1, &first, {}, ok).admitted);
@@ -59,14 +60,14 @@ void atomic_test() {
   Trace trace;
   TcuCycleModel tcu(p, trace);
   auto first = group(p, 1, 0, {0, 1});
-  const auto ok = [](const LaunchBatch &) {};
+  const auto ok = [](const TriggeredEvents &) {};
   auto broken = first;
   broken.point.manifest.pop_back();
   faults(ErrorCode::ManifestMismatch, [&] { (void)tcu.step(20, 1, &broken, {}, ok); });
   CHECK(tcu.timing_size() == 0 && tcu.port_size(0) == 0);
   CHECK(tcu.step(20, 1, &first, {}, ok).admitted);
   faults(ErrorCode::ResourceConflict, [&] {
-    (void)tcu.step(100, 1, nullptr, {}, [](const LaunchBatch &) {
+    (void)tcu.step(100, 1, nullptr, {}, [](const TriggeredEvents &) {
       throw Fault(ErrorCode::ResourceConflict, "injected whole-batch preflight rejection");
     });
   });
@@ -81,7 +82,7 @@ void empty_test() {
   auto p = profile();
   Trace trace;
   TcuCycleModel tcu(p, trace);
-  const auto ok = [](const LaunchBatch &) {};
+  const auto ok = [](const TriggeredEvents &) {};
   CHECK(!tcu.step(100, 1, nullptr, {}, ok).launch);
   auto future = group(p, 1, 4, {0});
   CHECK(tcu.step(120, 1, &future, {}, ok).admitted);
@@ -97,7 +98,7 @@ void empty_test() {
 void scoreboard_test() {
   auto p = profile();
   p.result_slots = 1;
-  Scoreboard scoreboard(p);
+  MeasurementResults scoreboard(p);
   const auto token = scoreboard.reserve(1, 0);
   CHECK(!scoreboard.consume(token.handle, 1));
   scoreboard.deliver({token, true}, 1);
@@ -119,9 +120,9 @@ void fast_test() {
   auto p = profile();
   Trace trace;
   TcuCycleModel tcu(p, trace);
-  Scoreboard scoreboard(p);
+  MeasurementResults scoreboard(p);
   const auto token = scoreboard.reserve(1, 0);
-  const auto ok = [](const LaunchBatch &) {};
+  const auto ok = [](const TriggeredEvents &) {};
   auto conditional = group(p, 1, 0, {1});
   conditional.events[0].condition = Condition{token, true};
   CHECK(tcu.step(20, 1, &conditional, {}, ok).admitted);
@@ -139,7 +140,7 @@ void mapping_test() {
   faults(ErrorCode::InvalidPort, [&] { (void)p.mapping(2, 1); });
   faults(ErrorCode::InvalidCodeword, [&] { (void)p.mapping(0, 2); });
   auto g = group(p, 1, 1, {0, 0});
-  faults(ErrorCode::ManifestMismatch, [&] { validate_group(g, p); });
+  faults(ErrorCode::ManifestMismatch, [&] { validate_timing_events(g, p); });
   const auto before = p.fingerprint();
   p.cpu_result_latency = 2;
   CHECK(p.fingerprint() != before);

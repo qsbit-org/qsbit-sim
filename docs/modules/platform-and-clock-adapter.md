@@ -15,7 +15,7 @@ program, backend and output paths. See [configuration terms](../glossary.md#run-
 - **Input:** a `Profile`, loaded `ProgramImage`, backend, and optional reset ticks
   from the application.
 - **Output:** calls to the CPU, memory and TCU models at their rising edges, and
-  calls to `DeviceRuntime` at scheduled physical boundaries.
+  calls to `ControlElectronics` at scheduled physical boundaries.
 - **Scheduling:** `Simulator` is the SystemC module. The models it calls are C++
   objects with persistent state.
 
@@ -27,7 +27,7 @@ digraph module {
   owner [label="Simulator"];
   state [label="profile_\ncpu_clock_, tcu_clock_\nwake_, barrier_"];
   output [label="Clock edges, reset and physical wakeup"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
@@ -53,7 +53,7 @@ state changes.
 `schedule_wakeup()` selects the earliest pending device boundary, reset or
 watchdog tick. It cancels the previous timed notification before scheduling the
 next one. Event payloads remain in the model objects; `sc_event` only wakes a
-process. See [event ordering](../module-architecture.md#crossing-and-tcu-edge-order)
+process. See [event ordering](../module-architecture.md#communication-latency-and-tcu-edge-order)
 for communication between models.
 
 ## Objects and state
@@ -61,7 +61,7 @@ for communication between models.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `profile_` | `const Profile` | Validated clocks, capacities, mappings and delays; immutable across reset. |
-| `cpu_clock_, tcu_clock_` | `sc_clock` | CPU/memory and TCU rising-edge activation. |
+| `cpu_clock_, tcu_clock_` | `sc_clock` | CPU and memory and TCU rising-edge activation. |
 | `wake_, barrier_` | `sc_event` | Timed wakeup and zero-time barrier activation; payload lives in owners. |
 | `cpu_done_, memory_done_, tcu_done_` | optional tick | Marks which coincident edge transitions have completed. |
 | `epoch_, resets_, last_reset_` | session state | Applies a reset once per requested tick and invalidates old work. |

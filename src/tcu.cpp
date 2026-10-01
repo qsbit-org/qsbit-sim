@@ -7,18 +7,18 @@ namespace qsbit {
 TcuCycleModel::TcuCycleModel(const Profile &profile, Trace &trace)
     : profile_(profile), trace_(trace), events_(profile.ports), history_(profile),
       start_(profile.start) {}
-TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const Group *candidate,
+TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candidate,
                               const std::vector<Completion> &results, const Preflight &preflight) {
   require(profile_.tcu.edge(now), ErrorCode::Protocol, "TCU invoked off-edge");
   const bool running = now >= start_;
   const Tick cycle = running ? (now - start_) / profile_.tcu.period : 0;
   TcuOutput output;
-  std::vector<ReservedEvent> cancelled;
+  std::vector<OperationEvent> cancelled;
   const bool fire = running && !timing_.empty() && timing_.front().due <= cycle;
   if (fire) {
     const auto &point = timing_.front();
     require(point.due == cycle, ErrorCode::LateAdmission, "queued point missed its firing edge");
-    std::map<Id, ReservedEvent> gathered;
+    std::map<Id, OperationEvent> gathered;
     for (const auto &queue : events_) {
       require(queue.empty() || queue.front().label >= point.point.label,
               ErrorCode::ManifestMismatch, "orphan event precedes timing head");
@@ -31,7 +31,7 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const Group *candidate,
     }
     require(gathered.size() == point.point.manifest.size(), ErrorCode::ManifestMismatch,
             "timing manifest and port queues differ");
-    LaunchBatch batch{epoch, point.point.label, now, {}};
+    TriggeredEvents batch{epoch, point.point.label, now, {}};
     for (auto id : point.point.manifest) {
       const auto it = gathered.find(id);
       require(it != gathered.end(), ErrorCode::ManifestMismatch, "manifested event is missing");
@@ -47,7 +47,7 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const Group *candidate,
   Tick new_due = last_due_;
   if (candidate != nullptr) {
     require(!closed_, ErrorCode::Protocol, "group follows stream closure");
-    validate_group(*candidate, profile_);
+    validate_timing_events(*candidate, profile_);
     require(candidate->point.epoch == epoch &&
                 candidate->point.label == checked_add(last_label_, 1),
             ErrorCode::Protocol, "group identity is stale, repeated or out of order");

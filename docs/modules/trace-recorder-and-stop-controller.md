@@ -6,7 +6,7 @@ status used to inspect a run.
 
 ## Connections
 
-- **Input:** committed model events, producer closure, drain state and faults.
+- **Input:** committed model events, timing control closure, drain state and faults.
 - **Output:** JSONL trace records, success or failure status, and a stop tick.
 - **Scheduling:** models emit observations during transitions; the device barrier
   checks for successful completion after work at the current tick.
@@ -16,23 +16,23 @@ digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Committed domain events"];
-  owner [label="Trace / Simulator"];
-  state [label="Trace::events_\nSimulator::stopped_ / success_ / fault_\nOwner drain predicates"];
-  output [label="JSONL / success or typed fault"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state / configuration"];
+  owner [label="Trace and Simulator"];
+  state [label="Trace::events_\nSimulator::stopped_ and success_ and fault_\nOwner drain predicates"];
+  output [label="JSONL and success or typed fault"];
+  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```
 
 ## Recording and finishing a run
 
-Trace events distinguish staging, admission, label firing, physical operation
+Trace events distinguish staging, enqueue, label event triggering, physical operation
 starts and ends, sampling, readiness and feedback visibility. Each event has
 a timestamp and kind-specific identities. Recording an event consumes no
 simulated time.
 
 A `Completion` record carries a measurement bit; it is separate from whole-run
-completion. QEND stops CPU production after the producer has flushed and received any
-required admission reply. Simulation continues until the TCU has seen closure,
+completion. QEND stops CPU production after the timing control has flushed and received any
+required enqueue reply. Simulation continues until the TCU has seen closure,
 queues and physical actions have drained, memory is idle, and every enabled
 feedback message and credit acknowledgment has been delivered.
 
@@ -49,8 +49,8 @@ The [trace reference](../interfaces.md#jsonl-trace) defines fields and ID namesp
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `Trace::events_` | `vector<TraceEvent>` | Append-only observation records, ordered by nondecreasing tick. |
-| `Simulator::stopped_ / success_ / fault_` | terminal state | Distinguishes full drain from fatal failure. |
-| Owner drain predicates | read-only checks | CPU, producer, TCU, device, scoreboard, links and memory completion. |
+| `Simulator::stopped_ and success_ and fault_` | terminal state | Distinguishes full drain from fatal failure. |
+| Owner drain predicates | read-only checks | CPU, timing control, TCU, device, measurement result storage, links and memory completion. |
 
 [C++ API](../api.md#tracehpp).
 
