@@ -124,15 +124,11 @@ def check_browser(site):
                     position = next(i for i, e in enumerate(example['events']) if e['kind'] == kind)
                     page.select_option('#trace-jump', str(position))
                     assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][position]
-                fast = next((i for i, e in enumerate(example['events'])
-                             if e['kind'] == 'ExecutionFlagsUpdated'), None)
-                if fast is not None:
-                    page.select_option('#trace-jump', str(fast))
-                    event = example['events'][fast]
-                    usable = event['tick'] + example['configuration']['tcu']['period']
-                    observed_values = [list(map(int, re.findall(r'\d+', value)))
-                                       for value in page.locator('#trace-observed dd').all_text_contents()]
-                    assert [event['value'], event['tick'], usable] in observed_values
+                event = example['events'][position]
+                usable = event['tick'] + example['configuration']['tcu']['period']
+                observed_values = [list(map(int, re.findall(r'\d+', value)))
+                                   for value in page.locator('#trace-observed dd').all_text_contents()]
+                assert [event['value'], event['tick'], usable] in observed_values
                 last = len(example['events']) - 1
                 page.locator('#trace-position').evaluate('(el, value) => { el.value = value; el.dispatchEvent(new Event("input", {bubbles: true})); }', last)
                 assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][last]

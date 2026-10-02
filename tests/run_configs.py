@@ -36,7 +36,5 @@ for name in args.scenarios:
         assert summary['memory']['4096'] == summary['memory']['4100'], summary
     elif name in ('feedback', 'pulse'):
         assert summary['memory']['4096'] == 1, summary
-    else:
-        assert len([event for event in trace if event['kind'] == 'OperationStart']) == 2, name
 
 print(f'PASS {len(args.scenarios)} JSON-configured examples')

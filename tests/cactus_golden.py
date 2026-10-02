@@ -72,6 +72,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((fixture / "manifest.json").read_text())
     images = {}
+    native_traces = {}
     for case in manifest["cases"]:
         name = case["workload"]
         if name not in images:
@@ -87,8 +88,6 @@ def main():
                 work / "link.log")
             images[name] = image
         case_name = f"{name}-{case['mode']}"
-        case_output = output / case_name
-        case_output.mkdir(exist_ok=True)
         probes = set(case["probes"])
         raw = fixture / "traces" / f"{case_name}.jsonl"
         if hashlib.sha256(raw.read_bytes()).hexdigest() != case["raw_sha256"]:
@@ -101,13 +100,18 @@ def main():
             raise AssertionError(f"{case_name}: golden event count changed")
         compare(golden, normalize(reference, True, probes), case_name + " fixture")
         profile = fixture / "profiles" / f"{case['profile']}.json"
-        summary, trace = case_output / "summary.json", case_output / "native.jsonl"
-        run([str(args.simulator), "--program", str(images[name]), "--profile", str(profile),
-             "--backend", "aer", "--trace", str(trace), "--summary", str(summary)],
-            case_output / "native.log")
-        if not json.loads(summary.read_text())["success"]:
-            raise AssertionError(f"{case_name}: native simulation failed")
-        compare(golden, normalize(read_jsonl(trace), False, probes), case_name)
+        key = (name, profile)
+        if key not in native_traces:
+            native_output = output / name / case["profile"]
+            native_output.mkdir(exist_ok=True)
+            summary, trace = native_output / "summary.json", native_output / "native.jsonl"
+            run([str(args.simulator), "--program", str(images[name]), "--profile", str(profile),
+                 "--backend", "aer", "--trace", str(trace), "--summary", str(summary)],
+                native_output / "native.log")
+            if not json.loads(summary.read_text())["success"]:
+                raise AssertionError(f"{case_name}: native simulation failed")
+            native_traces[key] = read_jsonl(trace)
+        compare(golden, normalize(native_traces[key], False, probes), case_name)
         print(f"PASS {case_name}: {len(golden)} events", flush=True)
 
 

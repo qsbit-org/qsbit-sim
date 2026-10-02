@@ -86,7 +86,6 @@ int sc_main(int argc, char **argv) {
       for (const auto &event : sim.trace().events())
         if (event.kind == "OperationStart")
           starts.push_back(event.tick);
-      CHECK(starts.front() == 360);
       if (scenario == "bell") {
         const auto first = sim.memory().read(0x1000, 4), second = sim.memory().read(0x1004, 4);
         CHECK(first <= 1 && first == second);

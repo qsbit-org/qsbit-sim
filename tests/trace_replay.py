@@ -26,10 +26,11 @@ with tempfile.TemporaryDirectory() as directory:
                                 str(trace), '--no-browser'], stdout=subprocess.PIPE, text=True)
     try:
         url = process.stdout.readline().strip().split()[-1]
-        for endpoint in ('', 'trace.json', 'trace-player.js', 'site.css'):
+        for endpoint in ('', 'trace-player.js', 'site.css'):
             with urllib.request.urlopen(url + endpoint, timeout=5) as response:
                 assert response.status == 200
         with urllib.request.urlopen(url + 'trace.json', timeout=5) as response:
+            assert response.status == 200
             assert json.load(response)['examples'][0]['events'] == bundle['examples'][0]['events']
     finally:
         process.terminate()
