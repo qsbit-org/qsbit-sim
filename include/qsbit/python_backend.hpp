@@ -16,9 +16,16 @@ private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
+struct PythonBackendConfig {
+  std::string name;
+  std::string options = "{}";
+};
 class PythonBackend final : public IQuantumBackend {
 public:
   PythonBackend(const std::string &module, const std::string &class_name);
+  explicit PythonBackend(const PythonBackendConfig &config);
+  static std::string inspect(const std::string &name, const std::string &command);
+  [[nodiscard]] std::string options() const;
   ~PythonBackend() override;
   void validate(const EventSpec &action) const override;
   void reset(std::uint32_t qubits, std::uint32_t seed) override;
@@ -26,6 +33,7 @@ public:
   void apply(std::span<const EventSpec> gates) override;
   std::vector<bool> measure(std::span<const MeasurementReference> references) override;
   [[nodiscard]] std::vector<std::complex<double>> state() const override;
+  [[nodiscard]] std::vector<std::vector<std::complex<double>>> density_matrix() const override;
 
 private:
   struct Impl;

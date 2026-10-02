@@ -17,7 +17,7 @@ links each component to its source and tests.
 | You want to… | Read |
 | --- | --- |
 | Install tools or change build options | [Prerequisites](prerequisites.md) and [building](building.md) |
-| Use Aer, pulses or a custom backend | [Quantum backends](backends.md) |
+| Configure Aer, Stim, pulses or a custom backend | [Quantum backends](backends.md) |
 | Write a run configuration or interpret a trace | [Program and file formats](interfaces.md) |
 | Check a timing or ordering rule | [Simulation timing contract](module-architecture.md) |
 | Find a class or replace the CPU model | [C++ interfaces](cpp-interfaces.md) and [API reference](api.md) |

@@ -25,3 +25,19 @@ class Backend:
 
 class Incomplete:
     pass
+
+
+class Configured(Backend):
+    @staticmethod
+    def describe():
+        return {"api_version": 1, "options_schema": {
+            "type": "object", "$defs": {"bit": {"type": "boolean"}},
+            "properties": {"outcome": {"$ref": "#/$defs/bit"}},
+            "required": ["outcome"], "additionalProperties": False}, "requirements": [],
+            "capabilities": {"state_outputs": []}}
+
+    def __init__(self, options):
+        self.outcome = options["outcome"]
+
+    def measure(self, references):
+        return [self.outcome for _ in references]

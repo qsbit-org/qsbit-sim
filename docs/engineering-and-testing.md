@@ -103,6 +103,9 @@ the seed and first differing event so the run can be reproduced.
 Enable `QSBIT_PYTHON_BACKENDS` and the selected numerical test options described
 in [building](building.md#cmake-options).
 `python.plugin` checks adapter loading without numerical packages.
+`python.backend_configuration` checks discovery, configuration validation and
+precheck. `QSBIT_TEST_AER` adds thermal relaxation and density-matrix checks;
+`QSBIT_TEST_STIM` adds Clifford gates, depolarization and full-program execution.
 `numerical.*` checks numerical Aer Bell correlations and feedback, pulse inversion,
 simultaneous drives, and unsupported operations.
 
@@ -140,7 +143,7 @@ Bell-state amplitudes and measurement correlations.
 ## CI, sanitizers and coverage
 
 The [CI workflow](../.github/workflows/ci.yml) runs a core sanitizer build, a
-bridge-only build, Aer tests, pulse tests and documentation checks. It checks
+bridge-only build, Aer tests, Stim tests, pulse tests and documentation checks. It checks
 formatting and optional-dependency isolation and preserves diagnostic artifacts.
 Compiler warnings are errors.
 

@@ -122,8 +122,9 @@ feedback still crosses to a strictly later receiver edge.
 | Backend | Supported behavior | Limits |
 | --- | --- | --- |
 | Mock | Fixed measurement bits indexed by measurement ID. | No quantum state. |
-| Aer | Persistent statevector, supported one- and two-qubit gates, joint measurement and collapse. | 1–20 qubits; no pulse integration or noise model. |
+| Aer | Persistent statevector or density matrix, ideal gates, optional thermal relaxation and measurement collapse. | 1–20 qubits in statevector mode; 1–10 in density-matrix mode; no pulse integration. |
 | Pulse | Aer gates and measurement, plus joint constant X, Y and Z Hamiltonian evolution with SciPy `expm`. | 1–8 qubits; no sampled waveforms or dissipative solver. |
+| Stim | Clifford gates, optional gate depolarization and measurement collapse. | No thermal relaxation, non-Clifford gates, pulse integration or dense state output. |
 
 Pulse amplitude is angular frequency in radians/ns with
 `H = sum(amplitude * Pauli / 2)` and hbar = 1.
@@ -134,7 +135,7 @@ Qubit 0 is the least significant statevector bit.
 
 The simulator does not implement privileged execution, interrupts, caches,
 compressed instructions, distributed synchronization, TQEC input, sampled
-waveforms, dissipation or GPU adapters. The exit ECALL completes the program;
+waveforms or GPU adapters. The exit ECALL completes the program;
 other ECALLs and EBREAK raise traps. FENCE.I and unselected ISA extensions
 raise `IllegalInstruction`.
 sync raises `UnsupportedSynchronization`.

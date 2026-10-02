@@ -76,6 +76,9 @@ int sc_main(int argc, char **argv) {
                          summary_path = "summary.json";
     std::string module_directory = QSBIT_PYTHON_MODULE_DIRECTORY;
     std::string memory_dump;
+    std::string backend_command;
+    Json backend_options = Json::object();
+    bool check_config = false;
     std::uint32_t memory_base = 0, memory_size = 65536, raw_base = 0;
     bool raw = false, reverse = false;
     std::vector<Tick> resets;
@@ -91,7 +94,9 @@ int sc_main(int argc, char **argv) {
         std::cout
             << "qsbit-sim --config FILE | --program FILE [options]\n"
                "  --config FILE (JSON run configuration; paths relative to config file)\n"
-               "  --raw-base ADDRESS --backend mock|aer|pulse|MODULE:CLASS\n"
+               "  --raw-base ADDRESS --backend NAME|MODULE:CLASS\n"
+               "  --list-backends --help-backend --backend-schema --generate-config\n"
+               "  --check-config\n"
                "  --profile FILE --trace FILE --summary FILE --seed INTEGER --start TICK\n"
                "  --memory-base ADDRESS --memory-size BYTES --outcomes 0,1,...\n"
                "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"
@@ -105,10 +110,11 @@ int sc_main(int argc, char **argv) {
         const Json config = read_json(path);
         require(config.is_object(), ErrorCode::InvalidProfile, "run config must be an object");
         const std::set<std::string> allowed{
-            "schema",       "program",     "backend",     "profile",
-            "profile_file", "trace",       "summary",     "memory_dump",
-            "python_path",  "memory_base", "memory_size", "raw_base",
-            "resets",       "inspect",     "outcomes",    "reverse_registration"};
+            "schema",          "program",     "backend",     "profile",
+            "profile_file",    "trace",       "summary",     "memory_dump",
+            "python_path",     "memory_base", "memory_size", "raw_base",
+            "resets",          "inspect",     "outcomes",    "reverse_registration",
+            "backend_options", "$schema"};
         for (const auto &[key, ignored] : config.items()) {
           (void)ignored;
           require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown run key: " + key);
@@ -120,6 +126,8 @@ int sc_main(int argc, char **argv) {
           program = relative_to(base, config["program"], "program");
         if (config.contains("backend"))
           backend_name = json_string(config["backend"], "backend");
+        if (config.contains("backend_options"))
+          backend_options = config["backend_options"];
         if (config.contains("profile_file"))
           apply_profile(profile,
                         read_json(relative_to(base, config["profile_file"], "profile_file")));
@@ -171,7 +179,17 @@ int sc_main(int argc, char **argv) {
                   "reverse_registration must be a boolean");
           reverse = config["reverse_registration"].get<bool>();
         }
-      } else if (argument == "--backend")
+      } else if (argument == "--list-backends")
+        backend_command = "list";
+      else if (argument == "--help-backend")
+        backend_command = "help";
+      else if (argument == "--backend-schema")
+        backend_command = "schema";
+      else if (argument == "--generate-config")
+        backend_command = "generate";
+      else if (argument == "--check-config")
+        check_config = true;
+      else if (argument == "--backend")
         backend_name = value();
       else if (argument == "--trace")
         trace_path = value();
@@ -220,44 +238,53 @@ int sc_main(int argc, char **argv) {
       } else
         throw Fault(ErrorCode::InvalidOperand, "unknown argument: " + argument);
     }
+    if (!backend_command.empty()) {
+#ifdef QSBIT_HAS_PYTHON
+      PythonSession python(module_directory);
+      std::cout << PythonBackend::inspect(backend_name, backend_command) << '\n';
+      return 0;
+#else
+      if (backend_command == "list") {
+        std::cout << "[{\"name\":\"mock\",\"missing_dependencies\":[]}]\n";
+        return 0;
+      }
+      throw Fault(ErrorCode::UnsupportedCapability,
+                  "backend configuration discovery requires QSBIT_PYTHON_BACKENDS=ON");
+#endif
+    }
     require(!program.empty(), ErrorCode::InvalidOperand, "--program is required");
+    require(backend_options.is_object(), ErrorCode::InvalidProfile,
+            "backend_options must be an object");
     profile.validate();
     std::ifstream input(program, std::ios::binary);
     require(bool(input), ErrorCode::InvalidImage, "cannot read program: " + program);
     const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(input), {}};
     auto image = raw ? ProgramImage::raw(bytes, raw_base, memory_base, memory_size)
                      : ProgramImage::elf(bytes, memory_base, memory_size);
-    std::unique_ptr<IQuantumBackend> backend;
 #ifdef QSBIT_HAS_PYTHON
     std::unique_ptr<PythonSession> python;
 #endif
-    if (backend_name == "mock")
+    std::unique_ptr<IQuantumBackend> backend;
+    if (backend_name == "mock") {
+      require(backend_options.empty(), ErrorCode::InvalidProfile,
+              "mock backend_options must be empty; configure outcomes in the run file");
       backend = std::make_unique<MockBackend>(outcomes);
-    else {
-      std::string module, class_name;
-      if (backend_name == "aer") {
-        module = "qsbit_backend.aer";
-        class_name = "AerBackend";
-      } else if (backend_name == "pulse") {
-        module = "qsbit_backend.pulse";
-        class_name = "PulseBackend";
-      } else {
-        const auto separator = backend_name.find(':');
-        require(separator != std::string::npos && separator > 0 &&
-                    separator + 1 < backend_name.size() &&
-                    backend_name.find(':', separator + 1) == std::string::npos,
-                ErrorCode::InvalidOperand, "backend must be mock, aer, pulse, or MODULE:CLASS");
-        module = backend_name.substr(0, separator);
-        class_name = backend_name.substr(separator + 1);
-      }
+    } else {
 #ifdef QSBIT_HAS_PYTHON
       python = std::make_unique<PythonSession>(module_directory);
-      backend = std::make_unique<PythonBackend>(module, class_name);
+      auto adapter = std::make_unique<PythonBackend>(
+          PythonBackendConfig{backend_name, backend_options.dump()});
+      backend_options = Json::parse(adapter->options());
+      backend = std::move(adapter);
 #else
       throw Fault(ErrorCode::UnsupportedCapability, "this build has no Python backends");
 #endif
     }
     Simulator sim("simulator", profile, std::move(image), std::move(backend), resets, reverse);
+    if (check_config) {
+      std::cout << "Configuration valid\n";
+      return 0;
+    }
     sc_core::sc_start(
         sc_core::sc_time::from_value(checked_add(profile.watchdog, profile.tcu.period)));
     {
@@ -270,6 +297,7 @@ int sc_main(int argc, char **argv) {
                 {"success", sim.success()},
                 {"stop_tick", sc_core::sc_time_stamp().value()},
                 {"backend", backend_name},
+                {"backend_options", backend_options},
                 {"configuration", profile_json(profile)},
                 {"configuration_hash", profile.fingerprint()},
                 {"registers", sim.cpu().registers()},
@@ -283,6 +311,16 @@ int sc_main(int argc, char **argv) {
     }
     for (const auto &amplitude : sim.backend().state())
       result["statevector"].push_back({amplitude.real(), amplitude.imag()});
+    const auto density = sim.backend().density_matrix();
+    if (!density.empty()) {
+      result["density_matrix"] = Json::array();
+      for (const auto &row : density) {
+        Json values = Json::array();
+        for (const auto &entry : row)
+          values.push_back({entry.real(), entry.imag()});
+        result["density_matrix"].push_back(std::move(values));
+      }
+    }
     for (auto address : inspect)
       result["memory"][std::to_string(address)] = sim.memory().read(address, 4);
     for (const auto &reg : sim.measurement_registers().registers())

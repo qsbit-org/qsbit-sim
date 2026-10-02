@@ -14,7 +14,10 @@ public:
   virtual void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) = 0;
   virtual void apply(std::span<const EventSpec> gates) = 0;
   virtual std::vector<bool> measure(std::span<const MeasurementReference> references) = 0;
-  [[nodiscard]] virtual std::vector<std::complex<double>> state() const = 0;
+  [[nodiscard]] virtual std::vector<std::complex<double>> state() const { return {}; }
+  [[nodiscard]] virtual std::vector<std::vector<std::complex<double>>> density_matrix() const {
+    return {};
+  }
 };
 class MockBackend final : public IQuantumBackend {
 public:

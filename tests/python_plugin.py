@@ -26,6 +26,22 @@ assert result.returncode == 0, result.stderr
 summary = json.loads((out / "summary.json").read_text())
 assert summary["success"] and summary["memory"]["4096"] == 1, summary
 assert summary["statevector"] == [], summary
+config = out / "configured.json"
+config.write_text(json.dumps({"schema": 1, "backend": "custom_backend:Configured",
+                              "backend_options": {"outcome": False}}))
+for extra in (["--check-config"], []):
+    result = subprocess.run(command + ["--config", str(config), *extra],
+                            capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stderr
+summary = json.loads((out / "summary.json").read_text())
+assert summary["success"] and summary["memory"]["4096"] == 0, summary
+assert summary["backend_options"] == {"outcome": False}, summary
+config.write_text(json.dumps({"schema": 1, "backend": "custom_backend:Configured",
+                              "backend_options": {"outcome": "false"}}))
+for extra in (["--check-config"], []):
+    result = subprocess.run(command + ["--config", str(config), *extra],
+                            capture_output=True, text=True, timeout=20)
+    assert result.returncode == 2 and "backend_options.outcome" in result.stderr, result.stderr
 for backend, message in [("custom_backend:Incomplete", "requires callable validate"),
                          ("nonexistent_qsbit_test_module:Backend", "No module named"),
                          ("bad:format:extra", "MODULE:CLASS")]:

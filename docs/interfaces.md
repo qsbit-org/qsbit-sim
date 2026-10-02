@@ -86,7 +86,12 @@ for the executable's option list.
 | --- | --- |
 | `--config FILE` | Read a schema-1 JSON run file. Paths inside it are relative to that file. |
 | `--program FILE` | Load an ELF program, or raw input when `--raw-base` is supplied. |
-| `--backend mock\|aer\|pulse\|MODULE:CLASS` | Select a [backend](backends.md); default is mock. |
+| `--backend NAME` | Select a [backend](backends.md); default is mock. Accepts registered names and `module:Class`. |
+| `--list-backends` | List discovered backends and missing dependencies. |
+| `--help-backend` | Print the selected backend's descriptor and configuration schema. |
+| `--backend-schema` | Export an editor schema for backend options. |
+| `--generate-config` | Print a run configuration template for the selected backend. |
+| `--check-config` | Load and validate the run without executing instructions or writing outputs. |
 | `--profile FILE` | Overlay a strict JSON profile on the current settings. |
 | `--dump-default-profile FILE` | Write the complete default profile and exit. |
 | `--seed N` and `--start TICK` | Override the seed and TCU startup offset, respectively. |
@@ -136,7 +141,9 @@ Output parent directories are created as needed.
 | --- | --- |
 | `schema` | Required integer `1`. |
 | `program` | Program path. |
-| `backend` | Built-in name or `module:Class`. |
+| `backend` | Built-in name, registered adapter name or `module:Class`. |
+| `backend_options` | Backend-owned options; see [backend configuration](backends.md#discover-and-configure-backends). |
+| `$schema` | Optional editor schema URI; runtime validates through the selected adapter. |
 | `profile_file` | Path to a separate profile overlay. |
 | `profile` | Inline profile overlay. |
 | `trace`, `summary`, `memory_dump` | Output paths. |
@@ -264,9 +271,10 @@ on one target still applies. A consumer must reject unknown schema versions.
 
 ### Summary file
 
-The JSON summary contains success status, stop tick, backend, complete profile,
+The JSON summary contains success status, stop tick, backend, resolved backend options, complete profile,
 fingerprint, final CPU registers and PC, requested memory words, measurement
 registers and statevector entries as `[real, imaginary]` pairs.
 `measurement_registers` is indexed by qubit. Each entry contains `value`,
 `pending` and `valid`; `valid` is true when `pending` is zero.
-The mock backend has no statevector.
+Backends without statevector inspection return an empty array. A backend may
+instead supply `density_matrix` as rows of `[real, imaginary]` entries.

@@ -56,6 +56,17 @@ jobs:
             pulse: 'ON'
             extras: '--extra pulse'
             sanitizers: 'OFF'
+          - name: stim
+            preset: clang-ninja
+            compiler: clang
+            build_dir: build-clang
+            build_type: Debug
+            python: '3.12'
+            bridge: 'ON'
+            aer: 'OFF'
+            pulse: 'OFF'
+            extras: '--extra stim'
+            sanitizers: 'OFF'
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -94,8 +105,12 @@ jobs:
             -DQSBIT_PYTHON_BACKENDS=${{ matrix.bridge }} \
             -DQSBIT_TEST_AER=${{ matrix.aer }} \
             -DQSBIT_TEST_PULSE=${{ matrix.pulse }} \
+            -DQSBIT_TEST_STIM=${{ matrix.name == 'stim' && 'ON' || 'OFF' }} \
             -DQSBIT_ISA_REFERENCES=ON \
             -DQSBIT_ARCH_TEST_SOURCE="$PWD/build/riscv-arch-test"
+      - name: Check Stim dependency isolation
+        if: matrix.name == 'stim'
+        run: python -c "import importlib.util; import stim; assert importlib.util.find_spec('qiskit_aer') is None"
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel 2
       - name: Run mock example

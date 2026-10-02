@@ -8,7 +8,7 @@ All ports in a run share this backend state.
 
 - **Input:** reset parameters, active drives over an interval, ideal-gate batches
   and measurement references.
-- **Output:** evolved state, measurement bits and optional statevector inspection.
+- **Output:** measurement bits and optional statevector or density-matrix inspection.
 - **Interface:** `IQuantumBackend`, implemented natively or through `PythonBackend`.
 
 ```{graphviz}
@@ -30,8 +30,9 @@ active over the preceding interval. It then measures ending acquisitions
 and applies starting gates. All ports share one backend state.
 
 The mock backend supplies configured bits without quantum evolution.
-Aer applies ideal gates and measurements with state collapse. The pulse
-backend also integrates constant X, Y and Z drives. See
+Aer applies ideal gates, optional thermal relaxation and measurements with state
+collapse. The pulse backend integrates constant X, Y and Z drives. Stim applies
+Clifford gates and optional gate depolarization. See
 [backend setup](../backends.md) for installation and adapter methods.
 
 Backend calls are synchronous and do not advance simulation time. Output
@@ -46,7 +47,7 @@ radians per nanosecond; rotation-gate amplitudes use radians.
 | --- | --- | --- |
 | `IQuantumBackend` | replaceable interface | Defines validation, reset, evolution, gate application, measurement and state inspection. |
 | `MockBackend` | deterministic outcomes | Returns configured measurement bits; no quantum statevector. |
-| `PythonBackend` | optional bridge | Calls a selected Python adapter; Aer and pulse packages are optional. |
+| `PythonBackend` | optional bridge | Calls a selected Python adapter with its validated configuration. Numerical packages are optional. |
 | `ControlElectronics::active_` | drive source | Provides the joint drive set for the preceding interval. |
 
 [C++ API](../api.md#backendhpp).
@@ -69,3 +70,6 @@ Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../
 These tests run complete device sequences with the mock backend. Optional
 `numerical.*` tests check numerical Aer and pulse evolution; `python.plugin` checks
 loading and calls to an external adapter.
+Optional `python.backend_configuration` checks discovery, schema validation and
+CLI precheck. With `QSBIT_TEST_AER` or `QSBIT_TEST_STIM`, it also checks numerical
+noise behavior, measurement collapse and full-program execution.

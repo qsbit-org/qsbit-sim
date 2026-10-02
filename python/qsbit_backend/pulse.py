@@ -3,10 +3,15 @@
 import numpy as np
 from scipy.linalg import expm
 from .aer import AerBackend
+from .registry import options as validate_options
 
 
 class PulseBackend(AerBackend):
     supports_pulse = True
+
+    def __init__(self, options=None):
+        config = validate_options("pulse", {} if options is None else options)
+        super().__init__(config)
 
     def reset(self, qubits, seed):
         if qubits > 8:

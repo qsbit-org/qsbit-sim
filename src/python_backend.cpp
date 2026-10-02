@@ -50,12 +50,18 @@ PythonSession::PythonSession(const std::string &directory) : impl_(std::make_uni
 PythonSession::~PythonSession() = default;
 struct PythonBackend::Impl {
   py::object backend;
+  std::string options;
 };
 PythonBackend::PythonBackend(const std::string &module, const std::string &class_name)
-    : impl_(std::make_unique<Impl>()) {
+    : PythonBackend(PythonBackendConfig{module + ":" + class_name, "{}"}) {}
+PythonBackend::PythonBackend(const PythonBackendConfig &config) : impl_(std::make_unique<Impl>()) {
   try {
-    impl_->backend = py::module_::import(module.c_str()).attr(class_name.c_str())();
-    for (const char *method : {"validate", "reset", "evolve", "apply", "measure", "state"}) {
+    auto json = py::module_::import("json");
+    auto created = py::module_::import("qsbit_backend.registry")
+                       .attr("create")(config.name, json.attr("loads")(config.options));
+    impl_->backend = created[py::int_(0)];
+    impl_->options = json.attr("dumps")(created[py::int_(1)]).cast<std::string>();
+    for (const char *method : {"validate", "reset", "evolve", "apply", "measure"}) {
       require(py::hasattr(impl_->backend, method) &&
                   PyCallable_Check(impl_->backend.attr(method).ptr()),
               ErrorCode::BackendFailure, std::string("backend requires callable ") + method);
@@ -65,6 +71,16 @@ PythonBackend::PythonBackend(const std::string &module, const std::string &class
   }
 }
 PythonBackend::~PythonBackend() = default;
+std::string PythonBackend::inspect(const std::string &name, const std::string &command) {
+  try {
+    return py::module_::import("qsbit_backend.registry")
+        .attr("inspect_backend")(name, command)
+        .cast<std::string>();
+  } catch (const py::error_already_set &e) {
+    throw Fault(ErrorCode::BackendFailure, e.what());
+  }
+}
+std::string PythonBackend::options() const { return impl_->options; }
 void PythonBackend::validate(const EventSpec &action) const {
   try {
     impl_->backend.attr("validate")(descriptor(action));
@@ -110,7 +126,19 @@ std::vector<bool> PythonBackend::measure(std::span<const MeasurementReference> r
 }
 std::vector<std::complex<double>> PythonBackend::state() const {
   try {
+    if (!py::hasattr(impl_->backend, "state"))
+      return {};
     return impl_->backend.attr("state")().cast<std::vector<std::complex<double>>>();
+  } catch (const py::error_already_set &e) {
+    throw Fault(ErrorCode::BackendFailure, e.what());
+  }
+}
+std::vector<std::vector<std::complex<double>>> PythonBackend::density_matrix() const {
+  try {
+    if (!py::hasattr(impl_->backend, "density_matrix"))
+      return {};
+    return impl_->backend.attr("density_matrix")()
+        .cast<std::vector<std::vector<std::complex<double>>>>();
   } catch (const py::error_already_set &e) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }
