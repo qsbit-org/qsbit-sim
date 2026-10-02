@@ -91,9 +91,8 @@ cmake --build --preset clang-ninja --parallel
 ctest --test-dir build-clang -R experiment.allxy --output-on-failure
 ```
 
-The test compares measurement-sequence hashes and completion times between four
-fully simulated rounds and direct replay, checks gate-trigger timestamps, rejects
-unsupported repeat regions and checks the 25,600-shot distribution. Transition
-probabilities are compared with independent Bloch-vector calculations to an
-absolute tolerance of 2e-12. Shot frequencies must lie within six sampling standard
-errors plus one count of the configured-model expectation.
+The test runs four rounds through the simulator and plotting command. The plot
+checks gate order, trigger timestamps and probabilities from the recorded output.
+Transition probabilities must match independent Bloch-vector calculations within
+2e-12. Shot frequencies must lie within six sampling standard errors plus one
+count of the configured-model expectation.

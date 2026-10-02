@@ -225,10 +225,15 @@ if(BUILD_TESTING)
   endforeach()
   if(QSBIT_PYTHON_BACKENDS)
     if(QSBIT_TEST_EXPERIMENTS)
-      add_test(NAME experiment.allxy COMMAND "${Python3_EXECUTABLE}"
+      add_test(NAME python.repetition COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/repetition.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+        --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}"
+        --assembler "${RISCV_AS}" --linker "${RISCV_LD}")
+      set_tests_properties(python.repetition PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
+      add_test(NAME experiment.allxy COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/allxy.py" --simulator "$<TARGET_FILE:qsbit_sim>"
         --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")
-      set_tests_properties(experiment.allxy PROPERTIES TIMEOUT 600 LABELS "experiment;numerical;integration")
+      set_tests_properties(experiment.allxy PROPERTIES TIMEOUT 180 LABELS "experiment;numerical;integration")
     endif()
     set(BACKEND_TEST_OPTIONS "")
     if(QSBIT_TEST_AER)
