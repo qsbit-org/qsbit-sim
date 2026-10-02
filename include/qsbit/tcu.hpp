@@ -25,7 +25,7 @@ public:
   [[nodiscard]] std::size_t port_size(std::uint32_t port) const { return events_.at(port).size(); }
   [[nodiscard]] Id last_label() const { return last_label_; }
   [[nodiscard]] Tick last_due() const { return last_due_; }
-  [[nodiscard]] const ConditionalResults &history() const { return history_; }
+  [[nodiscard]] const ExecutionFlags &execution_flags() const { return execution_flags_; }
 
 private:
   struct Point {
@@ -36,7 +36,7 @@ private:
   Trace &trace_;
   std::deque<Point> timing_;
   std::vector<std::deque<OperationEvent>> events_;
-  ConditionalResults history_;
+  ExecutionFlags execution_flags_;
   Tick last_due_ = 0;
   Tick start_ = 0;
   Id last_label_ = 0;

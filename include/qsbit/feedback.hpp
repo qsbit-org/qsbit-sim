@@ -1,53 +1,45 @@
 #pragma once
 
 #include "qsbit/control.hpp"
-#include <deque>
 #include <map>
 #include <optional>
 #include <vector>
 
 namespace qsbit {
-class MeasurementResults {
+class MeasurementRegisters {
 public:
-  enum class State { Free, Pending, Visible };
-  struct Slot {
-    State state = State::Free;
-    MeasurementReference token;
+  struct Register {
+    std::uint32_t pending = 0;
     bool value = false;
   };
-  explicit MeasurementResults(const Profile &profile);
-  [[nodiscard]] bool has_slot() const;
-  [[nodiscard]] bool has_fast_credit() const;
+  explicit MeasurementRegisters(const Profile &profile);
+  [[nodiscard]] bool has_capacity() const;
   MeasurementReference reserve(Epoch epoch, std::uint32_t target);
-  [[nodiscard]] MeasurementReference token(std::uint32_t handle, Epoch epoch) const;
   void deliver(const Completion &completion, Epoch epoch);
-  void acknowledge_fast(const MeasurementReference &token, Epoch epoch);
-  std::optional<bool> consume(std::uint32_t handle, Epoch epoch);
+  void acknowledge_fast(const MeasurementReference &reference, Epoch epoch);
+  [[nodiscard]] std::optional<bool> read(std::uint32_t target) const;
   [[nodiscard]] bool deliveries_pending() const;
-  [[nodiscard]] const std::vector<Slot> &slots() const { return slots_; }
+  [[nodiscard]] const std::vector<Register> &registers() const { return registers_; }
   void reset();
 
 private:
   const Profile &profile_;
-  std::vector<Slot> slots_;
-  std::vector<std::uint32_t> generations_;
-  std::map<Id, MeasurementReference> fast_pending_;
+  std::vector<Register> registers_;
+  std::map<Id, MeasurementReference> pending_, fast_pending_;
   Id next_measurement_ = 1;
 };
-// Measurement results retained for the simulator's exact-reference conditions.
-// These are not eQASM's derived execution-flag registers.
-class ConditionalResults {
+class ExecutionFlags {
 public:
-  explicit ConditionalResults(const Profile &profile)
-      : profile_(profile), history_(profile.qubits) {}
-  [[nodiscard]] bool evaluate(const Condition &condition) const;
+  explicit ExecutionFlags(const Profile &profile) : registers_(profile.qubits) {}
+  [[nodiscard]] bool evaluate(std::uint32_t target, ExecutionFlag flag) const;
   void commit(const Completion &completion, Epoch epoch);
   void reset();
 
 private:
-  const Profile &profile_;
-  std::vector<std::deque<Completion>> history_;
+  struct Register {
+    Id last_measurement = 0;
+    bool last_one = false, last_zero = false, equal = false;
+  };
+  std::vector<Register> registers_;
 };
-using Scoreboard = MeasurementResults;
-using FastHistory = ConditionalResults;
 } // namespace qsbit

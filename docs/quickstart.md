@@ -49,7 +49,7 @@ The program stores its measured bit at address 4096.
 the backend supplies a bit; the modeled [discriminator](glossary.md#discrimination)
 delay determines when that bit is ready to send.
 
-The program first applies X to qubit 0, then measures it. QREAD waits for the
+The program first applies X to qubit 0, then measures it. FMR waits for the
 measurement to reach the CPU. An RV32I branch then selects X on qubit 1 for
 result 1, or Z for result 0.
 
@@ -66,8 +66,8 @@ operation at cycle 8 starts at `200 + 8 * 20 = 360 ns`. The trace contains:
 | 720 | The branch-selected X starts on qubit 1. |
 
 After receiving the result, the CPU branches and prepares the selected event
-for cycle 26. The TCU enqueues it at 680 ns, then triggers it at
-`200 + 26 * 20 = 720 ns`. The TCU timer continues while QREAD waits.
+for cycle 26. The TCU enqueues it at 700 ns, then triggers it at
+`200 + 26 * 20 = 720 ns`. The TCU timer continues while FMR waits.
 
 ## Try the other branch
 

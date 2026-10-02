@@ -14,7 +14,7 @@ digraph implementation {
     m13 [label="Port and codeword map", href="modules/port-codeword-and-waveform-map.html", id="module-port-codeword-and-waveform-map"];
     m6 [label="Codeword decoding", href="modules/codeword-decoding.html", id="module-codeword-decoding"];
     m7 [label="Reserve phase\nTimingControl", href="modules/reserve-phase.html", id="module-reserve-phase"];
-    m17 [label="MeasurementResults\nCPU result storage", href="modules/measurement-results.html", id="module-measurement-results"];
+    m17 [label="MeasurementRegisters\nCPU result storage", href="modules/measurement-registers.html", id="module-measurement-registers"];
   }
   subgraph cluster_tcu { label="TCU domain: TcuCycleModel"; color="#bacdd2"; style="rounded";
     m8 [label="Queue insertion\nand communication latency", href="modules/queue-enqueue.html", id="module-queue-enqueue"];
@@ -22,7 +22,7 @@ digraph implementation {
     m10 [label="Per-Port Event Queues", href="modules/per-port-event-queues.html", id="module-per-port-event-queues"];
     m11 [label="Timing controller\nand event trigger", href="modules/timing-controller.html", id="module-timing-controller"];
     m12 [label="Conditional execution\nand event validation", href="modules/conditional-execution.html", id="module-conditional-execution"];
-    m18 [label="ConditionalResults", href="modules/conditional-results.html", id="module-conditional-results"];
+    m18 [label="ExecutionFlags", href="modules/execution-flags.html", id="module-execution-flags"];
   }
   subgraph cluster_device { label="ControlElectronics: scheduled simulation events"; color="#bacdd2"; style="rounded";
     m14 [label="Control output\nand resource checks", href="modules/control-output.html", id="module-control-output"];
@@ -31,7 +31,7 @@ digraph implementation {
   }
   subgraph cluster_lifecycle { label="Tracing and completion"; color="#bacdd2"; style="rounded";
     m19 [label="Tracing and completion", href="modules/trace-recorder-and-stop-controller.html", id="module-trace-recorder-and-stop-controller"];
-    m20 [label="QSYNC\nUnsupported synchronization", href="modules/future-synchronization-adapter.html", id="module-future-synchronization-adapter"];
+    m20 [label="sync\nUnsupported synchronization", href="modules/future-synchronization-adapter.html", id="module-future-synchronization-adapter"];
   }
   m1 -> m4 [label="ProgramImage"];
   m4 -> m3 [constraint=false, label="MemoryResponse"];
@@ -48,14 +48,14 @@ digraph implementation {
   m9 -> m11 [label="due head"];
   m11 -> m10 [label="due label"];
   m10 -> m12 [label="associated events"];
-  m18 -> m12 [label="history from earlier edges"];
+  m18 -> m12 [label="execution flags"];
   m12 -> m14 [label="TriggeredEvents and preflight"];
   m14 -> m15 [label="scheduled events"];
   m15 -> m16 [label="sample bits"];
   m16 -> m17 [constraint=false, label="Completion and CPU mailbox"];
   m16 -> m18 [constraint=false, label="Completion and fast mailbox"];
   m17 -> m7 [constraint=false, label="measurement reference"];
-  m5 -> m20 [label="QSYNC"];
+  m5 -> m20 [label="sync"];
   m0 -> m3 [style=dashed, constraint=false, label="activation"];
   m0 -> m11 [style=dashed, constraint=false, label="activation"];
   m0 -> m14 [style=dashed, constraint=false, label="activation"];

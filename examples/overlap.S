@@ -4,9 +4,9 @@
 .text
 _start:
   li t0, 8
-  qadvance t0
+  wait.r t0
   li t1, 5
-  qappend x0, x0, t1
+  cw.r.r x0, t1
   li t2, 1
-  qappend x0, t2, t1
-  qend
+  cw.r.r t2, t1
+  sim_exit

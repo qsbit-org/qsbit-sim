@@ -33,6 +33,6 @@ for report in output.glob('*.gcov.json.gz'):
 summary = {name: {'covered': sum(n > 0 for n in lines.values()), 'executable': len(lines)}
            for name, lines in sorted(files.items())}
 (output / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
-for name in ['src/isa.cpp', 'src/producer.cpp', 'src/tcu.cpp', 'src/feedback.cpp', 'src/device.cpp']:
+for name in ['src/isa.cpp', 'src/timing_control.cpp', 'src/tcu.cpp', 'src/feedback.cpp', 'src/device.cpp']:
     row = summary[name]
     print(f'{name}: {row["covered"]}/{row["executable"]} executable lines')

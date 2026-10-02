@@ -18,8 +18,8 @@ The request stays unchanged until acknowledgment.
 | --- | --- |
 | `ProgramImage` and `rv32` | Load programs and calculate instruction effects. |
 | `CpuCycleModel` and `MemoryModel` | Advance the CPU and service timed memory requests. |
-| `TimingControl` and `MeasurementResults` | Prepare time points and track individual measurements. |
-| `TcuCycleModel` | Own timing and event queues, timer and conditional results. |
+| `TimingControl` and `MeasurementRegisters` | Prepare time points and maintain measurement result registers. |
+| `TcuCycleModel` | Own timing and event queues, timer and execution flags. |
 | `ControlElectronics` | Schedule output, acquisition and discrimination; check resource conflicts. |
 | `IQuantumBackend` | Calculate quantum evolution and measurement outcomes. |
 | `Simulator` | Schedule calls, reset and same-tick device processing, and determine completion. |
@@ -31,32 +31,27 @@ paths use bounded mailboxes with explicit arrival ticks. The
 ## Reserve phase operations and progress
 
 The model starts at time point zero without a pending timing entry.
-QAPPEND prepares events there. A positive QADVANCE skips an untouched origin
-without enqueueing it. After positive QADVANCE creates a new time point, that
-point must be enqueued even if no QAPPEND adds events.
+`cw` prepares events there. A positive `wait` skips an untouched origin.
+Each subsequent time point enters the timing queue, even if it has no events.
 
 | Instruction | Completion rule | Effect |
 | --- | --- | --- |
-| QAPPEND | Events are validated and stored; acquisition has a result slot. | Adds events at the current time point and returns a measurement handle, or zero for other events. |
-| QADVANCE(0) | Immediate. | No changes, including after QFLUSH. |
-| QADVANCE(d), d > 0 | Any pending time point and events are enqueued and acknowledged. | Advances the time point by d and permits further codeword events. |
-| QFLUSH | Any pending time point and events are enqueued and acknowledged. | Keeps the time point but prevents further QAPPEND there. Repetition has no further effect. |
-| QREAD | Required enqueue completes and the requested CPU result arrives. | Consumes the result slot and returns its bit. |
-| QEND | Required enqueue completes and closure is published. | Stops instruction production; simulation continues until drain. |
+| `cw` | Events are validated and stored. | Adds events at the current time point; measurement increments the target's pending count. |
+| `wait` with zero interval | Immediate. | No changes. |
+| `wait` with positive interval d | Pending events are enqueued and acknowledged. | Advances the time point by d TCU cycles. |
+| `FMR` | Required enqueue completes and the target register's pending count reaches zero. | Copies the bit into a GPR. |
+| Exit ECALL | Required enqueue completes and closure is published. | Halts the CPU; simulation continues until drain. |
 
-QFLUSH at the untouched origin completes locally. Positive QADVANCE from that
-origin or an already flushed point requires no enqueue reply.
-
-QAPPEND may retire before queue insertion. Two QAPPEND instructions at time
-point 4 followed by QADVANCE(3) enqueue both events for cycle 4, then advance
-the time point to 7 after acknowledgment.
+`cw` may retire before queue insertion. Two codewords at time point 4 followed
+by `wait.i 3` enqueue both events for cycle 4, then advance the time point to 7.
+After `FMR` enqueues a point, a positive `wait` is required before another `cw`.
 
 Only one enqueue request may await a reply. A blocked instruction retains its
 identity and operands across retries, preventing duplicate requests.
 
-Events exceeding the staging limit or per-port limits raise `Capacity`. Exhausted CPU result
-slots also fault because only a later QREAD can free them. The model waits only
-for capacity that earlier work can release, such as feedback delivery credits.
+Events exceeding the staging limit, per-port limits or measurement delivery
+capacity raise `Capacity`. Each result path has `result_capacity` entries;
+CPU delivery and TCU acknowledgment release their respective entries.
 
 ## Communication latency and TCU edge order
 
@@ -87,17 +82,17 @@ At each TCU rising edge:
 1. Read existing queue state and arrived messages. If session reset applies,
    skip the ordinary transition.
 2. Calculate the current logical cycle. If the existing head is due, match its
-   complete manifest, evaluate conditions using existing history, and validate
+   complete manifest, check the existing execution flags, and validate
    the selected device events.
 3. Validate the candidate time point's identity, mapping and deadline, then
    check capacity.
    Use queue occupancy from the **start of the edge**. A slot freed by triggering
    on this edge becomes available on the next edge.
-4. Validate incoming fast results without changing the history used in step 2.
+4. Validate incoming fast results without changing the flags used in step 2.
    Any validation fault prevents this transition's triggering and enqueue commits.
 5. Remove the triggered time point, insert the candidate if space permits,
    and emit the corresponding trace records.
-   Commit incoming conditional results for use on later edges.
+   Update execution flags from incoming results for use on later edges.
 
 At most one old point triggers and one new time point is enqueued per edge. A newly
 enqueued time point cannot trigger on its enqueue edge. These steps run within one
@@ -162,7 +157,7 @@ consumers cannot see a result newly produced at their current edge.
 
 ## Closure and drain
 
-QEND publishes an ordered `EndOfStream` marker after any required flush reply.
+The exit ECALL publishes an `EndOfStream` marker after enqueue acknowledgment.
 The marker contains the last enqueued label; zero denotes an empty stream.
 Its mailbox envelope supplies epoch and visibility timing.
 
@@ -174,19 +169,18 @@ Success requires all of the following:
 - All CPU and enabled fast-feedback deliveries, including credit acknowledgments,
   have completed.
 
-Unread Visible CPU slots may remain as final state. They do not count as pending
-deliveries. Watchdog expiry reports a failed run rather than successful closure.
+Measurement registers retain their bits after completion.
+Watchdog expiry reports a failed run.
 
 ## Session reset
 
 Reset takes precedence over ordinary work at its tick and starts a new epoch.
-It clears CPU and timing control state, mailboxes, TCU queues and history, device
-reservations, readouts and result slots. Active and future events receive reset-abort
+It clears CPU and timing control state, mailboxes, TCU queues, execution flags, device
+reservations, readouts and measurement registers. Active and future events receive reset-abort
 records. The backend is initialized again with the configured qubit count and seed.
 
 The CPU returns to the loaded entry PC. Memory bytes and the simulation profile
-are preserved. Result-slot generation counters survive reset, so stale handles
-cannot become valid through slot reuse.
+are preserved.
 
 The new TCU start is the first TCU edge at or after
 `reset_tick + profile.start`. SystemC time never rewinds. Stale completions
@@ -196,7 +190,7 @@ of silently wrapping.
 ## Records and verification
 
 [C++ interfaces](cpp-interfaces.md) define the actual records. `EnqueueReply`
-acknowledges enqueue; `ProducerAccepted` and `GroupAdmitted` are trace events.
+acknowledges enqueue; `CodewordQueued` and `TimingPointEnqueued` are trace events.
 The trace schema is documented in [file formats](interfaces.md#jsonl-trace).
 
 The [module pages](modules/README.md) identify source files and registered tests.

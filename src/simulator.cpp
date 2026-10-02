@@ -17,8 +17,8 @@ Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
                      bool reverse_registration, CpuFactory cpu_factory)
     : sc_module(name), profile_(validated(std::move(profile))),
-      backend_(validated(std::move(backend))), measurement_results_(profile_),
-      timing_control_(profile_, measurement_results_, trace_,
+      backend_(validated(std::move(backend))), measurement_registers_(profile_),
+      timing_control_(profile_, measurement_registers_, trace_,
                       [this](const EventSpec &a) { backend_->validate(a); }),
       links_(profile_), fetch_port_(profile_.cpu), data_port_(profile_.cpu),
       memory_(std::move(image), profile_.cpu, profile_.memory_latency),
@@ -31,7 +31,7 @@ Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage
       resets_(std::move(resets)) {
   require(bool(cpu_), ErrorCode::InvalidProfile, "CPU factory returned no model");
   require(sc_core::sc_get_time_resolution() == sc_core::sc_time(1, sc_core::SC_NS),
-          ErrorCode::InvalidProfile, "v1 requires a 1 ns SystemC time resolution");
+          ErrorCode::InvalidProfile, "SystemC time resolution must be 1 ns");
   require(std::is_sorted(resets_.begin(), resets_.end()) &&
               std::adjacent_find(resets_.begin(), resets_.end()) == resets_.end(),
           ErrorCode::InvalidProfile, "reset ticks must be sorted and unique");
@@ -81,7 +81,7 @@ bool Simulator::reset_at(Tick now) {
     memory_.reset();
     cpu_->reset(memory_.image().entry());
     timing_control_.reset();
-    measurement_results_.reset();
+    measurement_registers_.reset();
     tcu_.reset(now);
     device_.reset(now, epoch_);
     last_reset_ = now;
@@ -142,7 +142,7 @@ void Simulator::tcu_edge() {
   const Tick now = sc_core::sc_time_stamp().value();
   try {
     if (!reset_at(now)) {
-      const auto *group = links_.groups.peek(now);
+      const auto *request = links_.timing_events.peek(now);
       std::vector<Completion> results;
       while (auto result = links_.fast_results.take(now)) {
         if (result->epoch == epoch_)
@@ -150,16 +150,16 @@ void Simulator::tcu_edge() {
         else
           trace_.emit({now, epoch_, "StaleCompletionDiscarded"});
       }
-      auto output = tcu_.step(now, epoch_, group ? &group->value : nullptr, results,
+      auto output = tcu_.step(now, epoch_, request ? &request->value : nullptr, results,
                               [&](const TriggeredEvents &batch) { device_.preflight(batch); });
       if (output.admitted) {
-        const auto accepted = links_.groups.take(now);
+        const auto accepted = links_.timing_events.take(now);
         links_.replies.publish(now, epoch_, EnqueueReply{accepted->value.point.label});
       }
       if (output.launch)
         device_.accept(*output.launch);
-      for (const auto &token : output.fast_delivered)
-        links_.fast_credits.publish(now, epoch_, token);
+      for (const auto &reference : output.fast_delivered)
+        links_.fast_credits.publish(now, epoch_, reference);
       if (auto end = links_.closure.take(now)) {
         require(end->epoch == epoch_, ErrorCode::Protocol, "stale stream closure");
         tcu_.close(end->value);
@@ -185,7 +185,7 @@ void Simulator::wakeup() {
   }
 }
 bool Simulator::links_empty() const {
-  return links_.groups.empty() && links_.replies.empty() && links_.closure.empty() &&
+  return links_.timing_events.empty() && links_.replies.empty() && links_.closure.empty() &&
          links_.cpu_results.empty() && links_.fast_results.empty() && links_.fast_credits.empty() &&
          fetch_port_.requests.empty() && fetch_port_.responses.empty() &&
          data_port_.requests.empty() && data_port_.responses.empty();
@@ -202,7 +202,7 @@ void Simulator::barrier() {
     if (!reset_at(now) && device_.next_boundary() == now)
       device_.process(now, epoch_, links_);
     if (cpu_->halted() && timing_control_.closed() && !timing_control_.pending() &&
-        tcu_.drained() && device_.drained() && !measurement_results_.deliveries_pending() &&
+        tcu_.drained() && device_.drained() && !measurement_registers_.deliveries_pending() &&
         links_empty() && memory_.idle()) {
       success_ = true;
       stopped_ = true;

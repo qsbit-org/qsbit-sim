@@ -84,7 +84,7 @@ Implement these methods on the class selected by `module:Class`:
 | `reset(qubits, seed)` | Initialize state and random sampling for a new epoch. |
 | `evolve(start, end, drives)` | Evolve jointly under all active drives over the interval, in nanoseconds. |
 | `apply(gates)` | Apply the validated ideal-gate batch at one physical boundary. |
-| `measure(tokens)` | Measure targets jointly, collapse state and return one boolean per measurement reference in input order. |
+| `measure(references)` | Measure targets jointly, collapse state and return one boolean per measurement reference in input order. |
 | `state()` | Return complex statevector amplitudes, or an empty sequence if inspection is unavailable. |
 
 Event dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`

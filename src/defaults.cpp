@@ -35,6 +35,16 @@ Profile default_profile() {
   cx.targets = {0, 1};
   cx.resources = {{0, true}, {1, true}};
   p.mappings.push_back({0, 6, {cx}});
+  for (std::uint32_t q = 0; q < p.qubits; ++q) {
+    for (auto flag : {ExecutionFlag::LastOne, ExecutionFlag::LastZero, ExecutionFlag::Equal}) {
+      EventSpec action;
+      action.port = q;
+      action.targets = {q};
+      action.resources = {{q, true}};
+      action.execution_flag = flag;
+      p.mappings.push_back({q, 6 + static_cast<std::uint32_t>(flag), {action}});
+    }
+  }
   p.validate();
   return p;
 }

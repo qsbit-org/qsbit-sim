@@ -5,7 +5,7 @@ The TCU accepts its time point and all port events together. A full queue leaves
 
 ## Connections
 
-- **Input:** the timing control's submitted `TimingEvents` through `ControlLinks::groups`.
+- **Input:** the timing control's submitted `TimingEvents` through `ControlLinks::timing_events`.
 - **Output:** entries in the TCU timing and event queues, followed by an `EnqueueReply`
   through the return mailbox.
 - **Scheduling:** the TCU checks an arrived request on a TCU rising edge;
@@ -17,7 +17,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="enqueue request mailbox"];
   owner [label="ControlLinks and TcuCycleModel"];
-  state [label="groups, replies, closure\nEnvelope\nTcuCycleModel::last_label_"];
+  state [label="timing_events, replies, closure\nEnvelope\nTcuCycleModel::last_label_"];
   output [label="Queue insertion and EnqueueReply"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -46,12 +46,12 @@ point cannot trigger on the same edge. See
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `groups, replies, closure` | Mailboxes of `TimingEvents`, `EnqueueReply` and `EndOfStream` | One-slot communication paths between timing control and TCU. |
+| `timing_events, replies, closure` | Mailboxes of `TimingEvents`, `EnqueueReply` and `EndOfStream` | One-slot communication paths between timing control and TCU. |
 | `Envelope` | `published, eligible, epoch, value` | Retains the payload until its receiver can consume it. |
 | `TcuCycleModel::last_label_` | last enqueued label | Enforces ordered, nonduplicate submission. |
 | `timing_, events_` | TCU queues | Enqueue checks occupancy at the start of the edge before inserting the whole time point. |
 
-[C++ API](../api.md#producerhpp).
+[C++ API](../api.md#timing_controlhpp).
 
 ## Reset and errors
 

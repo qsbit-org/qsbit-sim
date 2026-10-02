@@ -17,59 +17,65 @@ Memory accesses are little-endian. Misaligned halfword, word and instruction
 accesses raise typed faults. Unmapped bytes within configured RAM can hold data,
 but instruction fetches require executable mappings.
 
-The ISA is RV32I plus the custom-0 instructions below. Registers and addresses
-are 32 bits; arithmetic wraps as defined by RV32I. ECALL and EBREAK terminate
-with distinct traps. Privileged and unselected extensions raise
-`IllegalInstruction`. FENCE is supported by the ordered memory model; FENCE.I
-is not part of the selected ISA.
+The ISA is RV32I with codeword, timing and measurement-register instructions.
+Registers and addresses are 32 bits. ECALL with `a7 = 93` and `a0 = 0`
+ends the program. Other ECALLs and EBREAK raise distinct traps. FENCE is
+supported; FENCE.I, privileged instructions and unselected extensions raise
+`IllegalInstruction`.
 
 ## Quantum instruction encoding
 
-The simulator defines the following custom-0 control instructions. Their
-encodings are not compatible with eQASM or HISQ.
-
-Quantum instructions use opcode `0x0b` and the R-type layout:
+The simulator uses opcode `0x0b` in the RISC-V custom-0 space.
 
 ```text
 31          25 24     20 19     15 14   12 11     7 6       0
     funct7       rs2       rs1    funct3     rd       opcode
 ```
 
-| funct3 | Instruction | Register fields | Completion |
-| --- | --- | --- | --- |
-| 0 | QAPPEND | rs1: port; rs2: codeword; rd: returned handle. | Events are stored for the current time point. Acquisition returns a handle; other events return zero. |
-| 1 | QADVANCE | rs1: unsigned interval; rd and rs2: zero. | Any pending time point and its events are enqueued and acknowledged, then the time point advances. Zero interval changes nothing. |
-| 2 | QFLUSH | rd, rs1 and rs2: zero. | Any pending time point and its events are enqueued and acknowledged. |
-| 3 | QREAD | rs1: handle; rd: result destination; rs2: zero. | Flush completes and the CPU-visible bit is consumed. |
-| 4 | QEND | rd, rs1 and rs2: zero. | Flush completes and closure is published. Successful completion still waits for drain. |
-| 5 | QAPPEND_IF | rs1: port; rs2: codeword; rd: register containing a measurement handle. | Conditional events are stored for the current time point; no register is written. |
-| 6 | QSYNC | All register fields: zero. | Raises `UnsupportedSynchronization`. |
-| 7 | Reserved | Any. | Raises `IllegalInstruction`. |
+| funct3 | Instruction | Fields |
+| --- | --- | --- |
+| 0 | `cw.r.r port, codeword` | `funct7 = 0`; rs1 and rs2 select GPRs; rd is zero. |
+| 0 | `cw.i.r port, codeword` | `funct7 = 1`; rs1 is a 5-bit immediate; rs2 selects a GPR; rd is zero. |
+| 0 | `cw.r.i port, codeword` | `funct7 = 2`; rs1 selects a GPR; rs2 is a 5-bit immediate; rd is zero. |
+| 0 | `cw.i.i port, codeword` | `funct7 = 3`; rs1 and rs2 are 5-bit immediates; rd is zero. |
+| 1 | `wait.r interval` | rs1 selects a GPR; funct7, rs2 and rd are zero. |
+| 2 | `wait.i interval` | Bits 31–15 hold an unsigned 17-bit interval; rd is zero. |
+| 3 | `FMR rd, target` | rs1 holds a 5-bit qubit index; funct7 and rs2 are zero. |
+| 6 | `sync target` | Bits 31–15 hold an unsigned 17-bit controller address; rd is zero. |
 
-`funct7` is zero except for QAPPEND_IF, where it is the expected bit, 0 or 1.
-Any invalid fixed field makes the encoding illegal.
+funct3 values 4, 5 and 7 are reserved. Invalid fixed fields raise
+`IllegalInstruction`. `sync` raises `UnsupportedSynchronization`.
+`send` and `recv` are unsupported.
 
-A measurement handle is a nonzero 32-bit value identifying a result slot and
-its generation. The associated `MeasurementReference` also records the epoch,
-measurement ID and target.
-QREAD consumes the handle; reset invalidates it. A condition prepared before
-QREAD retains the measurement reference after CPU consumption. Conditional acquisition is unsupported.
+### Instruction effects
 
-[quantum.inc](../examples/quantum.inc) supplies GNU `.insn` macros.
+`cw` prepares the mapped events at the current time point without writing
+a GPR. A measurement increments the target qubit's pending count.
+
+A positive `wait` enqueues the pending time point and its events, waits for
+acknowledgment, then advances the time point in TCU cycles. A zero interval
+leaves the time point and pending events unchanged.
+
+`FMR` enqueues pending events and waits for all accepted measurements of the
+selected qubit to complete. It copies the latest result into rd without
+changing the measurement register. Further `cw` instructions require a
+positive `wait` after `FMR`.
+
+The exit ECALL enqueues pending events and halts the CPU after acknowledgment.
+The simulation completes when pending events and result deliveries finish.
+
+[quantum.inc](../examples/quantum.inc) provides GNU assembler macros.
+`sim_exit` expands to `li a0, 0; li a7, 93; ecall`.
 
 ## Instruction and control operation names
 
-`TimingControl` receives each instruction as a `ControlKind` value:
-
-| ISA mnemonic | `ControlKind` |
+| Instruction | `ControlKind` |
 | --- | --- |
-| QAPPEND | Append |
-| QADVANCE | Advance |
-| QFLUSH | Flush |
-| QREAD | ReadResult |
-| QEND | End |
-| QAPPEND_IF | ConditionalAppend |
-| QSYNC | Synchronize |
+| `cw` | Codeword |
+| `wait` | Wait |
+| `FMR` | FetchMeasurement |
+| Exit ECALL | Halt |
+| `sync` | Synchronize |
 
 ## CLI and profile
 
@@ -158,8 +164,8 @@ An overlay changes only the supplied fields.
 | `command_latency`, `reply_latency` | Receiver edges for time point and enqueue-reply crossings. |
 | `cpu_result_latency`, `fast_result_latency` | Receiver edges for the independent result paths. |
 | `timing_capacity`, `event_capacity`, `staging_capacity` | Timing entries, entries per port and staged events. |
-| `result_slots`, `history_depth` | CPU result slots and TCU history entries per target. |
-| `ports`, `qubits`, `firing_width` | Device size and maximum events per port per time point. |
+| `result_capacity` | Maximum outstanding measurements on each delivery path. |
+| `ports`, `qubits`, `firing_width` | Port count, qubit count (1–32) and maximum events per port per time point. |
 | `seed`, `fast_feedback` | Random seed and fast-path enable flag. |
 | `mappings` | Source port and codeword entries and their event lists. |
 
@@ -172,7 +178,9 @@ A mapping is looked up by source `port` and `codeword`. Each selected event
 has its own physical output `port`; neither port is necessarily a qubit index.
 An event selects `kind`, output `port`, `operation`, `targets` and `resources`.
 It also supplies `delay` and `duration`, plus `discriminator_delay`,
-`amplitude`, `axis` or `separate_arm` as applicable. A resource has a numeric
+`amplitude`, `axis` or `separate_arm` as applicable. `execution_flag` selects
+`always` (default), `last_one`, `last_zero` or `equal`. Conditional flags
+require a single-qubit gate or pulse and enabled fast feedback. A resource has a numeric
 `id` and an `exclusive` boolean. Two overlapping events sharing that resource
 conflict if either reservation is exclusive. The same physical output port
 cannot host overlapping events, even when their resource declarations differ.
@@ -188,9 +196,9 @@ entries unused by the chosen backend.
 
 ## JSONL trace
 
-`ProducerAccepted` records codeword preparation; `GroupSubmitted`,
-`GroupAdmitted` and `GroupReplyVisible` record the enqueue request, insertion
-and acknowledgment of a time point and its events. `LabelFired` records the
+`CodewordQueued` records codeword preparation; `TimingPointSubmitted`,
+`TimingPointEnqueued` and `EnqueueAcknowledged` record the enqueue request, insertion
+and acknowledgment of a time point and its events. `TimingPointTriggered` records the
 event trigger.
 
 Each line is a JSON object with `schema: 1`. Ticks are nondecreasing and use
@@ -205,20 +213,20 @@ according to `kind` rather than treating zero as a missing value.
 | --- | --- |
 | `SessionStarted` | `detail` identifies the profile fingerprint. |
 | `InstructionRetired` | Instruction ID, CPU cycle, PC, word, destination, next PC, result and all registers. |
-| `CpuStalled` and `PipelineFlushed` | Held instruction and reason, or discarded branch and QEND work, respectively. |
-| `ProducerAccepted` | Instruction ID, planned time point in `cycle`, source port and codeword and returned handle in `value`. |
-| `GroupSubmitted` | Label and planned time point. |
-| `GroupAdmitted` | Label, current TCU cycle and post-enqueue timing occupancy in `value`. |
-| `GroupReplyVisible` | Enqueue label acknowledged to the CPU. |
-| `LabelFired` | Label and TCU cycle. |
+| `CpuStalled` and `PipelineFlushed` | Held instruction and reason, or younger instructions discarded on a branch or exit, respectively. |
+| `CodewordQueued` | Instruction ID, planned time point in `cycle`, source port and codeword. |
+| `TimingPointSubmitted` | Label and planned time point. |
+| `TimingPointEnqueued` | Label, current TCU cycle and post-enqueue timing occupancy in `value`. |
+| `EnqueueAcknowledged` | Enqueue label acknowledged to the CPU. |
+| `TimingPointTriggered` | Label and TCU cycle. |
 | `ConditionCancelled` | Suppressed event ID and label. |
 | `CodewordTriggered` | Event ID, label, resolved port, codeword, operation and targets. |
 | `OperationStart` | Event identity and duration in `value`. |
 | `OperationEnd` | Event ID, label, port, operation and targets. |
 | `MeasurementSampled` and `ResultReady` | Measurement ID, target and bit. |
-| `CpuResultVisible` | Measurement ID, target and bit delivered before the CPU step; QREAD can use it on this edge. |
-| `FastResultVisible` | Measurement ID, target and bit committed to TCU history after its triggering decision; usable by conditions on later edges. |
-| `ResultConsumed` | Reading instruction ID and returned bit. |
+| `MeasurementRegisterUpdated` | Measurement ID, target and bit delivered before the CPU step; FMR can read it on this edge. |
+| `ExecutionFlagsUpdated` | Measurement ID, target and bit used to update execution flags after the triggering decision. |
+| `MeasurementRegisterRead` | Reading instruction ID, target qubit and returned bit. |
 | `EndOfStreamVisible` | Last enqueued label when the TCU receives closure. |
 | `SessionReset` and `ResetAborted` | New epoch and aborted event IDs where applicable. |
 | `StaleCompletionDiscarded` | An old-epoch completion was ignored. |
@@ -232,8 +240,9 @@ The `cycle` field is a dimensionless index, not nanoseconds:
 | Trace kind | `cycle` meaning | Selected other fields |
 | --- | --- | --- |
 | `InstructionRetired` | CPU edge index relative to CPU phase | `id`: instruction; `value`: instruction result |
-| `ProducerAccepted`, `GroupSubmitted` | Planned current time point | `ProducerAccepted.value`: returned handle |
-| `GroupAdmitted`, `LabelFired` | Current logical TCU cycle in this epoch | `GroupAdmitted.value`: queue occupancy after enqueue |
+| `CodewordQueued`, `TimingPointSubmitted` | Planned current time point | `CodewordQueued.port` and `codeword`: mapping key |
+| `TimingPointEnqueued`, `TimingPointTriggered` | Current logical TCU cycle in this epoch | `TimingPointEnqueued.value`: queue occupancy after enqueue |
+| `ConditionCancelled`, `ExecutionFlagsUpdated` | Current logical TCU cycle in this epoch | `id`: canceled event or delivered measurement, respectively |
 | Other kinds | Interpret only where explicitly defined; otherwise zero | `id` and `value` depend on `kind` |
 
 ### Identity scopes
@@ -244,13 +253,11 @@ The `cycle` field is a dimensionless index, not nanoseconds:
 | Instruction ID | CPU instruction identity within an epoch | CPU instruction sequence restarts |
 | Control-event ID | Timing control-generated event identity within an epoch | Sequence restarts |
 | Label | Timing control-generated time point identity within an epoch | Sequence restarts; zero marks an empty stream |
-| Measurement ID | MeasurementResults measurement sequence within an epoch | Sequence restarts |
-| Slot generation | Reuse count for one measurement result storage slot | Preserved to reject stale handles |
+| Measurement ID | MeasurementRegisters measurement sequence within an epoch | Sequence restarts |
 | Fetch generation | CPU identity for pending instruction fetches | Updated when old fetch work is invalidated |
 
-A measurement reference combines its epoch and measurement identity with slot,
-generation, handle and target. A trace `id` is not a universal sequence number;
-join records using their kind, epoch and documented identity.
+A measurement reference contains its epoch, measurement ID and target qubit.
+Match trace records using their kind, epoch and documented identity.
 
 Independent events at the same tick may be compared as a set; ordering required
 on one target still applies. A consumer must reject unknown schema versions.
@@ -258,6 +265,8 @@ on one target still applies. A consumer must reject unknown schema versions.
 ### Summary file
 
 The JSON summary contains success status, stop tick, backend, complete profile,
-fingerprint, final registers and PC, requested memory words, unread result slots
-and statevector entries as `[real, imaginary]` pairs.
+fingerprint, final CPU registers and PC, requested memory words, measurement
+registers and statevector entries as `[real, imaginary]` pairs.
+`measurement_registers` is indexed by qubit. Each entry contains `value`,
+`pending` and `valid`; `valid` is true when `pending` is zero.
 The mock backend has no statevector.

@@ -27,7 +27,7 @@ and communication delays.
 | [Timing queue](timing-queue.md) | Retains intervals, due cycles and member lists. |
 | [Per-port event queues](per-port-event-queues.md) | Retain events until their time point's label triggers. |
 | [TCU timer](timing-controller.md) | Selects the due time point on each TCU edge. |
-| [Conditional execution checks](conditional-execution.md) | Tests measurement conditions and validates the selected events. |
+| [Conditional execution checks](conditional-execution.md) | Checks execution flags and validates the selected events. |
 
 ## Devices, feedback and completion
 
@@ -36,10 +36,10 @@ and communication delays.
 | [Control output and resource checks](control-output.md) | Reserve and execute physical intervals. |
 | [Quantum backend](quantum-device-model.md) | Evolves shared state and returns measurement outcomes. |
 | [Acquisition and discrimination](acquisition-and-discrimination.md) | Samples measurements and schedules result readiness. |
-| [Measurement results and CPU feedback](measurement-results.md) | Tracks individual measurements and delivers results to QREAD. |
-| [Results for conditional execution](conditional-results.md) | Retains individual results for conditional TCU output. |
+| [Measurement result registers](measurement-registers.md) | Stores per-qubit bits and pending measurement counts for FMR. |
+| [Execution flags](execution-flags.md) | Updates per-qubit flags used at the trigger edge. |
 | [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
-| [Synchronization](future-synchronization-adapter.md) | Rejects QSYNC; distributed synchronization is not implemented. |
+| [Synchronization](future-synchronization-adapter.md) | Rejects sync; distributed synchronization is not implemented. |
 
 Run a component's named tests with `ctest --test-dir BUILD_DIRECTORY -R NAME`.
 Numerical tests require the corresponding [build options](../building.md#cmake-options).
@@ -64,8 +64,8 @@ port-codeword-and-waveform-map
 control-output
 quantum-device-model
 acquisition-and-discrimination
-measurement-results
-conditional-results
+measurement-registers
+execution-flags
 trace-recorder-and-stop-controller
 future-synchronization-adapter
 ```

@@ -8,7 +8,7 @@ Instruction processing that prepares and enqueues time points and their events.
 
 ### Trigger phase
 
-Release of queued events at their scheduled time points. The phase names follow
+Release of queued events at their scheduled time points. See
 [eQASM, Section 3.1](https://arxiv.org/abs/1808.02449).
 
 ### TCU
@@ -21,18 +21,13 @@ controller. See [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677).
 A scheduled TCU cycle for zero or more events. The CPU prepares the current
 time point independently of the running TCU timer.
 
-### Timing label
-
-An identifier that associates a time point with its event-queue entries.
-
 ### Timing queue
 
-A FIFO of time points. Each entry stores an interval from the preceding point,
-a timing label and a list of event IDs.
+A FIFO of time points, each specifying an interval from the preceding point.
 
 ### Per-port event queue
 
-A FIFO of events for one output port. Each event carries its time point's label.
+A FIFO of events for one output port, ordered by time point.
 
 ### Port and codeword
 
@@ -68,8 +63,18 @@ to select subsequent operations.
 
 ### Fast conditional execution
 
-Testing a measurement result at the event trigger, without a CPU branch.
-QAPPEND_IF selects a measurement reference and an expected bit.
+Executing or canceling a single-qubit operation at its trigger edge according
+to the target qubit's selected execution flag.
+
+### Measurement result register
+
+One bit per qubit, read by `FMR`. A pending count prevents reads until all
+accepted measurements of that qubit complete.
+
+### Execution flag
+
+A per-qubit bit selecting unconditional execution, a latest result of one,
+a latest result of zero, or equality of the latest two results.
 
 ## Simulation time and scheduling
 
@@ -169,6 +174,10 @@ raw machine code.
 
 ## Simulator records and checks
 
+### Timing label
+
+An identifier that associates a time point with its event-queue entries.
+
 ### Timing and event records
 
 `TimingEvents` carries a time point and its events.
@@ -177,14 +186,13 @@ raw machine code.
 
 ### Measurement reference
 
-`MeasurementReference` identifies a measurement by epoch, measurement ID,
-result slot, slot generation, handle and target. The program uses the
-32-bit handle; QREAD consumes its result slot.
+`MeasurementReference` identifies a pending delivery by epoch, measurement ID
+and target qubit.
 
 ### Measurement storage
 
-`MeasurementResults` tracks pending and CPU-visible results.
-`ConditionalResults` retains results for TCU conditions.
+`MeasurementRegisters` stores per-qubit result bits and pending counts.
+`ExecutionFlags` stores per-qubit flags for trigger-time checks.
 
 ### Resource
 
@@ -221,12 +229,12 @@ Clock periods, delays, capacities and codeword mappings fixed for a run.
 ### Drain
 
 Completion of pending events, memory transactions and result deliveries
-after QEND. Unread CPU-visible results may remain.
+after the exit ECALL.
 
 ### Session reset
 
 A new epoch with controller and backend state reset. Memory and the profile
-are preserved, as are the slot generations used to reject stale handles.
+are preserved.
 
 ### Trace record
 

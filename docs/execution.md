@@ -41,11 +41,11 @@ values. Press Ctrl+C to stop the server.
 
 1. Select **feedback-one** and open **Input assembly**. The program prepares
    qubit 0, measures it and branches on the result.
-2. Jump to `ProducerAccepted`. Its `cycle` is the current time point: the TCU
+2. Jump to `CodewordQueued`. Its `cycle` is the current time point: the TCU
    cycle being prepared. Acceptance means the event is staged at the CPU.
-3. Find `GroupAdmitted` and then `LabelFired`. The first records queue insertion;
+3. Find `TimingPointEnqueued` and then `TimingPointTriggered`. The first records queue insertion;
    the second records the planned TCU triggering edge.
-4. Follow `MeasurementSampled`, `ResultReady` and `CpuResultVisible`. These show
+4. Follow `MeasurementSampled`, `ResultReady` and `MeasurementRegisterUpdated`. These show
    sampling, discriminator delay and delivery to the CPU.
 5. Continue to the last `OperationStart`. With outcome 1, the program selects X
    on qubit 1. Select **feedback-zero** to see the same branch select Z.
@@ -80,15 +80,13 @@ at 360 ns, after the CPU has had time to prepare the queued time points.
 | Feedback, outcome 0 | X: 360; acquisition: 440; branch-selected Z: 720 | Memory word 4096 is 0. |
 
 In each run, acquisition samples at 480 ns. The result is ready at 500 ns,
-CPU-visible at 505 ns and committed to conditional results at 540 ns. With the 20 ns
-TCU period, conditions can first use that history at 560 ns. `FastResultVisible`
-marks the commit, not use by the condition check already performed at 540 ns.
-A later condition can use that result only while it remains stored.
+CPU-visible at 505 ns and updates execution flags at 540 ns. With the 20 ns
+TCU period, the new flags become usable at 560 ns.
 
-In Bell, two measurement QAPPEND instructions join one time point before QREAD submits it.
-In feedback, QREAD completes before the classical branch chooses the final
-operation. Both branches reach enqueue at 680 ns and schedule the selected
-gate for cycle 26 (720 ns), leaving two TCU cycles before output. Neither
+In Bell, two measurement cw instructions join one time point before FMR submits it.
+In feedback, FMR completes before the classical branch chooses the final
+operation. Both branches reach enqueue at 700 ns and schedule the selected
+gate for cycle 26 (720 ns), one TCU cycle later. Neither
 waiting for a result nor an empty queue pauses the TCU timer.
 
 The mock backend demonstrates control timing. Use the

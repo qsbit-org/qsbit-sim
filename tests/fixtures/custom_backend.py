@@ -16,8 +16,8 @@ class Backend:
         for gate in gates:
             self.validate(gate)
 
-    def measure(self, tokens):
-        return [True for token in tokens]
+    def measure(self, references):
+        return [True for reference in references]
 
     def state(self):
         return []

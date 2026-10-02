@@ -9,7 +9,7 @@ and codeword; the selected events can address different physical output ports.
 
 ## Connections
 
-- **Input:** source port and codeword from a QAPPEND operation.
+- **Input:** source port and codeword from a cw operation.
 - **Output:** a `Mapping` containing one or more `EventSpec` values for codeword decoding.
 - **Owner:** the immutable `Profile`; lookup has no runtime state.
 
@@ -30,7 +30,11 @@ digraph module {
 Each `EventSpec` defines an ideal gate, constant pulse, acquisition or
 discriminator arm. It specifies the output port, targets, resources,
 delay and duration. Pulses also have an axis and amplitude; acquisitions
-have discriminator timing.
+have discriminator timing. `execution_flag` selects the target qubit's flag
+for single-qubit gates and pulses.
+
+The default map assigns codewords 7, 8 and 9 to X gates controlled by
+`last_one`, `last_zero` and `equal`, respectively, on each qubit's port.
 
 The event starts at `fire_tick + delay` and occupies its port and
 resources over `[start, end)`. Duration must be positive. An ideal gate

@@ -41,12 +41,12 @@ per edge. A load or blocked control instruction holds execute and prevents
 younger instructions from entering it.
 
 Only the oldest instruction can issue a store or control operation.
-Retries keep the same instruction ID and operands. QAPPEND completes when
+Retries keep the same instruction ID and operands. cw completes when
 timing control accepts its events; other control instructions follow the
 [instruction completion rules](../module-architecture.md#reserve-phase-operations-and-progress).
 
 A taken branch discards younger instructions and changes the fetch
-generation to reject their pending replies. QEND also discards younger
+generation to reject their pending replies. exit ECALL also discards younger
 work and halts the CPU after publishing closure. The simulation continues
 until queued work and result deliveries finish.
 
@@ -57,7 +57,7 @@ until queued work and result deliveries finish.
 | `registers_, pc_` | architectural state | Retirement updates the destination and PC; x0 remains zero. |
 | `fetch_pc_, fetch_request_` | fetch state | Next fetch address and outstanding request identity and generation. |
 | `fetched_, decode_, execute_` | optional Frame latches | Buffered instructions and captured operands, effects or faults. |
-| `generation_, halted_` | control state | Invalidates wrong-path fetch replies and stops issue after QEND. |
+| `generation_, halted_` | control state | Invalidates wrong-path fetch replies and stops issue after exit ECALL. |
 
 [C++ API](../api.md#cpuhpp).
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "qsbit/backend.hpp"
-#include "qsbit/producer.hpp"
+#include "qsbit/timing_control.hpp"
 #include "qsbit/trace.hpp"
 #include <map>
 #include <optional>
@@ -33,7 +33,6 @@ public:
     return boundaries_.empty() && active_.empty() && readouts_.empty();
   }
   [[nodiscard]] const ResourceReservations &resources() const { return reservations_; }
-  [[nodiscard]] const ResourceReservations &calendar() const { return resources(); }
 
 private:
   struct Boundary {
@@ -41,7 +40,7 @@ private:
     std::vector<Id> ends, ready;
   };
   struct Readout {
-    MeasurementReference token;
+    MeasurementReference reference;
     Tick end = 0, arm = 0, ready = 0;
     std::optional<bool> sample;
   };
@@ -56,6 +55,4 @@ private:
   Tick last_tick_ = 0;
   std::optional<Tick> processed_tick_;
 };
-using ResourceCalendar = ResourceReservations;
-using DeviceRuntime = ControlElectronics;
 } // namespace qsbit

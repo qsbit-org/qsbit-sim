@@ -93,10 +93,10 @@ void PythonBackend::apply(std::span<const EventSpec> gates) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }
 }
-std::vector<bool> PythonBackend::measure(std::span<const MeasurementReference> tokens) {
+std::vector<bool> PythonBackend::measure(std::span<const MeasurementReference> references) {
   try {
     py::list inputs;
-    for (const auto &t : tokens) {
+    for (const auto &t : references) {
       py::dict item;
       item["epoch"] = t.epoch;
       item["measurement"] = t.measurement;

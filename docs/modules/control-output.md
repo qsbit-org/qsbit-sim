@@ -71,7 +71,7 @@ reset tick.
 
 Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
 
-**CTest:** `protocol.calendar`, `protocol.sample_collision`, `protocol.reset`.
+**CTest:** `protocol.resources`, `protocol.sample_collision`, `protocol.reset`.
 
 The tests check overlapping resource intervals, unsupported sampling collisions
 and cancellation of active device work during reset.

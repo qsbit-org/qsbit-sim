@@ -37,7 +37,7 @@ Typed faults and their diagnostic names. [Open header](../include/qsbit/error.hp
 (feedback_8hpp)=
 ## feedback.hpp
 
-CPU result slots and TCU measurement history. [Open header](../include/qsbit/feedback.hpp).
+Per-qubit measurement result registers and execution flags. [Open header](../include/qsbit/feedback.hpp).
 
 (image_8hpp)=
 ## image.hpp
@@ -59,10 +59,10 @@ Bounded messages with explicit arrival ticks. [Open header](../include/qsbit/mai
 
 Fetch and data ports with timed memory service. [Open header](../include/qsbit/memory.hpp).
 
-(producer_8hpp)=
-## producer.hpp
+(timing__control_8hpp)=
+## timing_control.hpp
 
-Quantum instruction adaptation, time point preparation and crossings. [Open header](../include/qsbit/producer.hpp).
+Quantum instruction adaptation, time point preparation and crossings. [Open header](../include/qsbit/timing_control.hpp).
 
 (python__backend_8hpp)=
 ## python_backend.hpp

@@ -6,7 +6,7 @@
 #include <utility>
 
 namespace qsbit {
-// Durable immutable envelopes. Polling on the publication tick cannot expose a value.
+// Messages become readable on their receiver arrival edge.
 template <typename T> class Mailbox {
 public:
   struct Envelope {

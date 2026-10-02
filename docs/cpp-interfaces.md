@@ -21,27 +21,6 @@ contract, not the C++ alias, determines the unit.
 | `memory_latency` | CPU periods after acceptance |
 | Configured crossing latencies | Receiver edges, starting strictly after publication |
 
-## Source compatibility
-
-New code uses `TimingControl`, `MeasurementResults`, `ConditionalResults`,
-`ControlElectronics`, `ResourceReservations`, `TimingEvents`, `EnqueueReply`,
-`OperationEvent`, `TriggeredEvents`, `ScheduledEvent`, `EventSpec` and
-`MeasurementReference`.
-The headers retain the former names as C++ aliases for existing adapters:
-`TimelineProducer`, `Scoreboard`, `FastHistory`, `DeviceRuntime`,
-`ResourceCalendar`, `Group`, `GroupReply`, `ReservedEvent`, `LaunchBatch`,
-`PhysicalAction`, `ActionSpec` and `Token`, respectively.
-`ProducerOperation` and `ProducerKind` alias `ControlOperation` and `ControlKind`.
-The former accessors and `lower()` and `validate_group()` forward to their
-current equivalents. Adapters must be rebuilt; compiled-library ABI stability
-is not guaranteed.
-
-Mailbox `eligible` stores the arrival tick; `ControlLinks::groups` carries
-`TimingEvents` requests.
-
-`control.source_compatibility` compiles existing type names and checks the
-forwarding functions and accessors against the current interfaces.
-
 ## CPU adapter
 
 `Simulator` calls `step()` once per CPU edge. The model owns its registers,
@@ -58,7 +37,6 @@ struct CpuPorts {
   MemoryPort &data;
   std::function<std::optional<std::uint32_t>(const ControlOperation &)> control;
 };
-// Adapter contract intentionally contains no SystemC types or concrete pipeline latches.
 class ICpuCycleModel {
 public:
   virtual ~ICpuCycleModel() = default;
@@ -101,7 +79,7 @@ public:
   [[nodiscard]] std::size_t port_size(std::uint32_t port) const { return events_.at(port).size(); }
   [[nodiscard]] Id last_label() const { return last_label_; }
   [[nodiscard]] Tick last_due() const { return last_due_; }
-  [[nodiscard]] const ConditionalResults &history() const { return history_; }
+  [[nodiscard]] const ExecutionFlags &execution_flags() const { return execution_flags_; }
 
 private:
   struct Point {
@@ -112,7 +90,7 @@ private:
   Trace &trace_;
   std::deque<Point> timing_;
   std::vector<std::deque<OperationEvent>> events_;
-  ConditionalResults history_;
+  ExecutionFlags execution_flags_;
   Tick last_due_ = 0;
   Tick start_ = 0;
   Id last_label_ = 0;
@@ -138,20 +116,15 @@ Source: [include/qsbit/control.hpp](../include/qsbit/control.hpp).
 struct MeasurementReference {
   Epoch epoch = 0;
   Id measurement = 0;
-  std::uint32_t slot = 0, generation = 0, handle = 0, target = 0;
+  std::uint32_t target = 0;
   bool operator==(const MeasurementReference &) const = default;
-};
-struct Condition {
-  MeasurementReference token;
-  bool expected = false;
 };
 struct OperationEvent {
   Epoch epoch = 0;
   Id id = 0, instruction = 0, label = 0;
   std::uint32_t source_port = 0, codeword = 0;
   EventSpec action;
-  std::optional<MeasurementReference> token;
-  std::optional<Condition> condition;
+  std::optional<MeasurementReference> reference;
 };
 struct TimingPoint {
   Epoch epoch = 0;
@@ -172,7 +145,7 @@ struct EndOfStream {
   Id last_label = 0;
 };
 struct Completion {
-  MeasurementReference token;
+  MeasurementReference reference;
   bool value = false;
 };
 struct TriggeredEvents {

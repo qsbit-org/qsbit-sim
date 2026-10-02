@@ -57,14 +57,14 @@ add t3, t2, t2
 lh t4, 0(t0)
 add t5, t4, t3
 beq t1, t4, taken
-qappend x0, x0, x0
+cw.r.r x0, x0
 .word 0xffffffff
 taken:
 sw t5, 0(t0)
-qend''')
+sim_exit''')
 for latency in [1, 2, 7]:
     s, e = run(hazards, f'latency{latency}', {'memory_latency': latency})
-    assert s['memory']['4096'] == 509 and not kinds(e, 'ProducerAccepted')
+    assert s['memory']['4096'] == 509 and not kinds(e, 'CodewordQueued')
     assert kinds(e, 'PipelineFlushed') and kinds(e, 'CpuStalled')
     retired = kinds(e, 'InstructionRetired')
     assert len({r['id'] for r in retired}) == len(retired)
@@ -77,22 +77,22 @@ for tick in [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 75, 100]:
     after = [x for x in e if x['tick'] >= tick]
     assert all(x['epoch'] == 2 for x in after)
 
-older_fault = compile_case('older_fault', 'li t0, 1\nlw t1, 0(t0)\nqappend x0, x0, x0\nqend')
+older_fault = compile_case('older_fault', 'li t0, 1\nlw t1, 0(t0)\ncw.r.r x0, x0\nsim_exit')
 s, e = run(older_fault, fault='LoadMisaligned')
-assert not kinds(e, 'ProducerAccepted')
+assert not kinds(e, 'CodewordQueued')
 
-unsupported = compile_case('unsupported', '.insn r 0x0b, 6, 0, x0, x0, x0\nqend')
+unsupported = compile_case('unsupported', '.insn r 0x0b, 6, 0, x0, x0, x0\nsim_exit')
 run(unsupported, fault='UnsupportedSynchronization')
-illegal = compile_case('illegal', '.word 0x02000033\nqend')
+illegal = compile_case('illegal', '.word 0x02000033\nsim_exit')
 run(illegal, fault='IllegalInstruction')
 
 same_group = compile_case('same_group', '''li t0, 8
-qadvance t0
+wait.r t0
 li t1, 1
-qappend x0, x0, t1
-qadvance x0
-qappend x0, t1, t1
-qend''')
+cw.r.r x0, t1
+wait.r x0
+cw.r.r t1, t1
+sim_exit''')
 s, e = run(same_group)
 starts = kinds(e, 'OperationStart')
 assert len(starts) == 2 and {x['tick'] for x in starts} == {1160}
@@ -105,10 +105,10 @@ for tick in [1160, 1170, 1180]:
     assert len(starts) == 2 and {x['tick'] for x in starts} == {origin + 160}
     assert not [x for x in e if x['tick'] == tick and x['kind'] == 'OperationStart']
 
-flushed = compile_case('flush', 'li t0, 8\nqadvance t0\nli t1, 1\nqappend x0, x0, t1\nqflush\nqadvance x0\nli t0, 2\nqadvance t0\nqappend x0, t1, t1\nqend')
+flushed = compile_case('read_then_wait', 'wait.i 8\ncw.i.i 0, 1\nfmr t2, 1\nwait.i 2\ncw.i.i 1, 1\nsim_exit')
 s, e = run(flushed)
 assert [x['tick'] for x in kinds(e, 'OperationStart')] == [1160, 1200]
-invalid_flush = compile_case('append_after_flush', 'li t0, 8\nqadvance t0\nli t1, 1\nqappend x0, x0, t1\nqflush\nqappend x0, t1, t1\nqend')
+invalid_flush = compile_case('cw_after_fmr', 'wait.i 8\ncw.i.i 0, 1\nfmr t2, 1\ncw.i.i 1, 1\nsim_exit')
 run(invalid_flush, fault='Protocol')
 
 for cpu, tcu in [(7, 20), (5, 13), (11, 17)]:
@@ -119,34 +119,94 @@ for cpu, tcu in [(7, 20), (5, 13), (11, 17)]:
     assert {x['tick'] for x in kinds(e, 'OperationStart')} == {profile['start'] + 8 * tcu}
 
 fast = compile_case('fast', '''li t0, 8
-qadvance t0
+wait.r t0
 li t1, 4
-qappend s0, x0, t1
+cw.r.r x0, t1
 li t0, 100
-qadvance t0
-li t1, 1
-qappend_if s0, t1, t1, 1
-qend''')
+wait.r t0
+cw.i.i 0, 7
+sim_exit''')
 for value in [0, 1]:
     s, e = run(fast, f'outcome{value}', args=['--outcomes', str(value)])
     starts = kinds(e, 'OperationStart')
     assert len(starts) == 1 + value
     assert bool(kinds(e, 'ConditionCancelled')) == (value == 0)
     assert kinds(e, 'ResultReady')[0]['value'] == value
-    assert kinds(e, 'FastResultVisible')
-    assert kinds(e, 'CpuResultVisible')
+    assert kinds(e, 'ExecutionFlagsUpdated')
+    assert kinds(e, 'MeasurementRegisterUpdated')
 
-false_condition = compile_case('fast_false', (fast / 'program.S').read_text().split('_start:\n', 1)[1].replace('t1, t1, 1', 't1, t1, 0'))
+false_condition = compile_case('fast_false', (fast / 'program.S').read_text().split('_start:\n', 1)[1].replace('cw.i.i 0, 7', 'cw.i.i 0, 8'))
 for value in [0, 1]:
     s, e = run(false_condition, f'outcome{value}', args=['--outcomes', str(value)])
     assert len(kinds(e, 'OperationStart')) == 2 - value
     assert bool(kinds(e, 'ConditionCancelled')) == (value == 1)
 
+latest = compile_case('latest_measurement', '''wait.i 8
+cw.i.i 0, 4
+wait.i 10
+cw.i.i 0, 4
+wait.i 10
+cw.i.i 0, 7
+fmr s0, 0
+fmr s1, 0
+li t0, 4096
+sw s0, 0(t0)
+sim_exit''')
+for outcomes in ['1,0', '0,1']:
+    value = int(outcomes[-1])
+    s, e = run(latest, outcomes, args=['--outcomes', outcomes])
+    assert s['memory']['4096'] == value and s['registers'][9] == value
+    assert len(kinds(e, 'MeasurementRegisterRead')) == 2
+    assert len(kinds(e, 'OperationStart')) == 2 + value
+    assert s['measurement_registers'][0] == {'pending': 0, 'valid': True, 'value': bool(value)}
+    assert all(r['tick'] >= kinds(e, 'MeasurementRegisterUpdated')[-1]['tick']
+               for r in kinds(e, 'MeasurementRegisterRead'))
+
+equal = compile_case('equal_flag', (latest / 'program.S').read_text().split('_start:\n', 1)[1]
+                     .replace('cw.i.i 0, 7', 'cw.i.i 0, 9'))
+for outcomes in ['0,0', '1,1', '0,1', '1,0']:
+    _, e = run(equal, outcomes, args=['--outcomes', outcomes])
+    assert len(kinds(e, 'OperationStart')) == 2 + (outcomes[0] == outcomes[-1])
+
+read_reset = compile_case('read_reset', 'fmr s0, 0\nfmr s1, 1\nsim_exit')
+s, _ = run(read_reset)
+assert s['registers'][8:10] == [0, 0]
+invalid_register = compile_case('invalid_register', 'fmr s0, 2\nsim_exit')
+run(invalid_register, fault='InvalidOperand')
+run(fast, 'disabled', {'fast_feedback': False}, fault='UnsupportedCapability')
+
+reuse = compile_case('delivery_capacity_reuse', '''wait.i 8
+cw.i.i 0, 4
+fmr s0, 0
+wait.i 100
+cw.i.i 0, 4
+fmr s1, 0
+sim_exit''')
+s, e = run(reuse, profile={'result_capacity': 1, 'fast_feedback': False},
+           args=['--outcomes', '1,0'])
+assert s['registers'][8:10] == [1, 0]
+assert len(kinds(e, 'MeasurementRegisterUpdated')) == 2
+
+for outcomes in ['1,0', '0,1']:
+    s, e = run(latest, 'slow-cpu-' + outcomes, {'cpu_result_latency': 100},
+               args=['--outcomes', outcomes])
+    assert len(kinds(e, 'OperationStart')) == 2 + int(outcomes[-1])
+    assert kinds(e, 'MeasurementRegisterRead')[0]['tick'] > 1560
+
+for field in ['last_one', 'last_zero', 'equal']:
+    mapping = {'port': 0, 'codeword': 1, 'actions': [
+        {'kind': 'acquire', 'operation': 'measure', 'targets': [0], 'execution_flag': field}]}
+    config = a.output / f'invalid-{field}.json'
+    config.write_text(json.dumps({'mappings': [mapping]}))
+    result = subprocess.run([str(a.simulator), '--program', str(fast / 'program.elf'),
+                             '--profile', str(config)], capture_output=True, text=True)
+    assert result.returncode == 2 and 'InvalidProfile' in result.stderr
+
 measurement = compile_case('drain', '''li t0, 8
-qadvance t0
+wait.r t0
 li t1, 4
-qappend s0, x0, t1
-qend''')
+cw.r.r x0, t1
+sim_exit''')
 s, e = run(measurement, profile={'fast_result_latency': 50})
 ready = kinds(e, 'ResultReady')[0]['tick']
 assert s['stop_tick'] > ready + 49 * 20
@@ -156,14 +216,14 @@ for tick in [1200, 1220]:
     assert all(x['epoch'] == 2 for x in kinds(e, 'ResultReady'))
     assert len(kinds(e, 'ResultReady')) == 1
 
-late = compile_case('late', 'li t0, 1\nqadvance t0\nli t1, 1\nqappend x0, x0, t1\nqend')
+late = compile_case('late', 'li t0, 1\nwait.r t0\nli t1, 1\ncw.r.r x0, t1\nsim_exit')
 run(late, profile={'start': 0}, fault='LateAdmission')
 loop = compile_case('watchdog', 'j _start')
 run(loop, profile={'watchdog': 1200}, fault='Watchdog')
 
 # Raw machine words follow the same decoder; output identity is asserted.
 raw = a.output / 'raw.bin'
-raw.write_bytes(struct.pack('<II', 0x00700093, 0x0000400b))
+raw.write_bytes(struct.pack('<IIII', 0x00700093, 0x00000513, 0x05d00893, 0x00000073))
 r = subprocess.run([str(a.simulator), '--program', str(raw), '--raw-base', '0', '--trace', str(a.output / 'raw.jsonl'),
                     '--summary', str(a.output / 'raw.json')], capture_output=True, text=True)
 assert r.returncode == 0, r.stderr

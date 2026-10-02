@@ -55,8 +55,8 @@ configured CTest suites.
 | Test family | Main assertions |
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
-| `control.*` | Atomic enqueue, event-ID lists, queue bounds, deadlines, result slots and conditions. |
-| `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and measurement reference history. |
+| `control.*` | Atomic enqueue, event-ID lists, queue bounds, deadlines, measurement registers and execution flags. |
+| `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and execution flag updates. |
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
 | `adapter.*` | Replacement CPU construction through `ICpuCycleModel` and session reset. |
 | `docs.*` | Documentation links, checked declarations and registered test references. |
@@ -70,7 +70,7 @@ describes what those tests establish.
 When changing a protocol, check the boundary case that distinguishes the old
 and new behavior. The existing suite includes:
 
-- Two QAPPEND instructions at one time point, including QADVANCE(0), followed by one complete enqueue.
+- Two `cw` instructions separated by `wait.i 0` at one time point, followed by one complete enqueue.
 - Requests published exactly on a receiver edge, and enqueue while a full
   queue releases events. Neither the new request nor the newly freed space
   can be used on that edge.
@@ -80,9 +80,9 @@ and new behavior. The existing suite includes:
 - Overlapping resource intervals, adjacent intervals and same-target sampling
   collisions. Invalid batches must not partially change device state.
 - Delayed discriminator arms, zero discriminator delay, independent CPU and
-  fast-result crossings, and eviction of stored measurement results.
-- Reset at clock and physical boundaries, stale completions and result-slot reuse.
-- QEND while physical work or fast-feedback credits remain pending.
+  fast-result crossings, and execution flag updates.
+- Reset at clock and physical boundaries, stale completions and measurement register validity.
+- Exit ECALL while physical work or fast-feedback acknowledgments remain pending.
 
 Registration-order tests run equivalent scenarios with reversed SystemC process
 registration and compare the resulting trace and state.

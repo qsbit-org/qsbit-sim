@@ -1,114 +1,92 @@
 #include "qsbit/feedback.hpp"
 #include <algorithm>
-#include <limits>
 
 namespace qsbit {
-MeasurementResults::MeasurementResults(const Profile &profile)
-    : profile_(profile), slots_(profile.result_slots), generations_(profile.result_slots, 0) {}
-bool MeasurementResults::has_slot() const {
-  return std::any_of(slots_.begin(), slots_.end(),
-                     [](const Slot &s) { return s.state == State::Free; });
+MeasurementRegisters::MeasurementRegisters(const Profile &profile)
+    : profile_(profile), registers_(profile.qubits) {}
+bool MeasurementRegisters::has_capacity() const {
+  return pending_.size() < profile_.result_capacity &&
+         (!profile_.fast_feedback || fast_pending_.size() < profile_.result_capacity);
 }
-bool MeasurementResults::has_fast_credit() const {
-  return !profile_.fast_feedback || fast_pending_.size() < profile_.result_slots;
-}
-MeasurementReference MeasurementResults::reserve(Epoch epoch, std::uint32_t target) {
-  require(target < profile_.qubits, ErrorCode::InvalidOperand, "measurement target is invalid");
-  require(has_slot() && has_fast_credit(), ErrorCode::Capacity,
-          "measurement reservation capacity exhausted");
-  const auto it = std::find_if(slots_.begin(), slots_.end(),
-                               [](const Slot &s) { return s.state == State::Free; });
-  const auto slot = static_cast<std::uint32_t>(it - slots_.begin());
-  const auto generation = checked_add(generations_[slot], 1);
-  const auto handle = checked_add(checked_mul(generation - 1, profile_.result_slots), slot + 1);
-  require(handle <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::TimeOverflow,
-          "measurement handle exhausted");
+MeasurementReference MeasurementRegisters::reserve(Epoch epoch, std::uint32_t target) {
+  require(target < registers_.size(), ErrorCode::InvalidOperand, "measurement target is invalid");
+  require(has_capacity(), ErrorCode::Capacity, "measurement delivery capacity exhausted");
   const auto following = checked_add(next_measurement_, 1);
-  MeasurementReference result{epoch,
-                              next_measurement_,
-                              slot,
-                              static_cast<std::uint32_t>(generation),
-                              static_cast<std::uint32_t>(handle),
-                              target};
-  *it = Slot{State::Pending, result, false};
-  generations_[slot] = result.generation;
+  MeasurementReference result{epoch, next_measurement_, target};
+  pending_.emplace(result.measurement, result);
+  ++registers_[target].pending;
   next_measurement_ = following;
   if (profile_.fast_feedback)
     fast_pending_.emplace(result.measurement, result);
   return result;
 }
-MeasurementReference MeasurementResults::token(std::uint32_t handle, Epoch epoch) const {
-  require(handle > 0, ErrorCode::InvalidToken, "zero measurement handle");
-  const auto index = (handle - 1) % profile_.result_slots;
-  const auto &s = slots_[index];
-  require(s.state != State::Free && s.token.handle == handle && s.token.epoch == epoch,
-          ErrorCode::InvalidToken, "unknown, consumed, or stale measurement handle");
-  return s.token;
-}
-void MeasurementResults::deliver(const Completion &completion, Epoch epoch) {
-  if (completion.token.epoch != epoch)
+void MeasurementRegisters::deliver(const Completion &completion, Epoch epoch) {
+  if (completion.reference.epoch != epoch)
     return;
-  const auto expected = token(completion.token.handle, epoch);
-  require(expected == completion.token, ErrorCode::InvalidToken,
-          "completion token does not match reserved slot");
-  auto &slot = slots_[expected.slot];
-  require(slot.state == State::Pending, ErrorCode::DuplicateResult, "result was already delivered");
-  slot.value = completion.value;
-  slot.state = State::Visible;
+  const auto &reference = completion.reference;
+  const auto it = pending_.find(reference.measurement);
+  require(it != pending_.end(), ErrorCode::DuplicateResult, "measurement is not pending");
+  require(it->second == reference, ErrorCode::InvalidMeasurement, "measurement reference mismatch");
+  require(std::none_of(pending_.begin(), it,
+                       [&](const auto &entry) { return entry.second.target == reference.target; }),
+          ErrorCode::Protocol, "measurement results arrived out of order");
+  auto &reg = registers_.at(reference.target);
+  reg.value = completion.value;
+  --reg.pending;
+  pending_.erase(it);
 }
-void MeasurementResults::acknowledge_fast(const MeasurementReference &token_value, Epoch epoch) {
-  if (token_value.epoch != epoch)
+void MeasurementRegisters::acknowledge_fast(const MeasurementReference &reference, Epoch epoch) {
+  if (reference.epoch != epoch)
     return;
-  const auto it = fast_pending_.find(token_value.measurement);
-  require(it != fast_pending_.end() && it->second == token_value, ErrorCode::InvalidToken,
-          "unknown or duplicate fast delivery credit");
+  const auto it = fast_pending_.find(reference.measurement);
+  require(it != fast_pending_.end() && it->second == reference, ErrorCode::InvalidMeasurement,
+          "unknown or duplicate fast delivery acknowledgment");
   fast_pending_.erase(it);
 }
-std::optional<bool> MeasurementResults::consume(std::uint32_t handle, Epoch epoch) {
-  const auto selected = token(handle, epoch);
-  auto &slot = slots_[selected.slot];
-  if (slot.state == State::Pending)
+std::optional<bool> MeasurementRegisters::read(std::uint32_t target) const {
+  require(target < registers_.size(), ErrorCode::InvalidOperand, "measurement register is invalid");
+  const auto &reg = registers_[target];
+  if (reg.pending != 0)
     return std::nullopt;
-  const bool value = slot.value;
-  slot.state = State::Free;
-  return value;
+  return reg.value;
 }
-bool MeasurementResults::deliveries_pending() const {
-  return !fast_pending_.empty() || std::any_of(slots_.begin(), slots_.end(), [](const Slot &slot) {
-    return slot.state == State::Pending;
-  });
+bool MeasurementRegisters::deliveries_pending() const {
+  return !pending_.empty() || !fast_pending_.empty();
 }
-void MeasurementResults::reset() {
-  for (auto &slot : slots_)
-    slot = Slot{};
+void MeasurementRegisters::reset() {
+  std::fill(registers_.begin(), registers_.end(), Register{});
+  pending_.clear();
   fast_pending_.clear();
   next_measurement_ = 1;
 }
-bool ConditionalResults::evaluate(const Condition &condition) const {
-  require(condition.token.target < history_.size(), ErrorCode::InvalidToken,
-          "condition target is invalid");
-  const auto &history = history_[condition.token.target];
-  const auto it = std::find_if(history.begin(), history.end(),
-                               [&](const Completion &c) { return c.token == condition.token; });
-  require(it != history.end(), ErrorCode::InvalidToken,
-          "required fast-condition history is unavailable");
-  return it->value == condition.expected;
+bool ExecutionFlags::evaluate(std::uint32_t target, ExecutionFlag flag) const {
+  require(target < registers_.size(), ErrorCode::InvalidOperand,
+          "execution flag target is invalid");
+  const auto &reg = registers_[target];
+  switch (flag) {
+  case ExecutionFlag::Always:
+    return true;
+  case ExecutionFlag::LastOne:
+    return reg.last_one;
+  case ExecutionFlag::LastZero:
+    return reg.last_zero;
+  case ExecutionFlag::Equal:
+    return reg.equal;
+  }
+  throw Fault(ErrorCode::InvalidOperand, "execution flag is invalid");
 }
-void ConditionalResults::commit(const Completion &completion, Epoch epoch) {
-  if (completion.token.epoch != epoch)
+void ExecutionFlags::commit(const Completion &completion, Epoch epoch) {
+  if (completion.reference.epoch != epoch)
     return;
-  require(completion.token.target < history_.size(), ErrorCode::InvalidToken,
-          "result target is invalid");
-  auto &history = history_[completion.token.target];
-  require(history.empty() || (history.back().token.epoch == epoch &&
-                              history.back().token.measurement < completion.token.measurement),
-          ErrorCode::Protocol, "same-target fast results are duplicated or out of issue order");
-  history.push_back(completion);
-  if (history.size() > profile_.history_depth)
-    history.pop_front();
+  require(completion.reference.target < registers_.size(), ErrorCode::InvalidMeasurement,
+          "measurement target is invalid");
+  auto &reg = registers_[completion.reference.target];
+  require(completion.reference.measurement > reg.last_measurement, ErrorCode::Protocol,
+          "fast results are duplicated or out of order");
+  reg.equal = reg.last_measurement != 0 && reg.last_one == completion.value;
+  reg.last_one = completion.value;
+  reg.last_zero = !completion.value;
+  reg.last_measurement = completion.reference.measurement;
 }
-void ConditionalResults::reset() {
-  for (auto &history : history_)
-    history.clear();
-}
+void ExecutionFlags::reset() { std::fill(registers_.begin(), registers_.end(), Register{}); }
 } // namespace qsbit

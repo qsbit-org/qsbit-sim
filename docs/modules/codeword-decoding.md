@@ -7,9 +7,9 @@ such as acquisition and a separate discriminator arm.
 ## Connections
 
 - **Input:** source port and codeword, profile, epoch, instruction ID, first event ID,
-  and any measurement or condition reference.
+  and an optional measurement reference.
 - **Output:** `OperationEvent` values for the timing control's pending events at the current time point.
-- **Caller:** `TimingControl` during QAPPEND; time point validation also runs when
+- **Caller:** `TimingControl` during cw; time point validation also runs when
   the timing control submits a time point and when the TCU checks enqueue.
 
 ```{graphviz}
@@ -31,12 +31,12 @@ in the selected mapping. It assigns consecutive event IDs and preserves
 the instruction ID, source port and codeword.
 
 Acquisition and discriminator-arm events carry the measurement reference
-reserved by `MeasurementResults`. Timing control collects the events
+reserved by `MeasurementRegisters`. Timing control collects the events
 for the current time point. On submission, it assigns their timing label
 and records their IDs in `TimingPoint::manifest`.
 
-`validate_timing_events()` checks IDs, mappings, acquisition and arm
-pairing, and per-port limits before queue insertion.
+`validate_timing_events()` checks IDs, mappings and per-port limits before
+queue insertion. Device validation checks acquisition and arm pairing.
 
 ## Objects and state
 
@@ -52,7 +52,7 @@ pairing, and per-port limits before queue insertion.
 
 Unknown mappings, inconsistent identities, invalid acquisition and arm pairs and
 event counts above the configured limits raise faults. Timing control checks
-staging and per-port limits before accepting QAPPEND.
+staging and per-port limits before accepting cw.
 
 Reset discards pending events while preserving the profile mappings.
 One codeword expands into events at one time point.

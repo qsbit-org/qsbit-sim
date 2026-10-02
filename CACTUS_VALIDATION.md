@@ -23,7 +23,7 @@ assembler compatibility patch are in
 Each workload has an eQASM program and an independently assembled RV32I
 extension program in `tests/data/cactus/workloads`. The two profiles are in
 `tests/data/cactus/profiles`; `pressure` limits timing and event capacity to
-two. The programs encode the same ordered operation groups. qsbit-sim executes
+two. The programs encode the same operations at the same time points. qsbit-sim executes
 its ELF without reading the CACTUS schedule. All measurements have
 deterministic basis state results. CACTUS uses QuantumSim, while qsbit-sim uses
 Aer. The mapping covers seven qubits. Each mapped command has a 40 ns delay;
@@ -39,7 +39,7 @@ edges. At the default 5 ns period, a result published on a CPU edge arrives
 | `parallel` | X on qubits 0 and 1, then simultaneous measurements. |
 | `repeat` | X, measure, X, measure on qubit 0; checks repeated results. |
 | `entangle_uncompute` | H on 0 and 3, two CZ operations, H on both, then measurements; checks a two-qubit path returning to a basis state. |
-| `pressure` | Forty alternating X groups on qubits 0 and 1, then two measurements; the native timing and event capacities are two. |
+| `pressure` | Forty alternating X operations on qubits 0 and 1, then two measurements; the native timing and event capacities are two. |
 | `feedback_0` | Z and measurement on qubit 0, then a branch selects Z on qubit 1. |
 | `feedback_1` | X and measurement on qubit 0, then a branch selects X on qubit 1. |
 
@@ -47,9 +47,9 @@ The first six workloads run in both unmodified and corrected CACTUS binary
 modes. The corrected mode changes two measurement identification expressions.
 Each feedback workload runs in unmodified assembly mode and corrected binary
 mode. These combinations make 16 cases. The eQASM programs include eight
-terminal `qwait` guards because CACTUS prefetches timing groups. The guards
+terminal `qwait` guards because CACTUS prefetches timing points. The guards
 contain no quantum operations. The reference must report no queue error in the
-observation window. Native `QEND` drains all outstanding work.
+observation window. The simulator completes after the exit ECALL and all outstanding work.
 
 ## What the comparison asserts
 
@@ -85,8 +85,7 @@ workload.
 
 These comparisons do not establish operation end timing, private CPU pipeline
 timing, or equivalence of the two termination protocols. CACTUS does not
-implement the fast conditional execution path. Native tests cover `QAPPEND_IF`
-separately.
+implement the fast conditional execution path. Native tests cover execution flags.
 
 ## Run the regression
 

@@ -75,13 +75,13 @@ class AerBackend:
             getattr(circuit, operation)(*args)
         self._run(circuit)
 
-    def measure(self, tokens):
-        if not tokens:
+    def measure(self, references):
+        if not references:
             return []
-        targets = [token["target"] for token in tokens]
+        targets = [reference["target"] for reference in references]
         if len(set(targets)) != len(targets):
             raise ValueError("ambiguous repeated target in a measurement batch")
-        circuit = self._circuit(len(tokens))
+        circuit = self._circuit(len(references))
         for bit, target in enumerate(targets):
             circuit.measure(target, bit)
         result = self._run(circuit, memory=True)

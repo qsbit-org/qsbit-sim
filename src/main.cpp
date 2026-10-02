@@ -276,7 +276,7 @@ int sc_main(int argc, char **argv) {
                 {"pc", sim.cpu().pc()},
                 {"statevector", Json::array()},
                 {"memory", Json::object()},
-                {"result_slots", Json::array()}};
+                {"measurement_registers", Json::array()}};
     if (sim.fault()) {
       result["fault"] = qsbit::name(*sim.fault());
       result["message"] = sim.fault_message();
@@ -285,13 +285,9 @@ int sc_main(int argc, char **argv) {
       result["statevector"].push_back({amplitude.real(), amplitude.imag()});
     for (auto address : inspect)
       result["memory"][std::to_string(address)] = sim.memory().read(address, 4);
-    for (const auto &slot : sim.measurement_results().slots())
-      if (slot.state != MeasurementResults::State::Free)
-        result["result_slots"].push_back(
-            {{"handle", slot.token.handle},
-             {"measurement", slot.token.measurement},
-             {"visible", slot.state == MeasurementResults::State::Visible},
-             {"value", slot.value}});
+    for (const auto &reg : sim.measurement_registers().registers())
+      result["measurement_registers"].push_back(
+          {{"pending", reg.pending}, {"valid", reg.pending == 0}, {"value", reg.value}});
     write_json(summary_path, result);
     if (!memory_dump.empty()) {
       ensure_parent(memory_dump);

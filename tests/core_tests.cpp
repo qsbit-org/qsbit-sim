@@ -84,12 +84,12 @@ void isa_control() {
 }
 void isa_decode() {
   for (auto word : {0U, 0xffffffffU, 0x022080b3U, 0x02009093U, 0x40009093U, 0x0000100fU,
-                    0x30001073U, 0x0020a463U, 0x0000b083U, 0x0020b023U, 0x000010e7U, 0x0200000bU,
+                    0x30001073U, 0x0020a463U, 0x0000b083U, 0x0020b023U, 0x000010e7U, 0x0800000bU,
                     0x0000700bU, 0x0000108bU, 0x0000208bU, 0x0010300bU, 0x0000408bU})
     faults(ErrorCode::IllegalInstruction, [word] { (void)decode(word); });
-  for (std::uint32_t f = 0; f < 7; ++f)
+  for (std::uint32_t f : {0U, 1U, 2U, 3U, 6U})
     CHECK(decode(0xb | (f << 12)).op == Op::Quantum);
-  CHECK(decode(0x0200500b).op == Op::Quantum);
+  CHECK(decode(0x0600000b).op == Op::Quantum);
 }
 std::vector<std::uint8_t> elf_fixture() {
   std::vector<std::uint8_t> b(88);

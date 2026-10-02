@@ -18,7 +18,9 @@ def normalize(events, reference, probes):
     output = []
     for event in events:
         kind = event["kind"]
-        if kind == ("TcuOutput" if reference else "LabelFired") and "tcu" in probes:
+        if not reference and kind == "MeasurementRegisterUpdated":
+            kind = "CpuResultVisible"
+        if kind == ("TcuOutput" if reference else "TimingPointTriggered") and "tcu" in probes:
             output.append(["tcu", event["tick"], event["label"]])
         elif kind == ("DeviceCommand" if reference else "OperationStart"):
             operation = event["operation"].lower()

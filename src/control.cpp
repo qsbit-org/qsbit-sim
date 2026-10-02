@@ -13,10 +13,10 @@ void Profile::validate() const {
           "invalid start or watchdog");
   for (const auto n : {memory_latency, command_latency, reply_latency, cpu_result_latency,
                        fast_result_latency, timing_capacity, event_capacity, staging_capacity,
-                       result_slots, history_depth, ports, qubits, firing_width})
+                       result_capacity, ports, qubits, firing_width})
     require(n > 0, ErrorCode::InvalidProfile, "capacities and latencies must be positive");
-  require(result_slots <= 65535 && ports <= 65535 && qubits <= 65535, ErrorCode::InvalidProfile,
-          "profile exceeds v1 index bounds");
+  require(result_capacity <= 65535 && ports <= 65535 && qubits <= 32, ErrorCode::InvalidProfile,
+          "profile exceeds index bounds");
   std::set<std::pair<std::uint32_t, std::uint32_t>> keys;
   for (const auto &map : mappings) {
     require(map.port < ports && keys.insert({map.port, map.codeword}).second,
@@ -27,6 +27,12 @@ void Profile::validate() const {
     for (const auto &a : map.actions) {
       require(a.port < ports && !a.targets.empty() && a.duration > 0 && std::isfinite(a.amplitude),
               ErrorCode::InvalidProfile, "invalid action descriptor");
+      require(a.execution_flag >= ExecutionFlag::Always && a.execution_flag <= ExecutionFlag::Equal,
+              ErrorCode::InvalidProfile, "invalid execution flag");
+      require(a.execution_flag == ExecutionFlag::Always ||
+                  (a.targets.size() == 1 &&
+                   (a.kind == ActionKind::IdealGate || a.kind == ActionKind::Pulse)),
+              ErrorCode::InvalidProfile, "execution flags require a single-qubit gate or pulse");
       std::set<std::uint32_t> targets;
       for (auto q : a.targets)
         require(q < qubits && targets.insert(q).second, ErrorCode::InvalidProfile,
@@ -39,7 +45,7 @@ void Profile::validate() const {
         ++acquisitions;
         separate = a.separate_arm;
         require(a.targets.size() == 1, ErrorCode::InvalidProfile,
-                "one token measures one target in v1");
+                "acquisition requires one target");
       }
       if (a.kind == ActionKind::DiscriminatorArm)
         ++arms;
@@ -75,7 +81,7 @@ std::string Profile::fingerprint() const {
        << tcu.phase << ' ' << start << ' ' << watchdog;
   for (const auto n : {memory_latency, command_latency, reply_latency, cpu_result_latency,
                        fast_result_latency, timing_capacity, event_capacity, staging_capacity,
-                       result_slots, history_depth, ports, qubits, firing_width, seed})
+                       result_capacity, ports, qubits, firing_width, seed})
     text << ' ' << n;
   text << ' ' << fast_feedback << std::setprecision(17);
   for (const auto &m : mappings) {
@@ -83,14 +89,15 @@ std::string Profile::fingerprint() const {
     for (const auto &a : m.actions) {
       text << " a " << static_cast<int>(a.kind) << ' ' << a.port << ' ' << std::quoted(a.operation)
            << ' ' << a.delay << ' ' << a.duration << ' ' << a.discriminator_delay << ' '
-           << a.amplitude << ' ' << std::quoted(a.axis) << ' ' << a.separate_arm;
+           << a.amplitude << ' ' << std::quoted(a.axis) << ' ' << a.separate_arm << ' '
+           << static_cast<int>(a.execution_flag);
       for (auto q : a.targets)
         text << " q " << q;
       for (auto r : a.resources)
         text << " r " << r.id << ' ' << r.exclusive;
     }
   }
-  // Stable FNV-1a identifier, not a cryptographic integrity claim.
+  // FNV-1a configuration fingerprint.
   std::uint64_t hash = 14695981039346656037ULL;
   for (const char c : text.str()) {
     hash ^= static_cast<unsigned char>(c);
@@ -103,46 +110,43 @@ std::string Profile::fingerprint() const {
 std::vector<OperationEvent> decode_codeword(const Profile &profile, std::uint32_t port,
                                             std::uint32_t codeword, Epoch epoch, Id instruction,
                                             Id first_event,
-                                            std::optional<MeasurementReference> token,
-                                            std::optional<Condition> condition) {
+                                            std::optional<MeasurementReference> reference) {
   const auto &map = profile.mapping(port, codeword);
   std::vector<OperationEvent> events;
   for (const auto &action : map.actions) {
     const bool readout =
         action.kind == ActionKind::Acquire || action.kind == ActionKind::DiscriminatorArm;
-    require(!readout || token.has_value(), ErrorCode::InvalidToken,
-            "readout has no reserved token");
-    require(!(readout && condition), ErrorCode::UnsupportedCapability,
-            "conditional measurement is unsupported");
-    require(!condition || profile.fast_feedback, ErrorCode::UnsupportedCapability,
-            "fast feedback is disabled");
+    require(!readout || reference.has_value(), ErrorCode::InvalidMeasurement,
+            "readout has no reserved reference");
+    require(action.execution_flag == ExecutionFlag::Always || profile.fast_feedback,
+            ErrorCode::UnsupportedCapability, "fast feedback is disabled");
     OperationEvent event{
         epoch,  checked_add(first_event, events.size()), instruction, 0, port, codeword,
-        action, readout ? token : std::nullopt,          condition};
+        action, readout ? reference : std::nullopt};
     events.push_back(std::move(event));
   }
   return events;
 }
-void validate_timing_events(const TimingEvents &group, const Profile &profile) {
-  require(group.configuration == profile.fingerprint(), ErrorCode::Protocol,
-          "group profile mismatch");
-  require(group.events.size() == group.point.manifest.size(), ErrorCode::ManifestMismatch,
+void validate_timing_events(const TimingEvents &request, const Profile &profile) {
+  require(request.configuration == profile.fingerprint(), ErrorCode::Protocol,
+          "request profile mismatch");
+  require(request.events.size() == request.point.manifest.size(), ErrorCode::ManifestMismatch,
           "manifest count differs from event count");
-  require(group.events.size() <= profile.staging_capacity, ErrorCode::Capacity,
-          "oversized staged group");
+  require(request.events.size() <= profile.staging_capacity, ErrorCode::Capacity,
+          "oversized staged request");
   std::set<Id> ids;
   std::vector<std::uint32_t> counts(profile.ports, 0);
-  for (std::size_t i = 0; i < group.events.size(); ++i) {
-    const auto &e = group.events[i];
-    require(e.epoch == group.point.epoch && e.label == group.point.label && e.id != 0 &&
-                e.id == group.point.manifest[i] && ids.insert(e.id).second,
+  for (std::size_t i = 0; i < request.events.size(); ++i) {
+    const auto &e = request.events[i];
+    require(e.epoch == request.point.epoch && e.label == request.point.label && e.id != 0 &&
+                e.id == request.point.manifest[i] && ids.insert(e.id).second,
             ErrorCode::ManifestMismatch, "invalid manifested event identity");
     require(e.action.port < profile.ports, ErrorCode::InvalidPort,
             "resolved output port is invalid");
     ++counts[e.action.port];
     require(counts[e.action.port] <= profile.firing_width &&
                 counts[e.action.port] <= profile.event_capacity,
-            ErrorCode::Capacity, "group exceeds per-port firing or storage capacity");
+            ErrorCode::Capacity, "request exceeds per-port firing or storage capacity");
     const auto &map = profile.mapping(e.source_port, e.codeword);
     require(std::find(map.actions.begin(), map.actions.end(), e.action) != map.actions.end(),
             ErrorCode::Protocol, "resolved descriptor differs from immutable mapping");

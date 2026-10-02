@@ -1,21 +1,37 @@
-# Quantum extension v1; assembled by GNU as, never parsed by the simulator.
 .option norvc
 .option norelax
-.macro qappend rd, port, codeword
-  .insn r 0x0b, 0, 0, \rd, \port, \codeword
+.macro cw.r.r port, codeword
+  .insn r 0x0b, 0, 0, x0, \port, \codeword
 .endm
-.macro qadvance interval
+.macro cw.i.r port, codeword
+  .insn r 0x0b, 0, 1, x0, x\port, \codeword
+.endm
+.macro cw.r.i port, codeword
+  .insn r 0x0b, 0, 2, x0, \port, x\codeword
+.endm
+.macro cw.i.i port, codeword
+  .insn r 0x0b, 0, 3, x0, x\port, x\codeword
+.endm
+.macro wait.r interval
   .insn r 0x0b, 1, 0, x0, \interval, x0
 .endm
-.macro qflush
-  .insn r 0x0b, 2, 0, x0, x0, x0
+.macro wait.i interval
+  .if (\interval < 0) || (\interval > 131071)
+    .error "wait.i interval exceeds 17 bits"
+  .endif
+  .word (\interval << 15) | 0x200b
 .endm
-.macro qread rd, token
-  .insn r 0x0b, 3, 0, \rd, \token, x0
+.macro fmr rd, target
+  .insn r 0x0b, 3, 0, \rd, x\target, x0
 .endm
-.macro qend
-  .insn r 0x0b, 4, 0, x0, x0, x0
+.macro sync target
+  .if (\target < 0) || (\target > 131071)
+    .error "sync target exceeds 17 bits"
+  .endif
+  .word (\target << 15) | 0x600b
 .endm
-.macro qappend_if token, port, codeword, expected
-  .insn r 0x0b, 5, \expected, \token, \port, \codeword
+.macro sim_exit
+  li a0, 0
+  li a7, 93
+  ecall
 .endm

@@ -2,7 +2,7 @@ digraph architecture {
   graph [rankdir=TB, bgcolor="transparent", pad=0.2, nodesep=0.35, ranksep=0.5];
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=16, margin="0.18,0.12", target="_top"];
   edge [color="#607a83", fontname="sans-serif", fontsize=12];
-  cpu [label="Classical processor\nRV32I and control instructions", href="modules/cpu-cycle-model.html"];
+  cpu [label="Classical processor\nRV32I, cw, wait, FMR", href="modules/cpu-cycle-model.html"];
   reserve [label="Reserve phase\nPort, codeword, time point", href="modules/reserve-phase.html"];
   subgraph cluster_tcu {
     label="Timing control unit"; color="#bacdd2"; style="rounded"; fontname="sans-serif"; fontsize=16;
@@ -14,7 +14,8 @@ digraph architecture {
   output [label="Codeword-triggered\ncontrol output", href="modules/control-output.html"];
   device [label="Quantum device", href="modules/quantum-device-model.html"];
   measurement [label="Acquisition and discrimination", href="modules/acquisition-and-discrimination.html"];
-  results [label="Measurement results", href="modules/measurement-results.html"];
+  results [label="Measurement result registers", href="modules/measurement-registers.html"];
+  flags [label="Execution flags", href="modules/execution-flags.html"];
   cpu -> reserve [label="decoded instructions"];
   reserve -> timing [label="time points"];
   reserve -> events [label="operation events"];
@@ -26,5 +27,6 @@ digraph architecture {
   device -> measurement [label="readout"];
   measurement -> results [label="measurement bits"];
   results -> cpu [label="classical feedback", constraint=false];
-  results -> conditional [label="condition results", constraint=false];
+  measurement -> flags [label="measurement bits"];
+  flags -> conditional [label="selected flag", constraint=false];
 }

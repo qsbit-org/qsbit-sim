@@ -50,6 +50,26 @@ ActionKind kind_value(const std::string &name) {
     return ActionKind::DiscriminatorArm;
   throw Fault(ErrorCode::InvalidProfile, "unsupported action kind: " + name);
 }
+std::string flag_name(ExecutionFlag flag) {
+  switch (flag) {
+  case ExecutionFlag::Always:
+    return "always";
+  case ExecutionFlag::LastOne:
+    return "last_one";
+  case ExecutionFlag::LastZero:
+    return "last_zero";
+  case ExecutionFlag::Equal:
+    return "equal";
+  }
+  throw Fault(ErrorCode::InvalidProfile, "invalid execution flag");
+}
+ExecutionFlag flag_value(const std::string &name) {
+  for (auto flag : {ExecutionFlag::Always, ExecutionFlag::LastOne, ExecutionFlag::LastZero,
+                    ExecutionFlag::Equal})
+    if (flag_name(flag) == name)
+      return flag;
+  throw Fault(ErrorCode::InvalidProfile, "unsupported execution flag: " + name);
+}
 } // namespace
 void apply_profile(Profile &p, const Json &input) {
   keys(input, {"schema",
@@ -65,8 +85,7 @@ void apply_profile(Profile &p, const Json &input) {
                "timing_capacity",
                "event_capacity",
                "staging_capacity",
-               "result_slots",
-               "history_depth",
+               "result_capacity",
                "ports",
                "qubits",
                "firing_width",
@@ -93,8 +112,7 @@ void apply_profile(Profile &p, const Json &input) {
   QS_FIELD(timing_capacity);
   QS_FIELD(event_capacity);
   QS_FIELD(staging_capacity);
-  QS_FIELD(result_slots);
-  QS_FIELD(history_depth);
+  QS_FIELD(result_capacity);
   QS_FIELD(ports);
   QS_FIELD(qubits);
   QS_FIELD(firing_width);
@@ -116,7 +134,7 @@ void apply_profile(Profile &p, const Json &input) {
       require(mapping["actions"].is_array(), ErrorCode::InvalidProfile, "actions must be an array");
       for (const auto &spec : mapping["actions"]) {
         keys(spec, {"kind", "port", "operation", "targets", "resources", "delay", "duration",
-                    "discriminator_delay", "amplitude", "axis", "separate_arm"});
+                    "discriminator_delay", "amplitude", "axis", "separate_arm", "execution_flag"});
         EventSpec action;
         action.port = map.port;
         action.kind = kind_value(spec.value("kind", std::string("gate")));
@@ -124,6 +142,7 @@ void apply_profile(Profile &p, const Json &input) {
         action.axis = spec.value("axis", std::string("x"));
         action.amplitude = spec.value("amplitude", 0.0);
         action.separate_arm = spec.value("separate_arm", false);
+        action.execution_flag = flag_value(spec.value("execution_flag", std::string("always")));
         integer(spec, "port", action.port);
         integer(spec, "delay", action.delay);
         integer(spec, "duration", action.duration);
@@ -169,8 +188,7 @@ Json profile_json(const Profile &p) {
   QS_FIELD(timing_capacity);
   QS_FIELD(event_capacity);
   QS_FIELD(staging_capacity);
-  QS_FIELD(result_slots);
-  QS_FIELD(history_depth);
+  QS_FIELD(result_capacity);
   QS_FIELD(ports);
   QS_FIELD(qubits);
   QS_FIELD(firing_width);
@@ -191,6 +209,7 @@ Json profile_json(const Profile &p) {
                 {"amplitude", action.amplitude},
                 {"axis", action.axis},
                 {"separate_arm", action.separate_arm},
+                {"execution_flag", flag_name(action.execution_flag)},
                 {"resources", Json::array()}};
       for (const auto &r : action.resources)
         spec["resources"].push_back({{"id", r.id}, {"exclusive", r.exclusive}});

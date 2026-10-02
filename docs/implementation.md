@@ -50,7 +50,7 @@ integers. Architectural registers and addresses use 32 bits.
 | Timing queue capacity | 32 points |
 | Event queue capacity | 32 entries per port |
 | Timing control staging | 16 events |
-| Measurement slots | 8 |
+| Outstanding measurements per delivery path | 8 |
 | Output width | 1 event per port per time point |
 
 The example run files set TCU start to 200 ns. To inspect all defaults:
@@ -86,15 +86,15 @@ preserves committed bytes.
 
 ## Timing control and TCU
 
-QAPPEND resolves a mapping and prepares events for the current time point.
-It completes on local acceptance. QADVANCE, QFLUSH, QREAD and QEND submit any
-pending time point and events when required; only one request can await a reply.
-QADVANCE(0) changes neither the time point nor its events.
+cw resolves a mapping and prepares events for the current time point.
+It completes on local acceptance. Positive `wait`, `FMR` and the exit ECALL
+enqueue pending events; only one request can await a reply.
+wait(0) changes neither the time point nor its events.
 
 TCU enqueue inserts the time point and all event members together.
 It checks capacity before triggering removes any old entries. The timer selects
 due time points using cumulative intervals, including across empty-queue gaps.
-Conditions use stored measurement references from earlier TCU edges.
+Conditional operations use their target qubit's execution flags from earlier TCU edges.
 
 The TCU validates the entire transition before committing triggering and enqueue.
 A false condition consumes its event with a cancellation record. It does not
@@ -134,9 +134,10 @@ Qubit 0 is the least significant statevector bit.
 
 The simulator does not implement privileged execution, interrupts, caches,
 compressed instructions, distributed synchronization, TQEC input, sampled
-waveforms, dissipation or GPU adapters. ECALL and EBREAK raise distinct traps;
-FENCE.I and unselected ISA extensions raise `IllegalInstruction`.
-QSYNC raises `UnsupportedSynchronization`.
+waveforms, dissipation or GPU adapters. The exit ECALL completes the program;
+other ECALLs and EBREAK raise traps. FENCE.I and unselected ISA extensions
+raise `IllegalInstruction`.
+sync raises `UnsupportedSynchronization`.
 
 Session reset clears controller and quantum state under the same profile.
 A controller-only reset that preserves qubit state is not implemented.

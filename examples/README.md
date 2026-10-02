@@ -23,7 +23,7 @@ the commands below use the `clang-ninja` build.
 ## Bell pair
 
 `bell.S` applies H to qubit 0, CX to qubits 0 and 1, then measures both at one time
-point. Two QAPPEND instructions prepare the acquisition events; QREAD enqueues
+point. Two cw instructions prepare the acquisition events; FMR enqueues
 them and returns each result. The program stores the bits at addresses 4096 and 4100.
 
 ```sh
@@ -36,7 +36,7 @@ and dependencies reproduces the outcomes.
 
 ## Measurement feedback
 
-`feedback.S` applies X to qubit 0, measures it, waits through QREAD, and takes an RV32I
+`feedback.S` applies X to qubit 0, measures it, waits through FMR, and takes an RV32I
 branch. Result one schedules X on qubit 1; result zero schedules Z. Aer deterministically
 returns one for this preparation, yielding `|11>`. Mock runs cover both branches:
 
@@ -44,8 +44,8 @@ returns one for this preparation, yielding `|11>`. Mock runs cover both branches
 build-clang/qsbit-sim --config build-clang/examples/runs/feedback.json --backend mock --outcomes 0
 ```
 
-The CPU receives the result at 505 ns. QADVANCE moves the current time point
-from cycle 12 to cycle 26. Both branches enqueue the selected event at 680 ns
+The CPU receives the result at 505 ns. wait moves the current time point
+from cycle 12 to cycle 26. Both branches enqueue the selected event at 700 ns
 for output at 720 ns. The TCU timer continues while the CPU waits and branches.
 
 ## Constant pulse
@@ -73,8 +73,8 @@ default start of 1000 ns; pass `--start 200` to reproduce these example times.
 
 Default acquisition duration is 40 ns and discriminator delay is 20 ns. Results for
 the acquisitions at 440 are ready at 500, CPU-visible at 505, and TCU-visible at
-540. QEND retirement is not simulator completion: outstanding events and both
-feedback paths must drain. The summary contains the actual stop tick and memory bits.
+540. Simulation completion waits for outstanding events and both feedback paths.
+The summary contains the stop tick and memory bits.
 
 ## Overlapping drives
 

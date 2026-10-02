@@ -95,45 +95,65 @@ void empty_test() {
   tcu.reset();
   CHECK(tcu.last_label() == 0 && !tcu.drained());
 }
-void scoreboard_test() {
+void registers_test() {
   auto p = profile();
-  p.result_slots = 1;
-  MeasurementResults scoreboard(p);
-  const auto token = scoreboard.reserve(1, 0);
-  CHECK(!scoreboard.consume(token.handle, 1));
-  scoreboard.deliver({token, true}, 1);
-  faults(ErrorCode::DuplicateResult, [&] { scoreboard.deliver({token, true}, 1); });
-  CHECK(scoreboard.consume(token.handle, 1) == true);
-  CHECK(scoreboard.deliveries_pending() && !scoreboard.has_fast_credit());
-  faults(ErrorCode::InvalidToken, [&] { (void)scoreboard.consume(token.handle, 1); });
-  scoreboard.acknowledge_fast(token, 1);
-  CHECK(!scoreboard.deliveries_pending());
-  const auto later = scoreboard.reserve(1, 0);
-  CHECK(later.generation > token.generation && later.handle != token.handle);
-  faults(ErrorCode::InvalidToken, [&] { scoreboard.deliver({token, false}, 1); });
-  scoreboard.reset();
-  const auto reset_token = scoreboard.reserve(2, 0);
-  scoreboard.deliver({later, true}, 2);
-  CHECK(!scoreboard.consume(reset_token.handle, 2));
+  p.result_capacity = 2;
+  MeasurementRegisters registers(p);
+  CHECK(registers.read(0) == false);
+  const auto first = registers.reserve(1, 0);
+  const auto second = registers.reserve(1, 0);
+  CHECK(!registers.has_capacity() && !registers.read(0));
+  CHECK(registers.read(1) == false);
+  faults(ErrorCode::Protocol, [&] { registers.deliver({second, true}, 1); });
+  CHECK(registers.registers()[0].pending == 2);
+  auto corrupt = first;
+  corrupt.target = 1;
+  faults(ErrorCode::InvalidMeasurement, [&] { registers.deliver({corrupt, true}, 1); });
+  registers.deliver({first, true}, 1);
+  CHECK(!registers.read(0) && registers.registers()[0].pending == 1);
+  faults(ErrorCode::DuplicateResult, [&] { registers.deliver({first, true}, 1); });
+  registers.deliver({second, false}, 1);
+  CHECK(registers.read(0) == false && registers.read(0) == false);
+  CHECK(registers.deliveries_pending() && !registers.has_capacity());
+  registers.acknowledge_fast(first, 1);
+  registers.acknowledge_fast(second, 1);
+  CHECK(!registers.deliveries_pending() && registers.has_capacity());
+  const auto later = registers.reserve(1, 0);
+  CHECK(later.measurement > second.measurement && !registers.read(0));
+  registers.reset();
+  CHECK(registers.read(0) == false);
+  const auto reset_reference = registers.reserve(2, 0);
+  registers.deliver({later, true}, 2);
+  CHECK(!registers.read(0));
+  registers.deliver({reset_reference, true}, 2);
+  CHECK(registers.read(0) == true && registers.read(0) == true);
+  faults(ErrorCode::InvalidOperand, [&] { (void)registers.read(2); });
 }
 void fast_test() {
   auto p = profile();
+  p.mappings[0].actions[0].execution_flag = ExecutionFlag::LastOne;
   Trace trace;
   TcuCycleModel tcu(p, trace);
-  MeasurementResults scoreboard(p);
-  const auto token = scoreboard.reserve(1, 0);
+  MeasurementRegisters registers(p);
+  const auto reference = registers.reserve(1, 0);
   const auto ok = [](const TriggeredEvents &) {};
-  auto conditional = group(p, 1, 0, {1});
-  conditional.events[0].condition = Condition{token, true};
+  auto conditional = group(p, 1, 0, {0});
   CHECK(tcu.step(20, 1, &conditional, {}, ok).admitted);
-  faults(ErrorCode::InvalidToken, [&] { (void)tcu.step(100, 1, nullptr, {{token, true}}, ok); });
-  CHECK(tcu.timing_size() == 1);
+  const auto same_edge = tcu.step(100, 1, nullptr, {{reference, true}}, ok);
+  CHECK(same_edge.launch && same_edge.launch->events.empty());
+  CHECK(tcu.execution_flags().evaluate(0, ExecutionFlag::LastOne));
   tcu.reset();
+  trace = Trace{};
   CHECK(tcu.step(20, 1, &conditional, {}, ok).admitted);
-  CHECK(tcu.step(80, 1, nullptr, {{token, false}}, ok).fast_delivered.size() == 1);
+  CHECK(tcu.step(80, 1, nullptr, {{reference, false}}, ok).fast_delivered.size() == 1);
   const auto out = tcu.step(100, 1, nullptr, {}, ok);
   CHECK(out.launch && out.launch->events.empty());
   CHECK(trace.events().back().kind == "ConditionCancelled");
+  tcu.reset();
+  trace = Trace{};
+  CHECK(tcu.step(20, 1, &conditional, {}, ok).admitted);
+  CHECK(tcu.step(80, 1, nullptr, {{reference, true}}, ok).fast_delivered.size() == 1);
+  CHECK(tcu.step(100, 1, nullptr, {}, ok).launch->events.size() == 1);
 }
 void mapping_test() {
   auto p = profile();
@@ -147,12 +167,22 @@ void mapping_test() {
   auto bad = p;
   bad.mappings.push_back(bad.mappings[0]);
   faults(ErrorCode::InvalidProfile, [&] { bad.validate(); });
+  const auto unconditional = p.fingerprint();
+  p.mappings[0].actions[0].execution_flag = ExecutionFlag::LastOne;
+  p.validate();
+  CHECK(p.fingerprint() != unconditional);
+  auto two_qubit = p;
+  two_qubit.mappings[0].actions[0].targets = {0, 1};
+  faults(ErrorCode::InvalidProfile, [&] { two_qubit.validate(); });
+  auto invalid_flag = p;
+  invalid_flag.mappings[0].actions[0].execution_flag = static_cast<ExecutionFlag>(4);
+  faults(ErrorCode::InvalidProfile, [&] { invalid_flag.validate(); });
 }
 int main(int argc, char **argv) {
   try {
     const std::map<std::string, std::function<void()>> tests{
-        {"admission", admission_test},   {"atomic", atomic_test}, {"empty", empty_test},
-        {"scoreboard", scoreboard_test}, {"fast", fast_test},     {"mapping", mapping_test}};
+        {"admission", admission_test}, {"atomic", atomic_test}, {"empty", empty_test},
+        {"registers", registers_test}, {"fast", fast_test},     {"mapping", mapping_test}};
     CHECK(argc == 2);
     tests.at(argv[1])();
     std::cout << "PASS " << argv[1] << '\n';

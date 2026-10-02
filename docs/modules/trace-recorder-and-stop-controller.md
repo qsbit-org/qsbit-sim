@@ -30,11 +30,10 @@ output starts and ends, measurement sampling, result readiness and delivery.
 Each has a tick and event-specific IDs. See the
 [trace reference](../interfaces.md#jsonl-trace).
 
-QEND halts the CPU after its pending events have been enqueued and
+The exit ECALL halts the CPU after its pending events have been enqueued and
 acknowledged. The simulation continues until the TCU receives closure,
 all queued and device work finishes, memory is idle, and all enabled
-result deliveries and acknowledgments complete. Unread Visible CPU
-results may remain.
+result deliveries and acknowledgments complete.
 
 The device barrier emits `SimulationCompleted` when these conditions
 hold. Trace ticks are nondecreasing; several records can share one tick.
@@ -66,5 +65,5 @@ Source: [simulator.cpp](../../src/simulator.cpp) and [trace.hpp](../../include/q
 **CTest:** `systemc.use_cases`.
 
 The tests compare complete traces after reversing process registration. They
-also check that QEND waits for slow fast-feedback delivery, that reset changes
+also check that simulation completion waits for slow fast-feedback delivery, that reset changes
 the epoch, and that watchdog and model faults terminate with the expected type.

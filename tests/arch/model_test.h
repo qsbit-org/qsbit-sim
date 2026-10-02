@@ -1,7 +1,7 @@
 // Bare-metal, unprivileged RV32I platform hooks for the pinned architecture suite.
 // Signatures and every retired state are checked by an independent reference runner.
 #define RVMODEL_BOOT .global _start; _start:
-#define RVMODEL_HALT .global qsbit_test_halt; qsbit_test_halt: .word 0x0000400b
+#define RVMODEL_HALT .global qsbit_test_halt; qsbit_test_halt: li a0, 0; li a7, 93; ecall
 #define RVMODEL_DATA_BEGIN .align 4; .global begin_signature; begin_signature:
 #define RVMODEL_DATA_END .global end_signature; end_signature:
 #define RVMODEL_IO_INIT

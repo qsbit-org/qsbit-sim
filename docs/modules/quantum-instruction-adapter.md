@@ -1,13 +1,11 @@
 # Quantum instruction adapter
 
 `adapt_quantum()` translates a decoded quantum instruction and its register
-operands into a `ControlOperation`. This keeps binary instruction fields out of
-the CPU-side timing control.
+operands into a `ControlOperation` for the CPU-side timing control.
 
 ## Connections
 
-- **Input:** `rv32::Decoded`, instruction ID, captured operand values and the
-  measurement handle used by QAPPEND_IF.
+- **Input:** `rv32::Decoded`, instruction ID and captured operand values.
 - **Output:** one `ControlOperation` for `TimingControl::execute()`.
 - **Caller:** the CPU, when the quantum instruction is oldest and may issue its effect.
 
@@ -25,9 +23,9 @@ digraph module {
 
 ## Mapping an instruction
 
-The `funct3` field selects a `ControlKind`. QAPPEND supplies port and
-codeword register values. QAPPEND_IF also reads the register named by
-`rd` as its measurement handle; it does not write that register.
+The `funct3` field selects a `ControlKind`. The `cw` mode selects immediate
+or register operands for the port and codeword. `wait` supplies a cycle
+interval; `FMR` supplies a qubit index.
 
 The CPU passes the resulting operation to timing control. An absent
 optional result keeps the instruction blocked; a returned value lets
@@ -41,14 +39,14 @@ and [reserve-phase behavior](reserve-phase.md).
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `rv32::Decoded` | input record | Validated custom-0 encoding. |
-| `ControlOperation` | output record | Instruction ID, operation kind, operands, measurement handle and expected bit. |
+| `ControlOperation` | output record | Instruction ID, operation kind and operands. |
 
-[C++ API](../api.md#producerhpp).
+[C++ API](../api.md#timing_controlhpp).
 
 ## Reset and errors
 
 The adapter rejects non-quantum input. The decoder checks malformed custom
-encodings before they reach it. A valid QSYNC becomes a Synchronize operation,
+encodings before they reach it. A valid sync becomes a Synchronize operation,
 which the timing control rejects with `UnsupportedSynchronization`.
 
 The adapter has no retained state. The CPU and timing control clear their held
@@ -56,10 +54,9 @@ instruction state on reset.
 
 ## Implementation and tests
 
-Source: [producer.cpp](../../src/producer.cpp) and [producer.hpp](../../include/qsbit/producer.hpp).
+Source: [timing_control.cpp](../../src/timing_control.cpp) and [timing_control.hpp](../../include/qsbit/timing_control.hpp).
 
-**CTest:** `core.isa_decode`, `systemc.use_cases`.
+**CTest:** `control.instructions`, `core.isa_decode`, `systemc.use_cases`.
 
-The tests check extension encodings and execute QAPPEND, QADVANCE, QFLUSH,
-QREAD, QEND and conditional events. A QSYNC case checks the unsupported
-synchronization fault.
+The tests check all codeword operand modes, interval bounds, FMR register
+selection, reserved encodings and the synchronization fault.

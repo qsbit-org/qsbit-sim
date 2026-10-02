@@ -3,8 +3,7 @@
 #include "test.hpp"
 
 using namespace qsbit;
-// A minimal external execution engine verifies the injection and protocol boundary.
-// It is not an ISA implementation and makes no instruction-cycle accuracy claim.
+// CPU mock for callback and reset tests.
 class ExternalCpu final : public ICpuCycleModel {
 public:
   explicit ExternalCpu(std::uint32_t entry) { reset(entry); }
@@ -17,7 +16,7 @@ public:
     if (halted())
       return;
     const std::array<ControlOperation, 3> operations{
-        {{1, ControlKind::Advance, 8}, {2, ControlKind::Append, 0, 1}, {3, ControlKind::End}}};
+        {{1, ControlKind::Wait, 8}, {2, ControlKind::Codeword, 0, 1}, {3, ControlKind::Halt}}};
     if (ports.control(operations[index_])) {
       ++index_;
       pc_ += 4;

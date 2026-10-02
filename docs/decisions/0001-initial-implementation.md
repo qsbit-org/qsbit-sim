@@ -1,6 +1,6 @@
 # ADR 0001: Initial CPU and control profile
 
-Date: 2026-09-16. Status: accepted.
+Date: 2026-09-16. Updated: 2026-10-02. Status: accepted.
 
 ## Context
 
@@ -34,18 +34,17 @@ Load 32-bit RV32I machine code from an ELF file or raw binary. Keep assembly
 outside the simulator. The examples use GNU assembler macros to encode the
 quantum extension in the RISC-V custom-0 opcode space.
 
-QAPPEND stores events for the current time point before they enter the TCU.
+cw stores events for the current time point before they enter the TCU.
 Several instructions can therefore contribute events
-to one planned cycle. QADVANCE and QFLUSH wait for any required enqueue reply.
-QREAD flushes before waiting for a measurement; QEND flushes before closing
-production. The [instruction reference](../interfaces.md#quantum-instruction-encoding)
+to one planned cycle. Positive `wait` enqueues pending events before advancing
+the time point. `FMR` enqueues before reading a measurement register; the exit
+ECALL enqueues before halting the CPU. The [instruction reference](../interfaces.md#quantum-instruction-encoding)
 defines the encodings and completion rules.
 
-Measurement handles refer to records with an epoch, measurement ID, slot and
-generation. Fast conditions retain the exact measurement identity even after the
-CPU consumes its result slot. Conditional acquisition is unsupported because a
-cancelled acquisition would leave its result handle unresolved. QSYNC returns
-`UnsupportedSynchronization`.
+Measurement result registers retain one bit per qubit. FMR waits until the
+selected qubit has no pending measurements. Codeword mappings select
+execution flags derived from the latest completed measurements; the TCU
+checks them at the trigger edge. `sync` raises `UnsupportedSynchronization`.
 
 ### Timing and backend boundary
 

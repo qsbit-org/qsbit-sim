@@ -18,7 +18,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Acquisition and discriminator triggers"];
   owner [label="ControlElectronics::readouts_"];
-  state [label="Readout::token\nReadout::end and arm and ready\nReadout::sample"];
+  state [label="Readout::reference\nReadout::end and arm and ready\nReadout::sample"];
   output [label="Completion to CPU and fast mailboxes"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -47,7 +47,7 @@ receivers consume the result only on a later clock edge.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Readout::token` | `MeasurementReference` | Measurement identity reserved by the timing control and measurement result storage. |
+| `Readout::reference` | `MeasurementReference` | Measurement identity reserved by the timing control and measurement result storage. |
 | `Readout::end and arm and ready` | global ticks | Acquisition end, arm start and result-ready ticks. |
 | `Readout::sample` | `optional<bool>` | Empty until the backend samples the measurement at acquisition end. |
 | `ControlLinks::cpu_results and fast_results` | independent mailboxes | One completion published to each enabled delivery path. |

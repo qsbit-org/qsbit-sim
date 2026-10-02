@@ -6,7 +6,7 @@ before any event starts.
 
 ## Connections
 
-- **Input:** all events at the due time point, previously committed `ConditionalResults`, and
+- **Input:** all events at the due time point, previously committed `ExecutionFlags`, and
   existing device reservations.
 - **Output:** a `TriggeredEvents`, cancellation records, or a typed fault.
 - **Caller:** the TCU edge transition, before it removes the due time point from its queues.
@@ -15,9 +15,9 @@ before any event starts.
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Due time point and stored measurement results"];
+  input [label="Due time point and execution flags"];
   owner [label="TcuCycleModel and ControlElectronics"];
-  state [label="ConditionalResults\nTriggeredEvents\nResourceReservations"];
+  state [label="ExecutionFlags\nTriggeredEvents\nResourceReservations"];
   output [label="Validated TriggeredEvents and cancellation"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -25,10 +25,9 @@ digraph module {
 
 ## Conditions and event validation
 
-Each condition contains a measurement reference and an expected bit.
-The TCU tests it against results committed before the current edge.
-A false condition removes the event from output and emits
-`ConditionCancelled`. A missing result raises `InvalidToken`.
+Each event selects an execution flag in its codeword mapping. The TCU checks
+the target qubit's flag before committing results received on the current edge.
+A zero flag suppresses the event and emits `ConditionCancelled`.
 
 `ControlElectronics::preflight()` checks the selected events for resource
 conflicts, backend support, acquisition and arm pairing, and a gate
@@ -43,7 +42,7 @@ are not moved to a later cycle.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `ConditionalResults` | TCU-owned history | Results committed on earlier edges, indexed by measurement reference. |
+| `ExecutionFlags` | TCU-owned registers | Per-qubit flags updated by earlier measurement results. |
 | `TriggeredEvents` | temporary candidate | Due label and the events whose conditions are true. |
 | `ResourceReservations` | device-owned reservations | Checks same-batch and future interval conflicts. |
 
@@ -51,19 +50,16 @@ are not moved to a later cycle.
 
 ## Reset and errors
 
-Unavailable history, conflicting resources or invalid events raise a typed
-fault and suppress the whole TCU transition's output. Conditional acquisition
-is unsupported.
+Conflicting resources or invalid events raise a typed fault and suppress the
+transition's output. Conditional acquisition is unsupported.
 
-This check has no independent persistent state. Reset clears the TCU history
-and device reservations that it reads.
+Reset clears the execution flags and device reservations.
 
 ## Implementation and tests
 
 Source: [tcu.cpp](../../src/tcu.cpp) and [device.hpp](../../include/qsbit/device.hpp).
 
-**CTest:** `control.fast`, `protocol.calendar`, `protocol.sample_collision`.
+**CTest:** `control.fast`, `protocol.resources`, `protocol.sample_collision`.
 
-The tests distinguish an unavailable result from a false condition. They also
-check that resource conflicts and unsupported sampling collisions fail before
-any part of the device batch changes state.
+Tests check trigger-time flag selection and same-edge result arrival.
+Resource conflicts and sampling collisions fail before device state changes.

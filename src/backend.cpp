@@ -20,14 +20,14 @@ void MockBackend::apply(std::span<const EventSpec> gates) {
   if (!gates.empty())
     ++calls_;
 }
-std::vector<bool> MockBackend::measure(std::span<const MeasurementReference> tokens) {
+std::vector<bool> MockBackend::measure(std::span<const MeasurementReference> references) {
   std::vector<bool> values;
-  for (const auto &token : tokens) {
-    require(token.target < qubits_, ErrorCode::BackendFailure, "invalid measurement target");
-    const auto it = outcomes_.find(token.measurement);
+  for (const auto &reference : references) {
+    require(reference.target < qubits_, ErrorCode::BackendFailure, "invalid measurement target");
+    const auto it = outcomes_.find(reference.measurement);
     values.push_back(it != outcomes_.end() && it->second);
   }
-  if (!tokens.empty())
+  if (!references.empty())
     ++calls_;
   return values;
 }

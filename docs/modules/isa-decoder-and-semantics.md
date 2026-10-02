@@ -47,8 +47,8 @@ Quantum instructions pass through
 
 ## Reset and errors
 
-Invalid or unsupported encodings raise `IllegalInstruction`. ECALL and
-EBREAK produce distinct traps. The CPU delays a speculative instruction's fault
+Invalid or unsupported encodings raise `IllegalInstruction`. The CPU intercepts
+the exit ECALL; other ECALLs and EBREAK produce distinct traps. The CPU delays a speculative instruction's fault
 until that instruction becomes oldest, so a taken branch can discard a wrong-path
 fault. The ISA library retains no state to reset.
 

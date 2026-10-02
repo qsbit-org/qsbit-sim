@@ -47,7 +47,7 @@ def run_case(args, source):
     with (root / 'trace.jsonl').open() as stream:
         for line in stream:
             event = json.loads(line)
-            if event['kind'] != 'InstructionRetired' or event['word'] == 0x0000400B:
+            if event['kind'] != 'InstructionRetired' or event['word'] == 0x00000073:
                 continue
             assert emulator.reg_read(UC_RISCV_REG_PC) == event['pc'], (source.name, count, 'PC', event)
             emulator.emu_start(event['pc'], 0xFFFFFFFF, count=1)
@@ -55,7 +55,7 @@ def run_case(args, source):
             assert event['registers'] == expected, (source.name, count, 'registers', event, expected)
             assert event['next_pc'] == emulator.reg_read(UC_RISCV_REG_PC), (source.name, count, 'next PC')
             count += 1
-    assert emulator.reg_read(UC_RISCV_REG_PC) == symbols['qsbit_test_halt']
+    assert emulator.reg_read(UC_RISCV_REG_PC) == symbols['qsbit_test_halt'] + 8
     start, end = symbols['begin_signature'], symbols['end_signature']
     assert end > start, 'empty signature is not a passing test'
     with (root / 'memory.bin').open('rb') as stream:

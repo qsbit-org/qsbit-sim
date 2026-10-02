@@ -28,7 +28,7 @@ enum class ErrorCode {
   Protocol,
   ResourceConflict,
   UnsupportedCapability,
-  InvalidToken,
+  InvalidMeasurement,
   DuplicateResult,
   BackendFailure,
   Watchdog

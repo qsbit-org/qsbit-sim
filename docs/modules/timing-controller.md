@@ -8,7 +8,7 @@ corresponding port events.
 
 - **Input:** current tick, configured start and TCU period, and the existing
   timing-queue head.
-- **Output:** a validated `TriggeredEvents` and `LabelFired` record when a time point is due.
+- **Output:** a validated `TriggeredEvents` and `TimingPointTriggered` record when a time point is due.
 - **Scheduling:** `TcuCycleModel::step()` runs on each TCU rising edge.
 
 ```{graphviz}
@@ -18,7 +18,7 @@ digraph module {
   input [label="TCU clock and timing head"];
   owner [label="TcuCycleModel"];
   state [label="start_\ncycle (local variable)\ntiming_.front().due"];
-  output [label="TcuOutput and LabelFired"];
+  output [label="TcuOutput and TimingPointTriggered"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="state and derived values"];
 }
 ```
@@ -54,9 +54,9 @@ shift deadlines to accommodate a late request.
 A queued point that misses its due edge or a time point enqueued too late raises
 `LateAdmission`. Time arithmetic is checked for overflow.
 
-Reset clears the TCU queues and history. The new start is the first TCU edge at
+Reset clears the TCU queues and execution flags. The new start is the first TCU edge at
 or after `reset_tick + profile.start`. SystemC time continues from the reset tick.
-QSYNC raises `UnsupportedSynchronization`.
+sync raises `UnsupportedSynchronization`.
 
 ## Implementation and tests
 

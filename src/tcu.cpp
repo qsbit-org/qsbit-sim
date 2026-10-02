@@ -5,7 +5,7 @@
 
 namespace qsbit {
 TcuCycleModel::TcuCycleModel(const Profile &profile, Trace &trace)
-    : profile_(profile), trace_(trace), events_(profile.ports), history_(profile),
+    : profile_(profile), trace_(trace), events_(profile.ports), execution_flags_(profile),
       start_(profile.start) {}
 TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candidate,
                               const std::vector<Completion> &results, const Preflight &preflight) {
@@ -36,7 +36,7 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       const auto it = gathered.find(id);
       require(it != gathered.end(), ErrorCode::ManifestMismatch, "manifested event is missing");
       const auto &event = it->second;
-      if (event.condition && !history_.evaluate(*event.condition))
+      if (!execution_flags_.evaluate(event.action.targets.front(), event.action.execution_flag))
         cancelled.push_back(event);
       else
         batch.events.push_back(event);
@@ -46,17 +46,17 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
   }
   Tick new_due = last_due_;
   if (candidate != nullptr) {
-    require(!closed_, ErrorCode::Protocol, "group follows stream closure");
+    require(!closed_, ErrorCode::Protocol, "request follows stream closure");
     validate_timing_events(*candidate, profile_);
     require(candidate->point.epoch == epoch &&
                 candidate->point.label == checked_add(last_label_, 1),
-            ErrorCode::Protocol, "group identity is stale, repeated or out of order");
+            ErrorCode::Protocol, "request identity is stale, repeated or out of order");
     require(last_label_ == 0 || candidate->point.interval > 0, ErrorCode::Protocol,
             "duplicate logical time point");
     new_due = checked_add(last_due_, candidate->point.interval);
     const auto due_tick = checked_add(start_, checked_mul(new_due, profile_.tcu.period));
     require(now < due_tick, ErrorCode::LateAdmission,
-            "group arrived on or after its original deadline");
+            "request arrived on or after its original deadline");
     bool space = timing_.size() < profile_.timing_capacity;
     std::vector<std::size_t> needed(profile_.ports, 0);
     for (const auto &event : candidate->events)
@@ -65,17 +65,17 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       space = space && events_[p].size() + needed[p] <= profile_.event_capacity;
     output.admitted = space;
   }
-  // Validate all incoming history before committing any launch or admission.
-  auto next_history = history_;
+  // Validate all incoming results before committing any launch or admission.
+  auto next_flags = execution_flags_;
   for (const auto &result : results)
-    next_history.commit(result, epoch);
+    next_flags.commit(result, epoch);
   if (fire) {
     const auto label = timing_.front().point.label;
     for (auto &queue : events_)
       while (!queue.empty() && queue.front().label == label)
         queue.pop_front();
     timing_.pop_front();
-    trace_.emit({now, epoch, "LabelFired", 0, label, cycle});
+    trace_.emit({now, epoch, "TimingPointTriggered", 0, label, cycle});
     for (const auto &event : cancelled) {
       TraceEvent record{now, epoch, "ConditionCancelled", event.id, label, cycle};
       record.port = event.action.port;
@@ -90,17 +90,18 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       events_[event.action.port].push_back(event);
     last_label_ = candidate->point.label;
     last_due_ = new_due;
-    TraceEvent record{now, epoch, "GroupAdmitted", 0, last_label_, cycle};
+    TraceEvent record{now, epoch, "TimingPointEnqueued", 0, last_label_, cycle};
     record.value = timing_.size();
     trace_.emit(std::move(record));
   }
   // Fast results received on this edge cannot affect a condition evaluated above.
   for (const auto &result : results) {
-    history_.commit(result, epoch);
-    if (result.token.epoch == epoch) {
-      output.fast_delivered.push_back(result.token);
-      TraceEvent record{now, epoch, "FastResultVisible", result.token.measurement, 0, cycle};
-      record.targets = {result.token.target};
+    execution_flags_.commit(result, epoch);
+    if (result.reference.epoch == epoch) {
+      output.fast_delivered.push_back(result.reference);
+      TraceEvent record{now, epoch, "ExecutionFlagsUpdated", result.reference.measurement,
+                        0,   cycle};
+      record.targets = {result.reference.target};
       record.value = result.value;
       trace_.emit(std::move(record));
     }
@@ -121,7 +122,7 @@ void TcuCycleModel::reset(Tick epoch_origin) {
   timing_.clear();
   for (auto &queue : events_)
     queue.clear();
-  history_.reset();
+  execution_flags_.reset();
   last_due_ = 0;
   last_label_ = 0;
   closed_ = false;

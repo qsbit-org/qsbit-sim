@@ -63,14 +63,16 @@ void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
     bool completed = false;
     std::uint32_t value = 0, next_pc = frame.pc + 4;
     if (d.op == rv32::Op::Quantum) {
-      auto reply = ports.control(adapt_quantum(d, frame.id, frame.lhs, frame.rhs, frame.predicate));
+      auto reply = ports.control(adapt_quantum(d, frame.id, frame.lhs, frame.rhs));
       if (reply) {
         value = *reply;
         completed = true;
-        if (((d.word >> 12) & 7) == 4) {
-          halted_ = true;
-          flush = true;
-        }
+      }
+    } else if (d.op == rv32::Op::Ecall && registers_[17] == 93 && registers_[10] == 0) {
+      if (ports.control({frame.id, ControlKind::Halt})) {
+        completed = true;
+        halted_ = true;
+        flush = true;
       }
     } else {
       if (!frame.effect)
@@ -107,7 +109,9 @@ void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
       execute_.reset();
     } else {
       TraceEvent event{now, epoch, "CpuStalled", frame.id};
-      event.detail = d.op == rv32::Op::Quantum ? "producer or measurement" : "memory response";
+      event.detail = d.op == rv32::Op::Quantum || d.op == rv32::Op::Ecall
+                         ? "timing control or measurement register"
+                         : "memory response";
       trace_.emit(std::move(event));
     }
   }
@@ -129,7 +133,6 @@ void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
         const auto &d = *frame.decoded;
         frame.lhs = registers_[d.rs1];
         frame.rhs = registers_[d.rs2];
-        frame.predicate = registers_[d.rd];
       } catch (const Fault &fault) {
         frame.fault = fault.code();
       }

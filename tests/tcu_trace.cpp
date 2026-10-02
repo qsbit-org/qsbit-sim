@@ -8,7 +8,7 @@
 using namespace qsbit;
 using namespace sc_core;
 
-// Generic timing-component driver. It knows neither an external ISA nor an oracle.
+// Timing queue driver for trace comparisons.
 struct TimingHarness : sc_module {
   Profile profile;
   Trace trace;

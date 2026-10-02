@@ -38,12 +38,20 @@ def make_demo(root, build, output, name, program, outcomes):
         raise ExtensionError(f'{name}: unexpected operation schedule {observed}, expected {expected}')
     measurement_count = 2 if program == 'bell' else 1
     for kind, tick in [('MeasurementSampled', 480), ('ResultReady', 500),
-                       ('CpuResultVisible', 505), ('FastResultVisible', 540)]:
+                       ('MeasurementRegisterUpdated', 505), ('ExecutionFlagsUpdated', 540)]:
         records = [e for e in events if e['kind'] == kind]
         if len(records) != measurement_count or any(e['tick'] != tick for e in records):
             raise ExtensionError(f'{name}: unexpected {kind} count or visibility tick')
     if state['memory']['4096'] != int(outcomes.split(',')[0]):
         raise ExtensionError(f'{name}: wrong final measurement signature')
+    if program == 'feedback':
+        enqueued = [e for e in events if e['kind'] == 'TimingPointEnqueued' and e['label'] == 3]
+        if len(enqueued) != 1 or enqueued[0]['tick'] != 700:
+            raise ExtensionError(f'{name}: final time point must be enqueued at 700 ns')
+    for target in range(measurement_count):
+        register = state['measurement_registers'][target]
+        if register != {'value': bool(int(outcomes.split(',')[target])), 'pending': 0, 'valid': True}:
+            raise ExtensionError(f'{name}: unexpected measurement register {target}')
     return {'name': name, 'elf_sha256': hashlib.sha256((build / 'examples' / f'{program}.elf').read_bytes()).hexdigest(), 'program': (root / 'examples' / f'{program}.S').read_text(),
             'configuration': state['configuration'], 'events': events,
             'summary': {'stop_tick': state['stop_tick'], 'memory': state['memory']}}

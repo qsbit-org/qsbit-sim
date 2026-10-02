@@ -93,13 +93,14 @@ def check_browser(site, module_pages):
             assert page.get_by_role('heading', name='Example schedules', exact=True).count() == 1
             page.goto(base + '/architecture.html')
             diagram = page.locator('object[type="image/svg+xml"]').first
-            page.wait_for_function("document.querySelector('object')?.contentDocument?.querySelectorAll('a').length === 10")
+            page.wait_for_function("document.querySelector('object')?.contentDocument?.querySelectorAll('a').length === 11")
             labels = diagram.evaluate("el => el.contentDocument.documentElement.textContent")
             for label in ['Reserve phase', 'Timing Queue', 'Per-port Event Queues',
-                          'Trigger phase', 'Quantum device', 'Measurement results']:
+                          'Trigger phase', 'Quantum device', 'Measurement result registers', 'Execution flags']:
                 assert label in labels, label
-            for implementation_name in ['TimelineProducer', 'DeviceRuntime', 'QuantumBackend',
-                                        'ResourceReservations', 'Device barrier']:
+            for implementation_name in ['TimingControl', 'ControlElectronics', 'IQuantumBackend',
+                                        'ResourceReservations', 'Device barrier', 'EndOfStream',
+                                        'MeasurementReference']:
                 assert implementation_name not in labels, implementation_name
             page.wait_for_function("document.querySelector('object').style.width !== ''")
             initial_width = diagram.evaluate('el => parseFloat(el.style.width)')
@@ -132,17 +133,17 @@ def check_browser(site, module_pages):
                 assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][0]
                 page.click('#trace-tick')
                 assert json.loads(page.locator('#trace-event').inner_text())['tick'] > example['events'][0]['tick']
-                accepted = next(i for i, e in enumerate(example['events']) if e['kind'] == 'ProducerAccepted')
+                accepted = next(i for i, e in enumerate(example['events']) if e['kind'] == 'CodewordQueued')
                 page.select_option('#trace-jump', str(accepted))
                 assert 'last recorded' in page.locator('#trace-observed').inner_text()
                 assert '8 at' in page.locator('#trace-observed').inner_text()
                 # Both gates and CPU/fast visibility must match original records, including equal-tick events.
-                for kind in ['LabelFired', 'OperationStart', 'CpuResultVisible', 'FastResultVisible']:
+                for kind in ['TimingPointTriggered', 'OperationStart', 'MeasurementRegisterUpdated', 'ExecutionFlagsUpdated']:
                     position = next(i for i, e in enumerate(example['events']) if e['kind'] == kind)
                     page.select_option('#trace-jump', str(position))
                     assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][position]
                 fast = next((i for i, e in enumerate(example['events'])
-                             if e['kind'] == 'FastResultVisible'), None)
+                             if e['kind'] == 'ExecutionFlagsUpdated'), None)
                 if fast is not None:
                     page.select_option('#trace-jump', str(fast))
                     event = example['events'][fast]

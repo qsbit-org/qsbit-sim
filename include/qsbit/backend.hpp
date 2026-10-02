@@ -13,7 +13,7 @@ public:
   virtual void reset(std::uint32_t qubits, std::uint32_t seed) = 0;
   virtual void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) = 0;
   virtual void apply(std::span<const EventSpec> gates) = 0;
-  virtual std::vector<bool> measure(std::span<const MeasurementReference> tokens) = 0;
+  virtual std::vector<bool> measure(std::span<const MeasurementReference> references) = 0;
   [[nodiscard]] virtual std::vector<std::complex<double>> state() const = 0;
 };
 class MockBackend final : public IQuantumBackend {
@@ -23,7 +23,7 @@ public:
   void reset(std::uint32_t qubits, std::uint32_t seed) override;
   void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) override;
   void apply(std::span<const EventSpec> gates) override;
-  std::vector<bool> measure(std::span<const MeasurementReference> tokens) override;
+  std::vector<bool> measure(std::span<const MeasurementReference> references) override;
   [[nodiscard]] std::vector<std::complex<double>> state() const override { return {}; }
   [[nodiscard]] std::size_t calls() const { return calls_; }
 

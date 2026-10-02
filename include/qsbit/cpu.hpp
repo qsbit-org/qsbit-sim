@@ -2,7 +2,7 @@
 
 #include "qsbit/isa.hpp"
 #include "qsbit/memory.hpp"
-#include "qsbit/producer.hpp"
+#include "qsbit/timing_control.hpp"
 #include "qsbit/trace.hpp"
 #include <array>
 #include <functional>
@@ -13,7 +13,6 @@ struct CpuPorts {
   MemoryPort &data;
   std::function<std::optional<std::uint32_t>(const ControlOperation &)> control;
 };
-// Adapter contract intentionally contains no SystemC types or concrete pipeline latches.
 class ICpuCycleModel {
 public:
   virtual ~ICpuCycleModel() = default;
@@ -42,7 +41,7 @@ private:
   };
   struct Frame {
     Id id = 0;
-    std::uint32_t pc = 0, word = 0, lhs = 0, rhs = 0, predicate = 0;
+    std::uint32_t pc = 0, word = 0, lhs = 0, rhs = 0;
     std::optional<ErrorCode> fault;
     std::optional<rv32::Decoded> decoded;
     std::optional<rv32::Effect> effect;

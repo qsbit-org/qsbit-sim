@@ -44,7 +44,7 @@ def run_case(args, seed):
             lines.append(f'{op} x{rd}, {rng.randrange(1 << 20)}')
         else:
             lines += [f'jal x{rd}, jump_{index}', f'addi x{a}, x{a}, -1', f'jump_{index}:', 'fence rw,rw']
-    lines += ['.global finish', 'finish:', '.word 0x0000400b']
+    lines += ['.global finish', 'finish:', 'li a0, 0; li a7, 93; ecall']
     source = root / 'program.S'
     source.write_text('\n'.join(lines) + '\n')
     subprocess.run([str(args.assembler), '-march=rv32i', '-mabi=ilp32', '-mno-relax',
@@ -67,7 +67,7 @@ def run_case(args, seed):
     retired = 0
     for line in (root / 'trace.jsonl').read_text().splitlines():
         event = json.loads(line)
-        if event['kind'] != 'InstructionRetired' or event['word'] == 0x0000400B:
+        if event['kind'] != 'InstructionRetired' or event['word'] == 0x00000073:
             continue
         actual_pc = emulator.reg_read(UC_RISCV_REG_PC)
         assert actual_pc == event['pc'], (seed, retired, 'PC before', actual_pc, event)

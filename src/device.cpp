@@ -77,29 +77,29 @@ void ControlElectronics::preflight(const TriggeredEvents &batch) const {
   for (const auto &action : actions) {
     const auto &e = action.event;
     if (e.action.kind == ActionKind::Acquire || is_arm(e.action)) {
-      require(e.token && e.token->epoch == batch.epoch, ErrorCode::InvalidToken,
-              "readout token missing or stale");
-      require(e.action.targets.size() == 1 && e.action.targets.front() == e.token->target,
-              ErrorCode::InvalidToken, "readout target and token differ");
-      const auto [identity, inserted] = identities.emplace(e.token->measurement, *e.token);
-      require(inserted || identity->second == *e.token, ErrorCode::InvalidToken,
-              "readout members disagree on token identity");
+      require(e.reference && e.reference->epoch == batch.epoch, ErrorCode::InvalidMeasurement,
+              "readout reference missing or stale");
+      require(e.action.targets.size() == 1 && e.action.targets.front() == e.reference->target,
+              ErrorCode::InvalidMeasurement, "readout target and reference differ");
+      const auto [identity, inserted] = identities.emplace(e.reference->measurement, *e.reference);
+      require(inserted || identity->second == *e.reference, ErrorCode::InvalidMeasurement,
+              "readout members disagree on reference identity");
       if (is_arm(e.action))
-        ++arms[e.token->measurement];
+        ++arms[e.reference->measurement];
       else
-        ++acquisitions[e.token->measurement];
+        ++acquisitions[e.reference->measurement];
     }
   }
   for (const auto &action : actions)
     if (action.event.action.kind == ActionKind::Acquire) {
-      const auto id = action.event.token->measurement;
+      const auto id = action.event.reference->measurement;
       require(acquisitions[id] == 1 && !readouts_.contains(id) &&
                   arms[id] == (action.event.action.separate_arm ? 1U : 0U),
               ErrorCode::Protocol, "invalid acquisition and arm pairing");
       Tick arm = action.start;
       if (action.event.action.separate_arm)
         for (const auto &other : actions)
-          if (is_arm(other.event.action) && other.event.token == action.event.token)
+          if (is_arm(other.event.action) && other.event.reference == action.event.reference)
             arm = other.start;
       (void)checked_add(std::max(action.end, arm), action.event.action.discriminator_delay);
     }
@@ -121,11 +121,12 @@ void ControlElectronics::accept(const TriggeredEvents &batch) {
       Tick arm = action.start;
       if (e.action.separate_arm)
         for (const auto &other : actions)
-          if (is_arm(other.event.action) && other.event.token == e.token)
+          if (is_arm(other.event.action) && other.event.reference == e.reference)
             arm = other.start;
       const Tick ready = checked_add(std::max(action.end, arm), e.action.discriminator_delay);
-      readouts_.emplace(e.token->measurement, Readout{*e.token, action.end, arm, ready, {}});
-      boundaries_[ready].ready.push_back(e.token->measurement);
+      readouts_.emplace(e.reference->measurement,
+                        Readout{*e.reference, action.end, arm, ready, {}});
+      boundaries_[ready].ready.push_back(e.reference->measurement);
     }
     TraceEvent record{batch.fire_tick, batch.epoch, "CodewordTriggered", e.id, batch.label};
     record.port = e.action.port;
@@ -153,11 +154,11 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
     const auto action = active_.find(id);
     require(action != active_.end(), ErrorCode::Protocol, "physical end has no active action");
     if (action->second.event.action.kind == ActionKind::Acquire)
-      samples.push_back(*action->second.event.token);
+      samples.push_back(*action->second.event.reference);
   }
   std::set<std::uint32_t> sampled_targets;
-  for (const auto &token : samples)
-    require(sampled_targets.insert(token.target).second, ErrorCode::ResourceConflict,
+  for (const auto &reference : samples)
+    require(sampled_targets.insert(reference.target).second, ErrorCode::ResourceConflict,
             "duplicate same-tick measurement target");
   for (const auto &action : boundary.starts) {
     require(action.event.epoch == epoch, ErrorCode::Protocol,
@@ -207,12 +208,12 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
   for (auto id : boundary.ready) {
     const auto &readout = readouts_.at(id);
     require(readout.sample.has_value(), ErrorCode::Protocol, "result is ready before sampling");
-    Completion result{readout.token, *readout.sample};
+    Completion result{readout.reference, *readout.sample};
     links.cpu_results.publish(now, epoch, result);
     if (profile_.fast_feedback)
       links.fast_results.publish(now, epoch, result);
     TraceEvent record{now, epoch, "ResultReady", id};
-    record.targets = {readout.token.target};
+    record.targets = {readout.reference.target};
     record.value = result.value;
     trace_.emit(std::move(record));
     readouts_.erase(id);

@@ -7,8 +7,7 @@
 #include <systemc>
 
 namespace qsbit {
-// Clocked owners use committed mailboxes. ControlElectronics has an explicit tick barrier
-// that waits for every coincident owner, independently of process registration order.
+// The device barrier runs after every clocked process due at the current tick.
 class Simulator final : public sc_core::sc_module {
 public:
   using CpuFactory = std::function<std::unique_ptr<ICpuCycleModel>(Clock, std::uint32_t, Trace &)>;
@@ -19,10 +18,9 @@ public:
   [[nodiscard]] const Trace &trace() const { return trace_; }
   [[nodiscard]] const ICpuCycleModel &cpu() const { return *cpu_; }
   [[nodiscard]] const ProgramImage &memory() const { return memory_.image(); }
-  [[nodiscard]] const MeasurementResults &measurement_results() const {
-    return measurement_results_;
+  [[nodiscard]] const MeasurementRegisters &measurement_registers() const {
+    return measurement_registers_;
   }
-  [[nodiscard]] const MeasurementResults &scoreboard() const { return measurement_results(); }
   [[nodiscard]] const IQuantumBackend &backend() const { return *backend_; }
   [[nodiscard]] bool success() const { return success_; }
   [[nodiscard]] const std::optional<ErrorCode> &fault() const { return fault_; }
@@ -42,7 +40,7 @@ private:
   const Profile profile_;
   Trace trace_;
   std::unique_ptr<IQuantumBackend> backend_;
-  MeasurementResults measurement_results_;
+  MeasurementRegisters measurement_registers_;
   TimingControl timing_control_;
   ControlLinks links_;
   MemoryPort fetch_port_, data_port_;

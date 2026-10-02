@@ -92,17 +92,16 @@ rescheduling an operation.
 
 At acquisition end, the backend samples the measurement. After the
 discriminator delay, the result travels to the CPU and, when enabled, the
-TCU's conditional-result storage.
+TCU's execution flags.
 
-A result delivered before the CPU step can complete QREAD on that edge.
+A result delivered before the CPU step can complete FMR on that edge.
 The TCU commits new results after evaluating conditions, so they first
 become usable on its next edge.
 
-QEND halts the CPU after enqueueing any pending events. The simulation
+The exit ECALL halts the CPU after enqueueing any pending events. The simulation
 continues until the TCU receives closure and all queues, device events,
-memory requests and enabled result deliveries have completed. Unread
-CPU-visible results may remain. A fault or watchdog expiry stops the run
-with failure.
+memory requests and enabled result deliveries have completed.
+A fault or watchdog expiry stops the run with failure.
 
 Session reset starts a new epoch and resets the controller and backend,
 while preserving memory and the profile. Simulation time continues.
