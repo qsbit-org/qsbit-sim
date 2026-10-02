@@ -16,7 +16,7 @@ for option in ("simulator", "source", "build", "assembler", "linker"):
     parser.add_argument("--" + option, type=Path, required=True)
 args = parser.parse_args()
 sys.path.insert(0, str(args.source / "python"))
-from qsbit_backend.simulation import inspect_program
+from qsbit_backend.simulation import inspect_program, run_config
 
 output = (args.build / "repetition-test").resolve()
 output.mkdir(exist_ok=True)
@@ -65,6 +65,23 @@ proc = subprocess.run([str(args.simulator), "--config", str(precheck_path), "--c
                       capture_output=True, text=True, timeout=30)
 assert proc.returncode == 0, proc.stderr
 assert not (output / "precheck-result.json").exists()
+scoped = deepcopy(precheck)
+scoped["backend"] = "custom_backend:Backend"
+scoped["python_path"] = str((args.source / "tests/fixtures").resolve())
+scoped_path = output / "scoped-run.json"
+scoped_path.write_text(json.dumps(scoped))
+original_path = sys.path[:]
+run_config(scoped_path, str(args.simulator), check_only=True)
+assert sys.path == original_path
+scoped["program"] = str(output / "missing.elf")
+scoped_path.write_text(json.dumps(scoped))
+for _ in range(3):
+    try:
+        run_config(scoped_path, str(args.simulator), check_only=True)
+        raise AssertionError("accepted a missing program")
+    except FileNotFoundError:
+        pass
+    assert sys.path == original_path
 precheck["profile"]["watchdog"] = 2000
 precheck_path.write_text(json.dumps(precheck))
 proc = subprocess.run([str(args.simulator), "--config", str(precheck_path), "--check-config"],

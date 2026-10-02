@@ -68,4 +68,11 @@ class StimBackend:
         targets = [item["target"] for item in references]
         if len(set(targets)) != len(targets):
             raise ValueError("ambiguous repeated target in a measurement batch")
-        return self._simulator.measure_many(*targets)
+        if not targets:
+            return []
+        sampled = self._simulator.copy(copy_rng=True)
+        bits = sampled.measure_many(*targets)
+        # Reset consumes the same collapse randomness without recording outcomes.
+        self._simulator.reset(*targets)
+        self._simulator.set_inverse_tableau(sampled.current_inverse_tableau())
+        return bits

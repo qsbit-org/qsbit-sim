@@ -163,6 +163,29 @@ class Aer(unittest.TestCase):
 
 
 class Stim(unittest.TestCase):
+    def test_measurements_release_history_without_changing_sampling(self):
+        import stim
+        for probability in (0, 0.125):
+            backend, _ = registry.create("stim", {"noise": {
+                "model": "depolarizing", "after_gate_probability": probability}})
+            backend.reset(3, 4321)
+            reference = stim.TableauSimulator(seed=4321)
+            reference.set_num_qubits(3)
+            gates = [gate("h"), gate("cx", (0, 1)), gate("h", (2,)), gate("cx", (1, 2))]
+            circuit = stim.Circuit()
+            for event in gates:
+                circuit.append(event["operation"], event["targets"])
+                circuit.append("DEPOLARIZE1", event["targets"], probability)
+            for iteration in range(512):
+                backend.apply(gates)
+                reference.do(circuit)
+                targets = ([2, 0], [1], [1, 0, 2])[iteration % 3]
+                self.assertEqual(backend.measure([{"target": q} for q in targets]),
+                                 reference.measure_many(*targets))
+                self.assertEqual(backend._simulator.current_measurement_record(), [])
+            self.assertEqual(backend._simulator.current_inverse_tableau(),
+                             reference.current_inverse_tableau())
+
     def test_bell_collapse_seed_and_reset(self):
         backend, _ = registry.create("stim", {})
         outcomes = []

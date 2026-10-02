@@ -186,8 +186,16 @@ def run_config(path, executable, check_only=False):
     if "summary" not in config:
         raise ValueError("simulation requires a summary output path")
     executable = shutil.which(executable) or str(Path(executable).resolve())
-    if "python_path" in config:
-        sys.path.insert(0, config["python_path"])
+    previous_path = sys.path[:]
+    try:
+        if "python_path" in config:
+            sys.path.insert(0, config["python_path"])
+        return _execute(config, strategy, executable, check_only, started)
+    finally:
+        sys.path[:] = previous_path
+
+
+def _execute(config, strategy, executable, check_only, started):
     source = Path(config["program"]).read_bytes()
     program = inspect_program(source, strategy)
     with tempfile.TemporaryDirectory(prefix="qsbit-simulation-") as directory:
