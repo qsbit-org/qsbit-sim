@@ -81,6 +81,15 @@ std::string PythonBackend::inspect(const std::string &name, const std::string &c
   }
 }
 std::string PythonBackend::options() const { return impl_->options; }
+void PythonBackend::run_simulation(const std::string &config, const std::string &executable,
+                                   bool check_only) {
+  try {
+    py::module_::import("qsbit_backend.simulation")
+        .attr("run_config")(config, executable, check_only);
+  } catch (const py::error_already_set &e) {
+    throw Fault(ErrorCode::BackendFailure, e.what());
+  }
+}
 void PythonBackend::validate(const EventSpec &action) const {
   try {
     impl_->backend.attr("validate")(descriptor(action));

@@ -124,3 +124,25 @@ class AerBackend:
 
     def density_matrix(self):
         return self._state.tolist() if self._method == "density_matrix" else []
+
+    def transition_probabilities(self, operations):
+        if self.supports_pulse:
+            raise ValueError("transition probabilities require the circuit adapter")
+        result = []
+        for basis in (0, 1):
+            self.reset(1, 0)
+            self._state[:] = 0
+            if self._method == "density_matrix":
+                self._state[basis, basis] = 1
+            else:
+                self._state[basis] = 1
+            for operation in operations:
+                if operation["method"] not in ("evolve", "apply"):
+                    raise ValueError("transition segment accepts only evolution and gates")
+                getattr(self, operation["method"])(*operation["args"])
+            probability = (self._state[1, 1].real if self._method == "density_matrix"
+                           else abs(self._state[1]) ** 2)
+            if not np.isfinite(probability) or not -1e-12 <= probability <= 1 + 1e-12:
+                raise ValueError("invalid transition probability")
+            result.append(float(np.clip(probability, 0, 1)))
+        return result

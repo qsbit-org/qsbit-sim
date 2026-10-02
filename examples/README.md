@@ -22,6 +22,9 @@ the commands below use the `clang-ninja` build.
 
 ## Bell pair
 
+For a repeated single-qubit experiment with noise and paper-based timing checks,
+see [QuMA AllXY](allxy/README.md).
+
 `bell.S` applies H to qubit 0, CX to qubits 0 and 1, then measures both at one time
 point. Two cw instructions prepare the acquisition events; FMR enqueues
 them and returns each result. The program stores the bits at addresses 4096 and 4100.

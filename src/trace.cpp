@@ -23,6 +23,8 @@ std::string quoted(const std::string &s) {
 }
 } // namespace
 void Trace::emit(TraceEvent event) {
+  if (!include_stalls_ && event.kind == "CpuStalled")
+    return;
   require(events_.empty() || event.tick >= events_.back().tick, ErrorCode::Protocol,
           "trace time decreased");
   events_.push_back(std::move(event));

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "program": "../../build-clang/examples/allxy.elf",
+  "backend": "aer",
+  "backend_options": {
+    "method": "density_matrix",
+    "noise": {
+      "model": "thermal_relaxation",
+      "qubits": [{"qubit": 0, "t1_ns": 30000, "t2_ns": 60000, "excited_state_population": 0}]
+    }
+  },
+  "simulation": {
+    "execution": "replay",
+    "quantum_execution": "transition_probabilities",
+    "region": {"begin": "allxy_round_begin", "end": "allxy_round_end"},
+    "repetition_count_symbol": "repetitions",
+    "repetitions": 25600
+  },
+  "summary": "../../build-clang/allxy/results.json",
+  "profile": {
+    "cpu": {"period": 5, "phase": 0},
+    "tcu": {"period": 5, "phase": 0},
+    "qubits": 1, "ports": 1, "start": 1000, "watchdog": 216000000000,
+    "seed": 20261002,
+    "fast_feedback": false,
+    "mappings": [
+      {"port": 0, "codeword": 1, "actions": [{"operation": "id", "targets": [0], "duration": 20}]},
+      {"port": 0, "codeword": 2, "actions": [{"operation": "x", "targets": [0], "duration": 20}]},
+      {"port": 0, "codeword": 3, "actions": [{"operation": "y", "targets": [0], "duration": 20}]},
+      {"port": 0, "codeword": 4, "actions": [{"operation": "rx", "amplitude": 1.5707963267948966, "targets": [0], "duration": 20}]},
+      {"port": 0, "codeword": 5, "actions": [{"operation": "ry", "amplitude": 1.5707963267948966, "targets": [0], "duration": 20}]},
+      {"port": 0, "codeword": 6, "actions": [{"kind": "acquire", "operation": "measure", "targets": [0], "duration": 1500, "discriminator_delay": 20}]}
+    ]
+  }
+}

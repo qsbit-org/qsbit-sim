@@ -182,6 +182,7 @@ Implement these methods on the class selected by `module:Class`:
 | `measure(references)` | Measure targets jointly, collapse state and return one boolean per measurement reference in input order. |
 | `state()` | Optional. Return complex statevector amplitudes. |
 | `density_matrix()` | Optional. Return rows of complex density-matrix entries. |
+| `transition_probabilities(operations)` | Optional. Return the next Z-measurement probability of one for initial states zero and one. Requires a single qubit, stationary memoryless evolution and ideal projective measurement. |
 
 Event dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`
 and `axis`. Measurement dictionaries contain `epoch`, `measurement` and `target`.
@@ -192,6 +193,9 @@ state output. Stim does not export a dense quantum state. The summary retains an
 empty `statevector` array when unavailable and adds `density_matrix` when supplied;
 each complex value is encoded as `[real, imaginary]`.
 State inspection reports the last device boundary, not subsequent CPU execution time.
+Transition operations have `method` (`evolve` or `apply`) and positional `args`.
+Evolution intervals use nanoseconds relative to zero. Transition calculation returns
+probabilities without sampling a measurement.
 
 Methods complete synchronously and use the supplied seed for reproducibility.
 They do not call SystemC timing functions. A slow call increases host runtime

@@ -2,6 +2,7 @@
 #include "qsbit/isa.hpp"
 #include "qsbit/mailbox.hpp"
 #include "qsbit/memory.hpp"
+#include "qsbit/trace.hpp"
 #include "test.hpp"
 #include <array>
 #include <functional>
@@ -189,12 +190,25 @@ void memory_test() {
   memory.step(50, 2, fetch, data);
   CHECK(data.responses.take(55)->value.fault == ErrorCode::LoadMisaligned);
 }
+void trace_filter() {
+  Trace trace;
+  trace.emit({0, 1, "CpuStalled"});
+  trace.include_stalls(false);
+  trace.emit({5, 1, "CpuStalled"});
+  trace.emit({10, 1, "OperationStart"});
+  CHECK(trace.events().size() == 2);
+  CHECK(trace.events().back().tick == 10);
+  trace.include_stalls(true);
+  trace.emit({15, 1, "CpuStalled"});
+  CHECK(trace.events().size() == 3);
+}
 int main(int argc, char **argv) {
   try {
     const std::map<std::string, std::function<void()>> tests{
         {"isa_arithmetic", isa_arithmetic}, {"isa_control", isa_control},
         {"isa_decode", isa_decode},         {"image", image_test},
-        {"mailbox", mailbox_test},          {"memory", memory_test}};
+        {"mailbox", mailbox_test},          {"memory", memory_test},
+        {"trace_filter", trace_filter}};
     CHECK(argc == 2);
     tests.at(argv[1])();
     std::cout << "PASS " << argv[1] << '\n';

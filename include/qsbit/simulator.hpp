@@ -16,6 +16,7 @@ public:
             std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets = {},
             bool reverse_registration = false, CpuFactory cpu_factory = {});
   [[nodiscard]] const Trace &trace() const { return trace_; }
+  void include_stalls(bool enabled) { trace_.include_stalls(enabled); }
   [[nodiscard]] const ICpuCycleModel &cpu() const { return *cpu_; }
   [[nodiscard]] const ProgramImage &memory() const { return memory_.image(); }
   [[nodiscard]] const MeasurementRegisters &measurement_registers() const {

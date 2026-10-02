@@ -55,6 +55,7 @@ RISC-V binutils, but no numerical quantum packages. See the
 | `QSBIT_TEST_AER` | OFF | Register numerical tests for the `aer` extra. |
 | `QSBIT_TEST_PULSE` | OFF | Register numerical tests for the `pulse` extra. |
 | `QSBIT_TEST_STIM` | OFF | Register numerical tests for the `stim` extra. |
+| `QSBIT_TEST_EXPERIMENTS` | OFF | Register full execution and replay checks for the `experiments` extra. |
 | `QSBIT_TEST_WEBSITE` | OFF | Register strict website and browser tests; requires testing and the [website tools](website.md). |
 | `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests using the `verification` extra. |
 | `QSBIT_ARCH_TEST_SOURCE` | empty | Select a pinned RISC-V architecture-test checkout. |

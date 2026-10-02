@@ -27,10 +27,12 @@ struct TraceEvent {
 class Trace {
 public:
   void emit(TraceEvent event);
+  void include_stalls(bool enabled) { include_stalls_ = enabled; }
   [[nodiscard]] const std::vector<TraceEvent> &events() const { return events_; }
   void write_jsonl(std::ostream &stream) const;
 
 private:
   std::vector<TraceEvent> events_;
+  bool include_stalls_ = true;
 };
 } // namespace qsbit

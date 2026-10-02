@@ -143,6 +143,8 @@ Output parent directories are created as needed.
 | `program` | Program path. |
 | `backend` | Built-in name, registered adapter name or `module:Class`. |
 | `backend_options` | Backend-owned options; see [backend configuration](backends.md#discover-and-configure-backends). |
+| `simulation` | Optional [repeated-simulation strategy](repeated-simulations.md). |
+| `trace_stalls` | Include `CpuStalled` records; boolean, default `true`. |
 | `$schema` | Optional editor schema URI; runtime validates through the selected adapter. |
 | `profile_file` | Path to a separate profile overlay. |
 | `profile` | Inline profile overlay. |

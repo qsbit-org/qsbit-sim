@@ -43,7 +43,7 @@ jobs:
             bridge: 'ON'
             aer: 'ON'
             pulse: 'OFF'
-            extras: '--extra aer'
+            extras: '--extra experiments'
             sanitizers: 'OFF'
           - name: pulse
             preset: gcc-ninja-release
@@ -106,6 +106,7 @@ jobs:
             -DQSBIT_TEST_AER=${{ matrix.aer }} \
             -DQSBIT_TEST_PULSE=${{ matrix.pulse }} \
             -DQSBIT_TEST_STIM=${{ matrix.name == 'stim' && 'ON' || 'OFF' }} \
+            -DQSBIT_TEST_EXPERIMENTS=${{ matrix.name == 'aer' && 'ON' || 'OFF' }} \
             -DQSBIT_ISA_REFERENCES=ON \
             -DQSBIT_ARCH_TEST_SOURCE="$PWD/build/riscv-arch-test"
       - name: Check Stim dependency isolation

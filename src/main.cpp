@@ -79,6 +79,7 @@ int sc_main(int argc, char **argv) {
     std::string backend_command;
     Json backend_options = Json::object();
     bool check_config = false;
+    bool trace_stalls = true;
     std::uint32_t memory_base = 0, memory_size = 65536, raw_base = 0;
     bool raw = false, reverse = false;
     std::vector<Tick> resets;
@@ -109,12 +110,27 @@ int sc_main(int argc, char **argv) {
         const std::filesystem::path path = value();
         const Json config = read_json(path);
         require(config.is_object(), ErrorCode::InvalidProfile, "run config must be an object");
+        if (config.contains("simulation")) {
+          const bool check_only =
+              argc == 4 && (check_config || std::string(argv[3]) == "--check-config");
+          require(argc == 3 || check_only, ErrorCode::InvalidOperand,
+                  "simulation strategies accept --config FILE and optional --check-config");
+#ifdef QSBIT_HAS_PYTHON
+          PythonSession session(module_directory);
+          PythonBackend::run_simulation(std::filesystem::absolute(path).string(), argv[0],
+                                        check_only);
+          return 0;
+#else
+          throw Fault(ErrorCode::UnsupportedCapability,
+                      "simulation strategies require Python backends");
+#endif
+        }
         const std::set<std::string> allowed{
             "schema",          "program",     "backend",     "profile",
             "profile_file",    "trace",       "summary",     "memory_dump",
             "python_path",     "memory_base", "memory_size", "raw_base",
             "resets",          "inspect",     "outcomes",    "reverse_registration",
-            "backend_options", "$schema"};
+            "backend_options", "$schema",     "trace_stalls"};
         for (const auto &[key, ignored] : config.items()) {
           (void)ignored;
           require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown run key: " + key);
@@ -128,6 +144,11 @@ int sc_main(int argc, char **argv) {
           backend_name = json_string(config["backend"], "backend");
         if (config.contains("backend_options"))
           backend_options = config["backend_options"];
+        if (config.contains("trace_stalls")) {
+          require(config["trace_stalls"].is_boolean(), ErrorCode::InvalidProfile,
+                  "trace_stalls must be a boolean");
+          trace_stalls = config["trace_stalls"].get<bool>();
+        }
         if (config.contains("profile_file"))
           apply_profile(profile,
                         read_json(relative_to(base, config["profile_file"], "profile_file")));
@@ -281,6 +302,7 @@ int sc_main(int argc, char **argv) {
 #endif
     }
     Simulator sim("simulator", profile, std::move(image), std::move(backend), resets, reverse);
+    sim.include_stalls(trace_stalls);
     if (check_config) {
       std::cout << "Configuration valid\n";
       return 0;
