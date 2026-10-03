@@ -35,6 +35,10 @@ collapse. The pulse backend integrates constant X, Y and Z drives. Stim applies
 Clifford gates and optional gate depolarization. See
 [backend setup](../backends.md) for installation and adapter methods.
 
+Aer batches numerical execution across device boundaries while preserving gate
+and noise order. Measurements and state inspection execute pending work before
+returning; active pulse integration does the same for preceding gates.
+
 Backend calls are synchronous and do not advance simulation time. Output
 timing and result delivery remain controlled by the simulator.
 Before successful completion, the backend evolves through the remaining idle
@@ -77,3 +81,6 @@ after the last device event.
 Optional `python.backend_configuration` checks discovery, schema validation and
 CLI precheck. With `QSBIT_TEST_AER` or `QSBIT_TEST_STIM`, it also checks numerical
 noise behavior, measurement collapse and full-program execution.
+Optional `python.aer_batching` checks bounded batches, gate and noise order,
+measurement seeds, reset and inspection. With `QSBIT_TEST_PULSE`, it also checks
+gates interleaved with pulse integration.

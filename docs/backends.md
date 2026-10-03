@@ -111,6 +111,40 @@ within an absolute tolerance of 1e-12 radians.
 
 The pulse adapter accepts no noise configuration.
 
+## Aer execution
+
+Aer accumulates gates and thermal-relaxation channels in circuit order. It executes
+the pending circuit when a measurement needs an outcome, state inspection needs
+amplitudes or a density matrix, or the batch reaches `backend_options.max_batch_operations`.
+The default limit is 1024 operations; each gate and each single-qubit noise channel
+counts once. Set the limit to 1 to execute each operation immediately.
+
+Measurements execute with preceding operations in the same circuit and retain
+the collapsed state. Noise intervals remain in their original positions between
+gates. Reset discards pending work. The pulse backend uses the same batch limit
+and executes pending gates before integrating an active drive.
+
+Measurement batch n uses `(seed + n) mod 2^32`, starting at n = 0 after reset.
+Changing the batch limit or inspecting state does not advance the measurement
+seed. Batching changes host execution cost, not simulated timestamps.
+
+Measure backend runtime from the repository root:
+
+```sh
+python tools/benchmark_aer.py --output build-clang/aer-benchmark.json
+```
+
+The benchmark compares limits of 1 and 1024 over repeated runs, checks identical
+measurement samples and final states, and records Aer job counts, host runtimes
+and package versions. `--backend-options FILE` supplies a JSON options object;
+`--measure-every` sets the number of gate events between measurements.
+Timing excludes package imports, backend construction and warmup.
+
+Stim maintains a persistent stabilizer tableau and updates it directly for
+Clifford operations. Select it for large Clifford circuits whose noise fits
+the supported depolarizing model. Aer stores a dense statevector or density
+matrix and transfers that state at each circuit execution.
+
 ## Select a custom Python adapter
 
 Install your adapter in the active environment or supply a local module path
@@ -192,12 +226,15 @@ Density matrices use the same basis order. Missing inspection methods produce no
 state output. Stim does not export a dense quantum state. The summary retains an
 empty `statevector` array when unavailable and adds `density_matrix` when supplied;
 each complex value is encoded as `[real, imaginary]`.
-State inspection reports the last device boundary, not subsequent CPU execution time.
+State inspection includes all preceding `apply()` and `evolve()` calls, including
+the final evolution through the simulation stop tick.
 Transition operations have `method` (`evolve` or `apply`) and positional `args`.
 Evolution intervals use nanoseconds relative to zero. Transition calculation returns
 probabilities without sampling a measurement.
 
-Methods complete synchronously and use the supplied seed for reproducibility.
+Adapters may defer numerical execution until measurement or state inspection,
+but must preserve operation order and return current results from those methods.
+Methods return synchronously and use the supplied seed for reproducibility.
 They do not call SystemC timing functions. A slow call increases host runtime
 without moving a simulated timestamp.
 

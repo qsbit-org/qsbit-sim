@@ -42,10 +42,12 @@ def builtins():
         "method": {"enum": ["statevector", "density_matrix"], "default": "statevector",
                    "description": "Thermal relaxation requires density_matrix."},
         "max_parallel_threads": {"type": "integer", "minimum": 1, "default": 1},
+        "max_batch_operations": {"type": "integer", "minimum": 1, "default": 1024,
+                                 "description": "Maximum queued gates and single-qubit noise channels before Aer execution."},
         "noise": {"oneOf": [NONE, THERMAL], "default": {"model": "none"},
                   "description": "Applied over every elapsed interval, including acquisition."},
     })
-    pulse = obj({"max_parallel_threads": aer["properties"]["max_parallel_threads"]})
+    pulse = obj({key: aer["properties"][key] for key in ("max_parallel_threads", "max_batch_operations")})
     stim = obj({"noise": {"oneOf": [NONE, DEPOLARIZING], "default": {"model": "none"}}})
     return {
         "aer": descriptor("qsbit_backend.aer:AerBackend", "aer",

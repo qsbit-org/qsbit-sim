@@ -38,4 +38,5 @@ class PulseBackend(AerBackend):
                 local = paulis[drive["axis"]] if qubit == drive["targets"][0] else np.eye(2)
                 operator = np.kron(operator, local)
             hamiltonian += 0.5 * drive["amplitude"] * operator
+        self._flush()
         self._state = expm(-1j * (end - start) * hamiltonian) @ self._state

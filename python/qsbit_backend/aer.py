@@ -1,7 +1,7 @@
-"""Persistent quantum state with real Aer execution at each architectural boundary."""
+"""Bounded Aer circuit batches with persistent quantum state."""
 
 import numpy as np
-from qiskit import QuantumCircuit
+from qiskit import ClassicalRegister, QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit_aer.noise import thermal_relaxation_error
 
@@ -33,7 +33,9 @@ class AerBackend:
         self._state = None
         self._qubits = 0
         self._seed = 0
-        self._calls = 0
+        self._measurements = 0
+        self._pending = None
+        self._pending_operations = 0
 
     def validate(self, action):
         kind = action["kind"]
@@ -41,8 +43,14 @@ class AerBackend:
             if not self.supports_pulse:
                 raise ValueError("Aer circuit adapter does not integrate pulse drives")
         elif kind == "gate":
-            if self._arity.get(action["operation"]) != len(action["targets"]):
+            targets = action["targets"]
+            if (self._arity.get(action["operation"]) != len(targets)
+                    or len(set(targets)) != len(targets)):
                 raise ValueError("unsupported ideal gate or target arity")
+            if self._qubits and any(q < 0 or q >= self._qubits for q in targets):
+                raise ValueError("gate target outside configured register")
+            if action["operation"] in ("rx", "ry", "rz") and not np.isfinite(action["amplitude"]):
+                raise ValueError("rotation angle must be finite")
         elif kind not in ("acquire", "arm"):
             raise ValueError("unsupported action kind")
 
@@ -55,7 +63,9 @@ class AerBackend:
                 raise ValueError(f"backend_options.noise.qubits[{index}].qubit: outside configured register")
         self._qubits = qubits
         self._seed = seed
-        self._calls = 0
+        self._measurements = 0
+        self._pending = None
+        self._pending_operations = 0
         self._state = np.zeros(1 << qubits, dtype=complex)
         self._state[0] = 1
         if self._method == "density_matrix":
@@ -68,28 +78,39 @@ class AerBackend:
             raise ValueError("pulse drives are unsupported by the Aer circuit adapter")
         if end == start or self._noise["model"] == "none":
             return
-        circuit = self._circuit()
         for item in self._noise["qubits"]:
             channel = thermal_relaxation_error(item["t1_ns"], item["t2_ns"], end - start,
                                                item["excited_state_population"])
-            circuit.append(channel.to_instruction(), [int(item["qubit"])])
-        self._run(circuit)
+            self._circuit().append(channel.to_instruction(), [int(item["qubit"])])
+            self._operation_added()
 
-    def _circuit(self, classical=0):
-        circuit = QuantumCircuit(self._qubits, classical)
-        getattr(circuit, "set_" + self._method)(self._state)
-        return circuit
+    def _circuit(self):
+        if self._pending is None:
+            self._pending = QuantumCircuit(self._qubits)
+            getattr(self._pending, "set_" + self._method)(self._state)
+        return self._pending
 
-    def _run(self, circuit, memory=False):
+    def _operation_added(self):
+        self._pending_operations += 1
+        if self._pending_operations >= self.options["max_batch_operations"]:
+            self._flush()
+
+    def _flush(self, memory=False):
+        if self._pending is None:
+            return None
+        circuit = self._pending
         getattr(circuit, "save_" + self._method)()
         result = self._simulator.run(
             circuit, shots=1, memory=memory,
-            seed_simulator=(self._seed + self._calls) & 0xFFFFFFFF,
+            seed_simulator=(self._seed + self._measurements) & 0xFFFFFFFF,
         ).result()
         if not result.success:
             raise RuntimeError(result.status)
         self._state = np.asarray(result.data(0)[self._method], dtype=complex)
-        self._calls += 1
+        self._pending = None
+        self._pending_operations = 0
+        if memory:
+            self._measurements += 1
         return result
 
     def apply(self, gates):
@@ -97,14 +118,13 @@ class AerBackend:
             return
         for gate in gates:
             self.validate(gate)
-        circuit = self._circuit()
         for gate in gates:
             operation = gate["operation"]
             args = gate["targets"]
             if operation in ("rx", "ry", "rz"):
                 args = [gate["amplitude"], *args]
-            getattr(circuit, operation)(*args)
-        self._run(circuit)
+            getattr(self._circuit(), operation)(*args)
+            self._operation_added()
 
     def measure(self, references):
         if not references:
@@ -112,18 +132,27 @@ class AerBackend:
         targets = [reference["target"] for reference in references]
         if len(set(targets)) != len(targets):
             raise ValueError("ambiguous repeated target in a measurement batch")
-        circuit = self._circuit(len(references))
+        if any(q < 0 or q >= self._qubits for q in targets):
+            raise ValueError("measurement target outside configured register")
+        circuit = self._circuit()
+        circuit.add_register(ClassicalRegister(len(references)))
         for bit, target in enumerate(targets):
             circuit.measure(target, bit)
-        result = self._run(circuit, memory=True)
+        result = self._flush(memory=True)
         bits = result.get_memory()[0].replace(" ", "")[::-1]
         return [bit == "1" for bit in bits]
 
     def state(self):
-        return self._state.tolist() if self._method == "statevector" else []
+        if self._method != "statevector":
+            return []
+        self._flush()
+        return self._state.tolist()
 
     def density_matrix(self):
-        return self._state.tolist() if self._method == "density_matrix" else []
+        if self._method != "density_matrix":
+            return []
+        self._flush()
+        return self._state.tolist()
 
     def transition_probabilities(self, operations):
         if self.supports_pulse:
@@ -140,6 +169,7 @@ class AerBackend:
                 if operation["method"] not in ("evolve", "apply"):
                     raise ValueError("transition segment accepts only evolution and gates")
                 getattr(self, operation["method"])(*operation["args"])
+            self._flush()
             probability = (self._state[1, 1].real if self._method == "density_matrix"
                            else abs(self._state[1]) ** 2)
             if not np.isfinite(probability) or not -1e-12 <= probability <= 1 + 1e-12:

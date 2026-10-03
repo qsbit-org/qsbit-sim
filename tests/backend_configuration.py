@@ -42,6 +42,8 @@ class Configuration(unittest.TestCase):
                             ("stim", {"noise": {"model": "depolarizing", "after_gate_probability": 2}}),
                             ("aer", {"noise": {"model": "thermal_relaxation", "qubits": []}}),
                             ("aer", {"max_parallel_threads": True}), ("aer", []),
+                            ("aer", {"max_batch_operations": 0}),
+                            ("pulse", {"max_batch_operations": True}),
                             ("aer", {"max_parallel_threads": float("nan")})]:
             with self.subTest(name=name, value=value), self.assertRaises(ValueError):
                 registry.options(name, value)
