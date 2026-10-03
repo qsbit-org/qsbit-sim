@@ -5,12 +5,19 @@ from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+from socketserver import TCPServer
 import threading
 import webbrowser
 
 
 ROOT = Path(__file__).resolve().parent
 ASSETS = ROOT.parent / 'docs' / '_static'
+
+
+class ReplayHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address
 
 
 def load_trace(path):
@@ -65,7 +72,7 @@ def serve(path, bundle, open_browser=True):
             self.end_headers()
             self.wfile.write(body)
 
-    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server = ReplayHTTPServer(('127.0.0.1', 0), Handler)
     url = f'http://127.0.0.1:{server.server_port}/'
     print(f'Trace replay: {url}', flush=True)
     if open_browser:
