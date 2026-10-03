@@ -11,6 +11,7 @@ to create `build-clang/qsbit-sim` and assemble the basic examples.
 | [overlapping-pulses](overlapping-pulses/README.md) | Apply X and Z drives simultaneously. | Pulse |
 | [quma](quma/README.md) | Reproduce the QuMA AllXY sequence and measurement probabilities. | Aer |
 | [eqasm](eqasm/README.md) | Run the eQASM Figure 3 gate sequence and compare scalar and VLIW issue rates. | Aer, Stim or mock |
+| [distributed-hisq](distributed-hisq/README.md) | Reproduce neighbor synchronization and scan BISP booking overhead. | Mock |
 
 The basic examples contain `program.S` and `run.json`. CMake places each ELF and
 its configuration in `<build-dir>/examples/<example>/`. For a control-only run:

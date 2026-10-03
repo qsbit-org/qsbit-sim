@@ -134,6 +134,14 @@ void validate_timing_events(const TimingEvents &request, const Profile &profile)
           "manifest count differs from event count");
   require(request.events.size() <= profile.staging_capacity, ErrorCode::Capacity,
           "oversized staged request");
+  require(request.point.synchronizations.size() <= profile.staging_capacity, ErrorCode::Capacity,
+          "oversized synchronization request");
+  require(request.point.synchronizations.size() <= 1, ErrorCode::InvalidOperand,
+          "only one sync is allowed at a time point");
+  std::set<std::uint32_t> sync_targets;
+  for (auto target : request.point.synchronizations)
+    require(target <= 131071 && sync_targets.insert(target).second, ErrorCode::InvalidOperand,
+            "invalid or duplicate synchronization target");
   std::set<Id> ids;
   std::vector<std::uint32_t> counts(profile.ports, 0);
   for (std::size_t i = 0; i < request.events.size(); ++i) {

@@ -55,12 +55,14 @@ CPU register reads and pending measurements. See
 
 `TimingControl` prepares events. `TcuCycleModel` owns the timing queue,
 per-port event queues, timer and execution flags. `ControlElectronics`
-schedules outputs, acquisition and result delivery. `Simulator` runs
-these components with SystemC.
+schedules outputs, acquisition and result delivery. `Core` owns each controller's
+CPU, memory, timing control and synchronization unit. `Simulator` runs the cores
+with SystemC and processes their operations against one shared quantum device.
 
 The [instruction reference](interfaces.md#quantum-instruction-encoding)
-defines the simulator's machine-code format. Cross-controller communication
-and synchronization are unsupported.
+defines the simulator's machine-code format. Neighbor synchronization uses BISP;
+regional synchronization and classical messaging are unsupported. See
+[distributed simulation](distributed-simulation.md).
 
 See the [controller diagram](architecture.md),
 [implementation map](implementation.md#implementation-map) and

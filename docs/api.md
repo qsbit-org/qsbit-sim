@@ -19,6 +19,16 @@ Profiles, event mappings, time point records and measurement references. [Open h
 
 Replaceable CPU interface with memory and control ports. [Open header](../include/qsbit/cpu.hpp).
 
+(core_8hpp)=
+## core.hpp
+
+Per-controller CPU, memory, timing control, synchronization and measurement state. [Open header](../include/qsbit/core.hpp).
+
+(sync_8hpp)=
+## sync.hpp
+
+Neighbor BISP countdowns and bounded fixed-delay connections. [Open header](../include/qsbit/sync.hpp).
+
 (rv32_8hpp)=
 ## cpu/rv32.hpp
 

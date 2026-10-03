@@ -39,7 +39,7 @@ and communication delays.
 | [Measurement result registers](measurement-registers.md) | Stores per-qubit bits and pending measurement counts for FMR. |
 | [Execution flags](execution-flags.md) | Updates per-qubit flags used at the trigger edge. |
 | [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
-| [Synchronization](future-synchronization-adapter.md) | Rejects sync; distributed synchronization is not implemented. |
+| [Synchronization](synchronization.md) | Books neighbor synchronization and pauses the TCU until BISP conditions are met. |
 
 Run a component's named tests with `ctest --test-dir BUILD_DIRECTORY -R NAME`.
 Numerical tests require the corresponding [build options](../building.md#cmake-options).
@@ -67,5 +67,5 @@ acquisition-and-discrimination
 measurement-registers
 execution-flags
 trace-recorder-and-stop-controller
-future-synchronization-adapter
+synchronization
 ```

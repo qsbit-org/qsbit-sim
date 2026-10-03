@@ -23,7 +23,7 @@ contract, not the C++ alias, determines the unit.
 
 ## CPU adapter
 
-`Simulator` calls `step()` once per CPU edge. The model owns its registers,
+`Core` calls `step()` once per CPU edge. The model owns its registers,
 PC and pipeline state. `CpuPorts::control` returns an optional 32-bit result:
 absence means the same operation must remain held; a present value completes it.
 Use the CPU factory to supply another implementation.
@@ -65,13 +65,16 @@ struct TcuOutput {
   bool admitted = false;
   std::optional<TriggeredEvents> launch;
   std::vector<MeasurementReference> fast_delivered;
+  std::vector<std::uint32_t> synchronizations;
 };
 class TcuCycleModel {
 public:
   using Preflight = std::function<void(const TriggeredEvents &)>;
-  TcuCycleModel(const Profile &profile, Trace &trace);
+  using SyncPreflight = std::function<void(std::span<const std::uint32_t>)>;
+  TcuCycleModel(const Profile &profile, Trace &trace, std::size_t sync_capacity = 8);
   TcuOutput step(Tick now, Epoch epoch, const TimingEvents *candidate,
-                 const std::vector<Completion> &results, const Preflight &preflight);
+                 const std::vector<Completion> &results, const Preflight &preflight,
+                 bool paused = false, const SyncPreflight &sync_preflight = {});
   void close(const EndOfStream &end);
   void reset(Tick epoch_origin = 0);
   [[nodiscard]] bool drained() const;
@@ -93,6 +96,8 @@ private:
   ExecutionFlags execution_flags_;
   Tick last_due_ = 0;
   Tick start_ = 0;
+  Tick paused_ticks_ = 0;
+  std::size_t sync_capacity_ = 8, sync_size_ = 0;
   Id last_label_ = 0;
   bool closed_ = false;
 };
@@ -125,12 +130,14 @@ struct OperationEvent {
   std::uint32_t source_port = 0, codeword = 0;
   EventSpec action;
   std::optional<MeasurementReference> reference;
+  std::optional<std::uint32_t> core = {};
 };
 struct TimingPoint {
   Epoch epoch = 0;
   Id label = 0;
   Tick interval = 0;
   std::vector<Id> manifest;
+  std::vector<std::uint32_t> synchronizations = {};
 };
 // One enqueue request: a timing point and its associated operation events.
 struct TimingEvents {
@@ -182,6 +189,7 @@ struct TraceEvent {
   std::vector<std::uint32_t> targets;
   std::string operation, detail;
   std::uint64_t value = 0;
+  std::optional<std::uint32_t> core;
 };
 ```
 <!-- /source -->

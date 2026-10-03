@@ -125,10 +125,11 @@ void ControlElectronics::accept(const TriggeredEvents &batch) {
             arm = other.start;
       const Tick ready = checked_add(std::max(action.end, arm), e.action.discriminator_delay);
       readouts_.emplace(e.reference->measurement,
-                        Readout{*e.reference, action.end, arm, ready, {}});
+                        Readout{*e.reference, action.end, arm, ready, {}, e.core});
       boundaries_[ready].ready.push_back(e.reference->measurement);
     }
     TraceEvent record{batch.fire_tick, batch.epoch, "CodewordTriggered", e.id, batch.label};
+    record.core = e.core;
     record.port = e.action.port;
     record.codeword = e.codeword;
     record.targets = e.action.targets;
@@ -137,6 +138,13 @@ void ControlElectronics::accept(const TriggeredEvents &batch) {
   }
 }
 void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
+  process(now, epoch, [&](const Completion &result) {
+    links.cpu_results.publish(now, epoch, result);
+    if (profile_.fast_feedback)
+      links.fast_results.publish(now, epoch, result);
+  });
+}
+void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) {
   require(now >= last_tick_ && (!processed_tick_ || now > *processed_tick_), ErrorCode::Protocol,
           "physical boundary replay or decreasing time");
   const auto it = boundaries_.find(now);
@@ -180,6 +188,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
   for (std::size_t i = 0; i < samples.size(); ++i) {
     readouts_.at(samples[i].measurement).sample = outcomes[i];
     TraceEvent record{now, epoch, "MeasurementSampled", samples[i].measurement};
+    record.core = readouts_.at(samples[i].measurement).core;
     record.targets = {samples[i].target};
     record.value = outcomes[i];
     trace_.emit(std::move(record));
@@ -187,6 +196,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
   for (auto id : boundary.ends) {
     const auto &action = active_.at(id);
     TraceEvent record{now, epoch, "OperationEnd", id, action.event.label};
+    record.core = action.event.core;
     record.port = action.event.action.port;
     record.targets = action.event.action.targets;
     record.operation = action.event.action.operation;
@@ -198,6 +208,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
     require(active_.emplace(action.event.id, action).second, ErrorCode::Protocol,
             "physical action started twice");
     TraceEvent record{now, epoch, "OperationStart", action.event.id, action.event.label};
+    record.core = action.event.core;
     record.port = action.event.action.port;
     record.codeword = action.event.codeword;
     record.targets = action.event.action.targets;
@@ -209,10 +220,9 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
     const auto &readout = readouts_.at(id);
     require(readout.sample.has_value(), ErrorCode::Protocol, "result is ready before sampling");
     Completion result{readout.reference, *readout.sample};
-    links.cpu_results.publish(now, epoch, result);
-    if (profile_.fast_feedback)
-      links.fast_results.publish(now, epoch, result);
     TraceEvent record{now, epoch, "ResultReady", id};
+    deliver(result);
+    record.core = readout.core;
     record.targets = {readout.reference.target};
     record.value = result.value;
     trace_.emit(std::move(record));

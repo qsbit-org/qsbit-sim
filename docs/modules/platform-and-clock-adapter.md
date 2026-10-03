@@ -1,6 +1,6 @@
 # Platform and clocks
 
-`Simulator` connects the CPU, memory, TCU and device models to the SystemC
+`Simulator` connects each `Core` and the shared device model to the SystemC
 scheduler. It calls each model on its clock edges or scheduled device ticks
 and applies session resets.
 
@@ -25,7 +25,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Validated profile and reset request"];
   owner [label="Simulator"];
-  state [label="profile_\ncpu_clock_, tcu_clock_\nwake_, barrier_"];
+  state [label="profile_\ncpu_clocks_, tcu_clock_\nwake_, barrier_"];
   output [label="Clock edges, reset and physical wakeup"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -52,7 +52,7 @@ same-tick ordering.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `profile_` | `const Profile` | Validated clocks, capacities, mappings and delays; immutable across reset. |
-| `cpu_clock_, tcu_clock_` | `sc_clock` | Rising edges for the CPU, memory and TCU. |
+| `cpu_clocks_, tcu_clock_` | per-core CPU clocks and shared TCU clock | Rising edges for each core's CPU, memory and TCU. |
 | `wake_, barrier_` | `sc_event` | Schedule timed work and same-tick device processing. |
 | `cpu_done_, memory_done_, tcu_done_` | optional tick | Marks which coincident edge transitions have completed. |
 | `epoch_, resets_, last_reset_` | session state | Applies a reset once per requested tick and invalidates old work. |

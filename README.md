@@ -82,6 +82,7 @@ cross-project CI and checks to run before a pull request.
 - [Configuration and trace reference](docs/interfaces.md)
 - [Controller architecture](docs/high-level-design.md) and [diagram](docs/architecture.md)
 - [Simulation timing](docs/module-architecture.md)
+- [Distributed simulation](docs/distributed-simulation.md) and [Distributed-HISQ example](examples/distributed-hisq/README.md)
 - [Component reference](docs/modules/README.md) and [C++ interfaces](docs/cpp-interfaces.md)
 - [CACTUS validation](CACTUS_VALIDATION.md)
 
@@ -94,7 +95,7 @@ The timing-control model draws on these architectures:
 
 - [QuMA](https://arxiv.org/abs/1708.07677): codeword output and queue-based timing control.
 - [eQASM](https://arxiv.org/abs/1808.02449): reserve and trigger phases, operation timing and feedback.
-- [Distributed-HISQ](https://arxiv.org/abs/2509.04798): RISC-V control extensions using ports, codewords and time points.
+- [Distributed-HISQ](https://arxiv.org/abs/2509.04798): RISC-V control extensions and booking-based neighbor synchronization.
 
 qsbit-sim uses [custom-0 control instructions and custom-1 bundles](docs/interfaces.md#quantum-instruction-encoding).
 It does not execute eQASM or HISQ binaries. Timing regression tests compare

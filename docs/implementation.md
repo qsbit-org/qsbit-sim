@@ -17,7 +17,7 @@ Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 
 | Library | Contents | Dependencies |
 | --- | --- | --- |
-| `qsbit_core` | ISA, memory, CPU interface and model, timing control, TCU, feedback and devices. | C++20; no SystemC or Python link dependency. |
+| `qsbit_core` | ISA, memory, CPU models, Core, TCU, synchronization, feedback and devices. | C++20; no SystemC or Python link dependency. |
 | `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Core and SystemC. |
 | `qsbit_config` | JSON run and profile parsing. | Core and the configured JSON library. |
 | `qsbit_python` | Calls to optional Python backend adapters. | Python development library and pybind11; built only when enabled. |
@@ -28,7 +28,9 @@ C++ owners and source files.
 `Simulator` registers three clock methods: CPU and memory on CPU rising edges,
 and TCU on TCU rising edges. A timed wakeup handles device boundaries, reset and
 watchdog. A zero-time barrier processes physical work only after every clocked
-method due at that tick has finished.
+method due at that tick has finished. Each `Core` has independent CPU and memory
+state. All cores submit outputs to one `ControlElectronics` instance and share
+one backend. See [distributed simulation](distributed-simulation.md).
 
 ## Default timing
 
@@ -134,11 +136,12 @@ Qubit 0 is the least significant statevector bit.
 ## Unsupported features
 
 The simulator does not implement privileged execution, interrupts, caches,
-compressed instructions, distributed synchronization, TQEC input, sampled
+compressed instructions, regional synchronization, classical messaging, TQEC input, sampled
 waveforms or GPU adapters. The exit ECALL completes the program;
 other ECALLs and EBREAK raise traps. FENCE.I and unselected ISA extensions
 raise `IllegalInstruction`.
-sync raises `UnsupportedSynchronization`.
+`sync` requires a configured neighbor connection; an unconnected target raises
+`UnsupportedSynchronization`.
 
 Session reset clears controller and quantum state under the same profile.
 A controller-only reset that preserves qubit state is not implemented.

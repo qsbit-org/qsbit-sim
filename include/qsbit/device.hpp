@@ -27,6 +27,8 @@ public:
   void preflight(const TriggeredEvents &batch) const;
   void accept(const TriggeredEvents &batch);
   void process(Tick now, Epoch epoch, ControlLinks &links);
+  using Deliver = std::function<void(const Completion &)>;
+  void process(Tick now, Epoch epoch, const Deliver &deliver);
   void finalize(Tick now);
   void reset(Tick now, Epoch epoch);
   [[nodiscard]] std::optional<Tick> next_boundary() const;
@@ -44,6 +46,7 @@ private:
     MeasurementReference reference;
     Tick end = 0, arm = 0, ready = 0;
     std::optional<bool> sample;
+    std::optional<std::uint32_t> core = {};
   };
   [[nodiscard]] std::vector<ScheduledEvent> resolve(const TriggeredEvents &batch) const;
   const Profile &profile_;

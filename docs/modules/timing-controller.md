@@ -25,7 +25,8 @@ digraph module {
 
 ## From logical cycle to global tick
 
-For epoch start S and TCU period P, logical cycle n occurs at `S + n * P`.
+Without synchronization pauses, epoch start S and TCU period P place logical
+cycle n at `S + n * P`. Each paused edge adds P to subsequent trigger ticks.
 Before S, time points can enter the queues but cannot trigger.
 
 With S = 100 ns and P = 20 ns, cycle 4 occurs at 180 ns. A time point
@@ -43,7 +44,8 @@ shift deadlines to accommodate a late request.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `start_` | global tick | Start of the current epoch timeline. |
-| Local variable `cycle` | derived logical cycle | Calculated from current tick and period; not a stored running counter. |
+| `paused_ticks_` | elapsed simulation ticks | Total delay from paused TCU edges. |
+| Local variable `cycle` | derived logical cycle | Calculated from current tick, epoch start, period and elapsed pauses. |
 | `timing_.front().due` | next due cycle | Selects the time point already queued when the edge begins. |
 | `closed_` | closure state | Input closed after validated EndOfStream; queues may still drain. |
 
@@ -56,7 +58,8 @@ A queued point that misses its due edge or a time point enqueued too late raises
 
 Reset clears the TCU queues and execution flags. The new start is the first TCU edge at
 or after `reset_tick + profile.start`. SystemC time continues from the reset tick.
-sync raises `UnsupportedSynchronization`.
+The [synchronization unit](synchronization.md) pauses and resumes
+the timer. Reset clears its pending requests and the accumulated pause duration.
 
 ## Implementation and tests
 

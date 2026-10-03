@@ -20,6 +20,7 @@ The request stays unchanged until acknowledgment.
 | `ICpuCycleModel` and `MemoryModel` | Advance the selected CPU and service timed memory requests. |
 | `TimingControl` and `MeasurementRegisters` | Prepare time points and maintain measurement result registers. |
 | `TcuCycleModel` | Own timing and event queues, timer and execution flags. |
+| `Core` and `SyncUnit` | Own one controller's components and its neighbor synchronization state. |
 | `ControlElectronics` | Schedule output, acquisition and discrimination; check resource conflicts. |
 | `IQuantumBackend` | Calculate quantum evolution and measurement outcomes. |
 | `Simulator` | Schedule calls, reset and same-tick device processing, and determine completion. |
@@ -37,6 +38,7 @@ Each subsequent time point enters the timing queue, even if it has no events.
 | Instruction | Completion rule | Effect |
 | --- | --- | --- |
 | `cw` | Events are validated and stored. | Adds events at the current time point; measurement increments the target's pending count. |
+| `sync` | The connected target is validated and stored. | Adds a synchronization event at the current time point. |
 | `wait` with zero interval | Immediate. | No changes. |
 | `wait` with positive interval d | Pending events are enqueued and acknowledged. | Advances the time point by d TCU cycles. |
 | `FMR` | Required enqueue completes and the target register's pending count reaches zero. | Copies the bit into a GPR. |
@@ -81,7 +83,8 @@ At each TCU rising edge:
 
 1. Read existing queue state and arrived messages. If session reset applies,
    skip the ordinary transition.
-2. Calculate the current logical cycle. If the existing head is due, match its
+2. Update synchronization state from arrived signals and countdown deadlines.
+   Calculate the current logical cycle. If the timer is not paused and the existing head is due, match its
    complete manifest, check the existing execution flags, and validate
    the selected device events.
 3. Validate the candidate time point's identity, mapping and deadline, then
@@ -100,7 +103,10 @@ TCU transition; they do not each consume a clock cycle.
 
 ## Start, deadlines and empty queues
 
-With effective epoch start S and period P, logical cycle n is due at `S + n * P`.
+Without synchronization pauses, effective epoch start S and period P place
+logical cycle n at `S + n * P`. Each paused TCU edge delays subsequent logical
+cycles by P without delaying physical device evolution. A pending cycle triggers
+on its resume edge. Admission deadlines include elapsed pauses.
 Initially S is `profile.start`; session reset computes a new S as described below.
 The start edge is cycle zero. Start is configured independently of CPU progress,
 so a blocked timing control cannot prevent the timer from starting.

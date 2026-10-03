@@ -58,7 +58,8 @@ Scalar control instructions use opcode `0x0b` in the RISC-V custom-0 space.
 | 6 | `sync target` | Bits 31–15 hold an unsigned 17-bit controller address; rd is zero. |
 
 funct3 values 4, 5 and 7 are reserved. Invalid fixed fields raise
-`IllegalInstruction`. `sync` raises `UnsupportedSynchronization`.
+`IllegalInstruction`. `sync` schedules a synchronization event with a connected
+neighbor; an unconnected target raises `UnsupportedSynchronization`.
 `send` and `recv` are unsupported.
 
 ### Dual-codeword encoding
@@ -207,6 +208,8 @@ Output parent directories are created as needed.
 | --- | --- |
 | `schema` | Required integer `1`. |
 | `program` | Program path. |
+| `cores` | Per-core IDs, ELF programs, profiles, CPU models and synchronization capacities. Replaces `program`; see [distributed simulation](distributed-simulation.md). |
+| `sync_connections` | Neighbor addresses, directional delays in TCU cycles and signal capacities. |
 | `cpu_model` | `rv32` (default) or `vliw`. |
 | `backend` | Built-in name, registered adapter name or `module:Class`. |
 | `backend_options` | Backend-owned options; see [backend configuration](backends.md#discover-and-configure-backends). |

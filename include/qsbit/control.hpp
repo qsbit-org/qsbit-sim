@@ -57,12 +57,14 @@ struct OperationEvent {
   std::uint32_t source_port = 0, codeword = 0;
   EventSpec action;
   std::optional<MeasurementReference> reference;
+  std::optional<std::uint32_t> core = {};
 };
 struct TimingPoint {
   Epoch epoch = 0;
   Id label = 0;
   Tick interval = 0;
   std::vector<Id> manifest;
+  std::vector<std::uint32_t> synchronizations = {};
 };
 // One enqueue request: a timing point and its associated operation events.
 struct TimingEvents {

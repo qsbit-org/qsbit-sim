@@ -5,19 +5,23 @@
 #include "qsbit/trace.hpp"
 #include <deque>
 #include <functional>
+#include <span>
 
 namespace qsbit {
 struct TcuOutput {
   bool admitted = false;
   std::optional<TriggeredEvents> launch;
   std::vector<MeasurementReference> fast_delivered;
+  std::vector<std::uint32_t> synchronizations;
 };
 class TcuCycleModel {
 public:
   using Preflight = std::function<void(const TriggeredEvents &)>;
-  TcuCycleModel(const Profile &profile, Trace &trace);
+  using SyncPreflight = std::function<void(std::span<const std::uint32_t>)>;
+  TcuCycleModel(const Profile &profile, Trace &trace, std::size_t sync_capacity = 8);
   TcuOutput step(Tick now, Epoch epoch, const TimingEvents *candidate,
-                 const std::vector<Completion> &results, const Preflight &preflight);
+                 const std::vector<Completion> &results, const Preflight &preflight,
+                 bool paused = false, const SyncPreflight &sync_preflight = {});
   void close(const EndOfStream &end);
   void reset(Tick epoch_origin = 0);
   [[nodiscard]] bool drained() const;
@@ -39,6 +43,8 @@ private:
   ExecutionFlags execution_flags_;
   Tick last_due_ = 0;
   Tick start_ = 0;
+  Tick paused_ticks_ = 0;
+  std::size_t sync_capacity_ = 8, sync_size_ = 0;
   Id last_label_ = 0;
   bool closed_ = false;
 };

@@ -1,6 +1,6 @@
 # ADR 0001: Initial CPU and control profile
 
-Date: 2026-09-16. Updated: 2026-10-02. Status: accepted.
+Date: 2026-09-16. Updated: 2026-10-03. Status: accepted.
 
 ## Context
 
@@ -44,7 +44,7 @@ defines the encodings and completion rules.
 Measurement result registers retain one bit per qubit. FMR waits until the
 selected qubit has no pending measurements. Codeword mappings select
 execution flags derived from the latest completed measurements; the TCU
-checks them at the trigger edge. `sync` raises `UnsupportedSynchronization`.
+checks them at the trigger edge. `sync` schedules neighbor BISP synchronization.
 
 ### Timing and backend boundary
 
@@ -82,5 +82,5 @@ The default CPU provides a testable three-stage model. Its cycle counts depend
 on that pipeline and the configured memory delays. Other CPU implementations
 can use different pipelines while preserving the control interfaces.
 
-The simulator does not execute eQASM binaries. Distributed synchronization and
+The simulator does not execute eQASM binaries. Regional synchronization and
 conditional acquisition are unsupported.

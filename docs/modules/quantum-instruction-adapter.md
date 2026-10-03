@@ -49,7 +49,8 @@ and [reserve-phase behavior](reserve-phase.md).
 
 The adapter rejects non-quantum input. The decoder checks malformed custom
 encodings before they reach it. A valid sync becomes a Synchronize operation,
-which the timing control rejects with `UnsupportedSynchronization`.
+which timing control stores at the current time point after validating the
+neighbor connection. An unconnected target raises `UnsupportedSynchronization`.
 
 The adapter has no retained state. The CPU and timing control clear their held
 instruction state on reset.

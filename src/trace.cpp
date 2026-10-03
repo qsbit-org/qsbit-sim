@@ -23,6 +23,11 @@ std::string quoted(const std::string &s) {
 }
 } // namespace
 void Trace::emit(TraceEvent event) {
+  if (destination_) {
+    event.core = core_;
+    destination_->emit(std::move(event));
+    return;
+  }
   if (!include_stalls_ && event.kind == "CpuStalled")
     return;
   require(events_.empty() || event.tick >= events_.back().tick, ErrorCode::Protocol,
@@ -48,7 +53,10 @@ void Trace::write_jsonl(std::ostream &out) const {
         out << ',';
       out << e.registers[i];
     }
-    out << "]}\n";
+    out << ']';
+    if (e.core)
+      out << ",\"core\":" << *e.core;
+    out << "}\n";
   }
   require(bool(out), ErrorCode::Protocol, "trace output failed");
 }

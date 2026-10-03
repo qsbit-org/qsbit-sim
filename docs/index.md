@@ -20,6 +20,7 @@ links each component to its source and tests.
 | Configure Aer, Stim, pulses or a custom backend | [Quantum backends](backends.md) |
 | Write a run configuration or interpret a trace | [Program and file formats](interfaces.md) |
 | Check a timing or ordering rule | [Simulation timing contract](module-architecture.md) |
+| Run multiple controllers with BISP | [Distributed simulation](distributed-simulation.md) |
 | Find a class or replace the CPU model | [C++ interfaces](cpp-interfaces.md) and [API reference](api.md) |
 | Run tests or edit the website | [Testing](engineering-and-testing.md) and [website development](website.md) |
 
@@ -39,6 +40,7 @@ prerequisites
 building
 backends
 repeated-simulations
+distributed-simulation
 engineering-and-testing
 website
 ```

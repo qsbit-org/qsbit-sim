@@ -23,6 +23,7 @@ digraph implementation {
     m11 [label="Timing controller\nand event trigger", href="modules/timing-controller.html", id="module-timing-controller"];
     m12 [label="Conditional execution\nand event validation", href="modules/conditional-execution.html", id="module-conditional-execution"];
     m18 [label="ExecutionFlags", href="modules/execution-flags.html", id="module-execution-flags"];
+    m20 [label="SyncU\nNeighbor BISP", href="modules/synchronization.html", id="module-synchronization"];
   }
   subgraph cluster_device { label="ControlElectronics: scheduled simulation events"; color="#bacdd2"; style="rounded";
     m14 [label="Control output\nand resource checks", href="modules/control-output.html", id="module-control-output"];
@@ -31,7 +32,6 @@ digraph implementation {
   }
   subgraph cluster_lifecycle { label="Tracing and completion"; color="#bacdd2"; style="rounded";
     m19 [label="Tracing and completion", href="modules/trace-recorder-and-stop-controller.html", id="module-trace-recorder-and-stop-controller"];
-    m20 [label="sync\nUnsupported synchronization", href="modules/future-synchronization-adapter.html", id="module-future-synchronization-adapter"];
   }
   m1 -> m4 [label="ProgramImage"];
   m4 -> m3 [constraint=false, label="MemoryResponse"];
@@ -55,7 +55,8 @@ digraph implementation {
   m16 -> m17 [constraint=false, label="Completion and CPU mailbox"];
   m16 -> m18 [constraint=false, label="Completion and fast mailbox"];
   m17 -> m7 [constraint=false, label="measurement reference"];
-  m5 -> m20 [label="sync"];
+  m11 -> m20 [label="sync event"];
+  m20 -> m11 [constraint=false, label="pause and resume"];
   m0 -> m3 [style=dashed, constraint=false, label="activation"];
   m0 -> m11 [style=dashed, constraint=false, label="activation"];
   m0 -> m14 [style=dashed, constraint=false, label="activation"];

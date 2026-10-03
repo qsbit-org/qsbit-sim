@@ -34,8 +34,9 @@ struct ControlLinks {
 class TimingControl {
 public:
   using ValidateAction = std::function<void(const EventSpec &)>;
+  using ValidateSync = std::function<void(std::uint32_t)>;
   TimingControl(const Profile &profile, MeasurementRegisters &registers, Trace &trace,
-                ValidateAction validate);
+                ValidateAction validate, ValidateSync validate_sync = {});
   void receive(Tick now, Epoch epoch, ControlLinks &links);
   std::optional<std::uint32_t> execute(const ControlOperation &operation, Tick now, Epoch epoch,
                                        ControlLinks &links);
@@ -51,7 +52,9 @@ private:
   MeasurementRegisters &measurement_registers_;
   Trace &trace_;
   ValidateAction validate_;
+  ValidateSync validate_sync_;
   std::vector<OperationEvent> pending_events_;
+  std::vector<std::uint32_t> pending_sync_;
   std::optional<TimingEvents> enqueue_request_;
   std::optional<ControlOperation> held_;
   Tick time_point_ = 0, last_enqueued_time_ = 0;

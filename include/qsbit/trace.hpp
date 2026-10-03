@@ -2,6 +2,7 @@
 
 #include "qsbit/time.hpp"
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,9 +24,13 @@ struct TraceEvent {
   std::vector<std::uint32_t> targets;
   std::string operation, detail;
   std::uint64_t value = 0;
+  std::optional<std::uint32_t> core;
 };
 class Trace {
 public:
+  Trace() = default;
+  Trace(Trace &destination, std::optional<std::uint32_t> core)
+      : destination_(&destination), core_(core) {}
   void emit(TraceEvent event);
   void include_stalls(bool enabled) { include_stalls_ = enabled; }
   [[nodiscard]] const std::vector<TraceEvent> &events() const { return events_; }
@@ -34,5 +39,7 @@ public:
 private:
   std::vector<TraceEvent> events_;
   bool include_stalls_ = true;
+  Trace *destination_ = nullptr;
+  std::optional<std::uint32_t> core_;
 };
 } // namespace qsbit

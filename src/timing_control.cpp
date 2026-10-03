@@ -45,9 +45,9 @@ void ControlLinks::reset() {
   fast_credits.reset();
 }
 TimingControl::TimingControl(const Profile &profile, MeasurementRegisters &registers, Trace &trace,
-                             ValidateAction validate)
+                             ValidateAction validate, ValidateSync validate_sync)
     : profile_(profile), measurement_registers_(registers), trace_(trace),
-      validate_(std::move(validate)) {}
+      validate_(std::move(validate)), validate_sync_(std::move(validate_sync)) {}
 void TimingControl::receive(Tick now, Epoch epoch, ControlLinks &links) {
   if (auto reply = links.replies.take(now)) {
     if (reply->epoch == epoch) {
@@ -57,6 +57,7 @@ void TimingControl::receive(Tick now, Epoch epoch, ControlLinks &links) {
       last_enqueued_time_ = time_point_;
       enqueue_request_.reset();
       pending_events_.clear();
+      pending_sync_.clear();
       pending_point_ = false;
       enqueued_ = true;
       trace_.emit({now, epoch, "EnqueueAcknowledged", 0, last_label_});
@@ -88,6 +89,7 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   TimingEvents request;
   request.point = {epoch, checked_add(last_label_, 1), time_point_ - last_enqueued_time_, {}};
   request.events = pending_events_;
+  request.point.synchronizations = pending_sync_;
   request.configuration = profile_.fingerprint();
   for (auto &event : request.events) {
     event.label = request.point.label;
@@ -192,7 +194,17 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
     }
     break;
   case ControlKind::Synchronize:
-    throw Fault(ErrorCode::UnsupportedSynchronization, "sync requires multiple controllers");
+    require(bool(validate_sync_), ErrorCode::UnsupportedSynchronization,
+            "sync requires a connected controller");
+    require(!enqueued_ && !enqueue_request_, ErrorCode::Protocol,
+            "sync requires a positive wait after FMR");
+    validate_sync_(operation.first);
+    require(pending_sync_.empty(), ErrorCode::InvalidOperand,
+            "only one sync is allowed at a time point");
+    pending_sync_.push_back(operation.first);
+    pending_point_ = true;
+    result = 0;
+    break;
   }
   if (result)
     held_.reset();
@@ -200,6 +212,7 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
 }
 void TimingControl::reset() {
   pending_events_.clear();
+  pending_sync_.clear();
   enqueue_request_.reset();
   held_.reset();
   time_point_ = 0;

@@ -1,0 +1,25 @@
+{
+  "repetitions": 3,
+  "backend": "mock",
+  "profile": {
+    "cpu": {"period": 5, "phase": 0},
+    "tcu": {"period": 4, "phase": 0},
+    "start": 10000,
+    "watchdog": 1000000,
+    "ports": 32,
+    "qubits": 2,
+    "timing_capacity": 64,
+    "event_capacity": 64
+  },
+  "sync_connections": [
+    {"first": 1, "second": 2, "first_to_second": 8, "second_to_first": 6, "capacity": 8}
+  ],
+  "control_output_delay_ns": 228,
+  "readout_output_delay_ns": 0,
+  "pulse_duration_ns": 4,
+  "booking_scan": {
+    "latencies": [2, 4, 8, 16],
+    "durations": [0, 2, 4, 6, 8, 12, 16, 24, 32],
+    "ready_cycles": [20, 40]
+  }
+}

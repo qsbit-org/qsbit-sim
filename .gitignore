@@ -22,3 +22,4 @@ __pycache__/
 *.gif
 !/examples/quma/figs/*.png
 !/examples/eqasm/figs/*.png
+!/examples/distributed-hisq/figs/*.png

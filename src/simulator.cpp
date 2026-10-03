@@ -1,12 +1,32 @@
 #include "qsbit/simulator.hpp"
-#include "qsbit/cpu/rv32.hpp"
 #include <algorithm>
+#include <limits>
+#include <set>
 
 namespace qsbit {
 namespace {
-Profile validated(Profile p) {
-  p.validate();
-  return p;
+Profile validated(const std::vector<CoreConfig> &cores, const std::vector<SyncConnection> &links) {
+  require(!cores.empty(), ErrorCode::InvalidProfile, "at least one core is required");
+  const auto &first = cores.front().profile;
+  std::set<std::uint32_t> ids;
+  std::uint64_t ports = 0;
+  for (const auto &core : cores) {
+    core.profile.validate();
+    require(core.id <= 131071 && ids.insert(core.id).second, ErrorCode::InvalidProfile,
+            "core addresses must be unique 17-bit integers");
+    const auto &p = core.profile;
+    require(p.tcu.period == first.tcu.period && p.tcu.phase == first.tcu.phase &&
+                p.qubits == first.qubits && p.seed == first.seed && p.watchdog == first.watchdog,
+            ErrorCode::InvalidProfile,
+            "cores must share the TCU clock, qubit count, seed and watchdog");
+    ports = checked_add(ports, p.ports);
+  }
+  require(ports <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::InvalidProfile,
+          "total output port count exceeds uint32");
+  for (const auto &link : links)
+    require(ids.contains(link.first) && ids.contains(link.second), ErrorCode::InvalidProfile,
+            "synchronization connection names an unknown core");
+  return first;
 }
 sc_core::sc_time time_at(Tick tick) { return sc_core::sc_time::from_value(tick); }
 std::unique_ptr<IQuantumBackend> validated(std::unique_ptr<IQuantumBackend> backend) {
@@ -17,20 +37,19 @@ std::unique_ptr<IQuantumBackend> validated(std::unique_ptr<IQuantumBackend> back
 Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage image,
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
                      bool reverse_registration, CpuFactory cpu_factory)
-    : sc_module(name), profile_(validated(std::move(profile))),
-      backend_(validated(std::move(backend))), measurement_registers_(profile_),
-      timing_control_(profile_, measurement_registers_, trace_,
-                      [this](const EventSpec &a) { backend_->validate(a); }),
-      links_(profile_), fetch_port_(profile_.cpu), data_port_(profile_.cpu),
-      memory_(std::move(image), profile_.cpu, profile_.memory_latency),
-      cpu_(cpu_factory
-               ? cpu_factory(profile_.cpu, memory_.image().entry(), trace_)
-               : std::make_unique<CpuCycleModel>(profile_.cpu, memory_.image().entry(), trace_)),
-      tcu_(profile_, trace_), device_(profile_, *backend_, trace_),
-      cpu_clock_("cpu_clock", time_at(profile_.cpu.period), 0.5, time_at(profile_.cpu.phase)),
+    : Simulator(name,
+                std::vector<CoreConfig>{
+                    {0, std::move(profile), std::move(image), std::move(cpu_factory)}},
+                {}, std::move(backend), std::move(resets), reverse_registration) {}
+Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> configs,
+                     std::vector<SyncConnection> connections,
+                     std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
+                     bool reverse_registration)
+    : sc_module(name), profile_(validated(configs, connections)),
+      backend_(validated(std::move(backend))), network_(profile_.tcu, connections),
+      device_(profile_, *backend_, trace_),
       tcu_clock_("tcu_clock", time_at(profile_.tcu.period), 0.5, time_at(profile_.tcu.phase)),
-      resets_(std::move(resets)) {
-  require(bool(cpu_), ErrorCode::InvalidProfile, "CPU factory returned no model");
+      resets_(std::move(resets)), reverse_(reverse_registration) {
   require(sc_core::sc_get_time_resolution() == sc_core::sc_time(1, sc_core::SC_NS),
           ErrorCode::InvalidProfile, "SystemC time resolution must be 1 ns");
   require(std::is_sorted(resets_.begin(), resets_.end()) &&
@@ -39,22 +58,44 @@ Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage
   for (auto tick : resets_)
     require(tick > 0 && tick < profile_.watchdog, ErrorCode::InvalidProfile,
             "reset tick outside run");
-  if (reverse_registration) {
+  std::uint32_t offset = 0;
+  for (auto &config : configs) {
+    port_offsets_.push_back(offset);
+    const auto clock = config.profile.cpu;
+    const auto index = cores_.size();
+    cores_.push_back(std::make_unique<Core>(
+        config.id, config.profile, std::move(config.image), trace_, network_,
+        [this, index](const EventSpec &event) {
+          auto mapped = event;
+          mapped.port += port_offsets_.at(index);
+          backend_->validate(mapped);
+        },
+        std::move(config.cpu_factory), config.sync_capacity, configs.size() > 1));
+    offset += config.profile.ports;
+    cpu_clocks_.push_back(
+        std::make_unique<sc_core::sc_clock>(sc_core::sc_gen_unique_name("cpu_clock"),
+                                            time_at(clock.period), 0.5, time_at(clock.phase)));
+  }
+  if (reverse_) {
     SC_METHOD(tcu_edge);
     sensitive << tcu_clock_.posedge_event();
     dont_initialize();
     SC_METHOD(memory_edge);
-    sensitive << cpu_clock_.posedge_event();
+    for (const auto &clock : cpu_clocks_)
+      sensitive << clock->posedge_event();
     dont_initialize();
     SC_METHOD(cpu_edge);
-    sensitive << cpu_clock_.posedge_event();
+    for (const auto &clock : cpu_clocks_)
+      sensitive << clock->posedge_event();
     dont_initialize();
   } else {
     SC_METHOD(cpu_edge);
-    sensitive << cpu_clock_.posedge_event();
+    for (const auto &clock : cpu_clocks_)
+      sensitive << clock->posedge_event();
     dont_initialize();
     SC_METHOD(memory_edge);
-    sensitive << cpu_clock_.posedge_event();
+    for (const auto &clock : cpu_clocks_)
+      sensitive << clock->posedge_event();
     dont_initialize();
     SC_METHOD(tcu_edge);
     sensitive << tcu_clock_.posedge_event();
@@ -76,14 +117,9 @@ bool Simulator::reset_at(Tick now) {
     return false;
   if (last_reset_ != now) {
     epoch_ = checked_add(epoch_, 1);
-    links_.reset();
-    fetch_port_.reset();
-    data_port_.reset();
-    memory_.reset();
-    cpu_->reset(memory_.image().entry());
-    timing_control_.reset();
-    measurement_registers_.reset();
-    tcu_.reset(now);
+    network_.reset();
+    for (auto &core : cores_)
+      core->reset(now);
     device_.reset(now, epoch_);
     last_reset_ = now;
     trace_.emit({now, epoch_, "SessionReset"});
@@ -107,13 +143,10 @@ void Simulator::cpu_edge() {
     return;
   const Tick now = sc_core::sc_time_stamp().value();
   try {
-    if (!reset_at(now)) {
-      timing_control_.receive(now, epoch_, links_);
-      CpuPorts ports{fetch_port_, data_port_, [&](const ControlOperation &op) {
-                       return timing_control_.execute(op, now, epoch_, links_);
-                     }};
-      cpu_->step(now, epoch_, ports);
-    }
+    if (!reset_at(now))
+      for (auto &core : cores_)
+        if (core->profile().cpu.edge(now))
+          core->cpu_edge(now, epoch_);
     cpu_done_ = now;
     barrier_.notify(sc_core::SC_ZERO_TIME);
   } catch (const Fault &fault) {
@@ -128,7 +161,9 @@ void Simulator::memory_edge() {
   const Tick now = sc_core::sc_time_stamp().value();
   try {
     if (!reset_at(now))
-      memory_.step(now, epoch_, fetch_port_, data_port_);
+      for (auto &core : cores_)
+        if (core->profile().cpu.edge(now))
+          core->memory_edge(now, epoch_);
     memory_done_ = now;
     barrier_.notify(sc_core::SC_ZERO_TIME);
   } catch (const Fault &fault) {
@@ -137,34 +172,36 @@ void Simulator::memory_edge() {
     fail(Fault(ErrorCode::Protocol, e.what()));
   }
 }
+TriggeredEvents Simulator::device_events(const TriggeredEvents &batch, std::size_t index) const {
+  auto mapped = batch;
+  if (cores_.size() == 1)
+    return mapped;
+  const auto global_id = [&](Id id) {
+    require(id > 0, ErrorCode::Protocol, "zero event or measurement identity");
+    return checked_add(checked_mul(id - 1, cores_.size()), index + 1);
+  };
+  for (auto &event : mapped.events) {
+    event.id = global_id(event.id);
+    event.core = cores_.at(index)->id();
+    event.action.port += port_offsets_.at(index);
+    if (event.reference)
+      event.reference->measurement = global_id(event.reference->measurement);
+  }
+  return mapped;
+}
 void Simulator::tcu_edge() {
   if (stopped_)
     return;
   const Tick now = sc_core::sc_time_stamp().value();
   try {
     if (!reset_at(now)) {
-      const auto *request = links_.timing_events.peek(now);
-      std::vector<Completion> results;
-      while (auto result = links_.fast_results.take(now)) {
-        if (result->epoch == epoch_)
-          results.push_back(result->value);
-        else
-          trace_.emit({now, epoch_, "StaleCompletionDiscarded"});
-      }
-      auto output = tcu_.step(now, epoch_, request ? &request->value : nullptr, results,
-                              [&](const TriggeredEvents &batch) { device_.preflight(batch); });
-      if (output.admitted) {
-        const auto accepted = links_.timing_events.take(now);
-        links_.replies.publish(now, epoch_, EnqueueReply{accepted->value.point.label});
-      }
-      if (output.launch)
-        device_.accept(*output.launch);
-      for (const auto &reference : output.fast_delivered)
-        links_.fast_credits.publish(now, epoch_, reference);
-      if (auto end = links_.closure.take(now)) {
-        require(end->epoch == epoch_, ErrorCode::Protocol, "stale stream closure");
-        tcu_.close(end->value);
-        trace_.emit({now, epoch_, "EndOfStreamVisible", 0, end->value.last_label});
+      for (std::size_t n = 0; n < cores_.size(); ++n) {
+        const auto i = reverse_ ? cores_.size() - n - 1 : n;
+        auto output = cores_[i]->tcu_edge(now, epoch_, [&](const TriggeredEvents &batch) {
+          device_.preflight(device_events(batch, i));
+        });
+        if (output.launch)
+          device_.accept(device_events(*output.launch, i));
       }
     }
     tcu_done_ = now;
@@ -185,26 +222,27 @@ void Simulator::wakeup() {
     fail(fault);
   }
 }
-bool Simulator::links_empty() const {
-  return links_.timing_events.empty() && links_.replies.empty() && links_.closure.empty() &&
-         links_.cpu_results.empty() && links_.fast_results.empty() && links_.fast_credits.empty() &&
-         fetch_port_.requests.empty() && fetch_port_.responses.empty() &&
-         data_port_.requests.empty() && data_port_.responses.empty();
-}
 void Simulator::barrier() {
   if (stopped_)
     return;
   const Tick now = sc_core::sc_time_stamp().value();
-  if (profile_.cpu.edge(now) && (cpu_done_ != now || memory_done_ != now))
+  const bool cpu_edge_now = std::any_of(
+      cores_.begin(), cores_.end(), [now](const auto &c) { return c->profile().cpu.edge(now); });
+  if (cpu_edge_now && (cpu_done_ != now || memory_done_ != now))
     return;
   if (profile_.tcu.edge(now) && tcu_done_ != now)
     return;
   try {
     if (!reset_at(now) && device_.next_boundary() == now)
-      device_.process(now, epoch_, links_);
-    if (cpu_->halted() && timing_control_.closed() && !timing_control_.pending() &&
-        tcu_.drained() && device_.drained() && !measurement_registers_.deliveries_pending() &&
-        links_empty() && memory_.idle()) {
+      device_.process(now, epoch_, [&](const Completion &result) {
+        auto local = result;
+        require(local.reference.measurement > 0, ErrorCode::Protocol, "zero measurement identity");
+        const auto index = (local.reference.measurement - 1) % cores_.size();
+        local.reference.measurement = (local.reference.measurement - 1) / cores_.size() + 1;
+        cores_.at(index)->deliver(now, epoch_, local);
+      });
+    if (device_.drained() && network_.empty() &&
+        std::all_of(cores_.begin(), cores_.end(), [](const auto &c) { return c->drained(); })) {
       device_.finalize(now);
       success_ = true;
       stopped_ = true;

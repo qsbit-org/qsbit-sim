@@ -54,7 +54,7 @@ endif()
 # No SystemC or Python dependency is attached to the pure transition library.
 add_library(qsbit_core STATIC src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp
   src/control.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/timing_control.cpp src/cpu/rv32.cpp
-  src/backend.cpp src/device.cpp src/defaults.cpp src/cpu/vliw.cpp)
+  src/backend.cpp src/device.cpp src/defaults.cpp src/cpu/vliw.cpp src/core.cpp src/sync.cpp)
 target_include_directories(qsbit_core PUBLIC include)
 target_link_libraries(qsbit_core PUBLIC qsbit_warnings)
 add_library(qsbit_systemc STATIC src/simulator.cpp)
@@ -131,6 +131,10 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(sync_tests tests/sync_tests.cpp)
+  target_link_libraries(sync_tests PRIVATE qsbit_core)
+  add_test(NAME sync.neighbor COMMAND sync_tests)
+  set_tests_properties(sync.neighbor PROPERTIES TIMEOUT 15 LABELS "fast;unit")
   add_executable(vliw_tests tests/vliw_tests.cpp)
   target_link_libraries(vliw_tests PRIVATE qsbit_core)
   add_test(NAME cpu.vliw COMMAND vliw_tests)
@@ -183,6 +187,17 @@ if(BUILD_TESTING)
   add_test(NAME trace.replay COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/trace_replay.py")
   set_tests_properties(trace.replay PROPERTIES TIMEOUT 30 LABELS "fast;documentation")
+  add_test(NAME systemc.distributed COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/distributed.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+    --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --output "${CMAKE_CURRENT_BINARY_DIR}/distributed-test")
+  set_tests_properties(systemc.distributed PROPERTIES TIMEOUT 60 LABELS "fast;integration")
+  if(QSBIT_TEST_AER)
+    add_test(NAME numerical.distributed COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/distributed.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+      --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --output "${CMAKE_CURRENT_BINARY_DIR}/distributed-aer"
+      --backend aer)
+    set_tests_properties(numerical.distributed PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
+  endif()
   if(QSBIT_TEST_WEBSITE)
     add_test(NAME docs.website_build COMMAND "${Python3_EXECUTABLE}" -m sphinx
       -n -W --keep-going -b html -D "qsbit_build=${CMAKE_CURRENT_BINARY_DIR}"
