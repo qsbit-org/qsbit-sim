@@ -215,6 +215,7 @@ Output parent directories are created as needed.
 | `backend_options` | Backend-owned options; see [backend configuration](backends.md#discover-and-configure-backends). |
 | `simulation` | Optional [repeated-simulation strategy](repeated-simulations.md). |
 | `trace_stalls` | Include `CpuStalled` records; boolean, default `true`. |
+| `backend_execution` | Batch settings shared by all backends: `max_batch_operations` is an integer from 1 to 4294967295, default 1024. |
 | `$schema` | Optional editor schema URI; runtime validates through the selected adapter. |
 | `profile_file` | Path to a separate profile overlay. |
 | `profile` | Inline profile overlay. |
@@ -394,7 +395,7 @@ on one target still applies. A consumer must reject unknown schema versions.
 ### Summary file
 
 The JSON summary contains success status, stop tick, `cpu_model`, backend,
-resolved backend options, complete profile, fingerprint, final CPU registers
+resolved backend options and execution settings, complete profile, fingerprint, final CPU registers
 and PC, requested memory words, measurement
 registers and statevector entries as `[real, imaginary]` pairs.
 `measurement_registers` is indexed by qubit. Each entry contains `value`,

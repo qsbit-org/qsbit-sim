@@ -6,27 +6,54 @@
 #include <vector>
 
 namespace qsbit {
+struct BackendOperation {
+  enum class Kind { Evolve, Apply, Measure };
+  Kind kind;
+  Tick from = 0, tick = 0;
+  std::vector<EventSpec> actions;
+  std::vector<MeasurementReference> references;
+};
+struct BackendExecutionConfig {
+  std::uint32_t max_batch_operations = 1024;
+};
 class IQuantumBackend {
 public:
   virtual ~IQuantumBackend() = default;
   virtual void validate(const EventSpec &action) const = 0;
   virtual void reset(std::uint32_t qubits, std::uint32_t seed) = 0;
-  virtual void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) = 0;
-  virtual void apply(std::span<const EventSpec> gates) = 0;
-  virtual std::vector<bool> measure(std::span<const MeasurementReference> references) = 0;
+  virtual std::vector<bool> execute(Epoch epoch, std::span<const BackendOperation> operations) = 0;
   [[nodiscard]] virtual std::vector<std::complex<double>> state() const { return {}; }
   [[nodiscard]] virtual std::vector<std::vector<std::complex<double>>> density_matrix() const {
     return {};
   }
+};
+class BackendExecution {
+public:
+  explicit BackendExecution(IQuantumBackend &backend, BackendExecutionConfig config = {});
+  void validate(const EventSpec &action) const { backend_.validate(action); }
+  void reset(std::uint32_t qubits, std::uint32_t seed, Epoch epoch, Tick now = 0);
+  void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives);
+  void apply(Tick now, std::span<const EventSpec> gates);
+  std::vector<bool> measure(Tick now, std::span<const MeasurementReference> references);
+  void flush();
+  [[nodiscard]] std::vector<std::complex<double>> state();
+  [[nodiscard]] std::vector<std::vector<std::complex<double>>> density_matrix();
+
+private:
+  void commit(BackendOperation operation);
+  std::vector<bool> execute(std::size_t expected_results);
+  IQuantumBackend &backend_;
+  BackendExecutionConfig config_;
+  std::vector<BackendOperation> pending_;
+  Epoch epoch_ = 0;
+  Tick committed_tick_ = 0;
 };
 class MockBackend final : public IQuantumBackend {
 public:
   explicit MockBackend(std::map<Id, bool> outcomes = {}) : outcomes_(std::move(outcomes)) {}
   void validate(const EventSpec &action) const override;
   void reset(std::uint32_t qubits, std::uint32_t seed) override;
-  void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) override;
-  void apply(std::span<const EventSpec> gates) override;
-  std::vector<bool> measure(std::span<const MeasurementReference> references) override;
+  std::vector<bool> execute(Epoch epoch, std::span<const BackendOperation> operations) override;
   [[nodiscard]] std::vector<std::complex<double>> state() const override { return {}; }
   [[nodiscard]] std::size_t calls() const { return calls_; }
 

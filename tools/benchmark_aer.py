@@ -1,4 +1,4 @@
-"""Measure Aer batching on a stream of single-gate device events."""
+"""Measure Aer execution of explicit batches of device operations."""
 
 import argparse
 from importlib.metadata import version
@@ -37,13 +37,26 @@ def main():
         target = (index // 3) % args.qubits
         targets = [target, (target + 1) % args.qubits] if operation == "cx" else [target]
         operations.append({"kind": "gate", "operation": operation, "targets": targets, "amplitude": 0})
-    references = [{"target": q} for q in range(args.qubits)]
+    references = [{"epoch": 1, "target": q} for q in range(args.qubits)]
+    segments = []
+    interval = args.measure_every or args.operations
+    for begin in range(0, args.operations, interval):
+        end = min(begin + interval, args.operations)
+        segment = []
+        for tick in range(begin, end):
+            segment.extend([
+                {"tick": tick + 1, "method": "evolve", "args": [tick, tick + 1, []]},
+                {"tick": tick + 1, "method": "apply", "args": [[operations[tick]]]}])
+        segment.append({"tick": end, "method": "measure", "args": [references]})
+        segments.append(segment)
     records = []
     expected = None
     for size in args.batch_sizes:
-        backend = AerBackend(dict(options, max_batch_operations=size))
+        batches = [segment[begin:begin + size] for segment in segments
+                   for begin in range(0, len(segment), size)]
+        backend = AerBackend(options)
         backend.reset(args.qubits, 1)
-        backend.apply(operations[:1])
+        backend.execute(1, [{"tick": 0, "method": "apply", "args": [operations[:1]]}])
         backend.state()
         backend.density_matrix()
         elapsed, job_counts = [], []
@@ -60,13 +73,8 @@ def main():
             bits = []
             with patch.object(backend._simulator, "run", counted_run):
                 start = time.perf_counter()
-                for tick, event in enumerate(operations):
-                    backend.evolve(tick, tick + 1, [])
-                    backend.apply([event])
-                    if args.measure_every and (tick + 1) % args.measure_every == 0:
-                        bits.extend(backend.measure(references))
-                if not args.measure_every or args.operations % args.measure_every:
-                    bits.extend(backend.measure(references))
+                for batch in batches:
+                    bits.extend(backend.execute(1, batch))
                 state = backend.state() if backend.options["method"] == "statevector" else backend.density_matrix()
                 elapsed.append(time.perf_counter() - start)
                 job_counts.append(jobs)
@@ -75,7 +83,8 @@ def main():
             if bits != expected[0]:
                 raise AssertionError("measurement samples differ between batch sizes or repetitions")
             np.testing.assert_allclose(state, expected[1], atol=1e-10, rtol=1e-10)
-        records.append({"backend_options": backend.options, "seconds": elapsed,
+        records.append({"backend_options": backend.options, "max_batch_operations": size,
+                        "backend_calls": len(batches), "seconds": elapsed,
                         "median_seconds": statistics.median(elapsed), "aer_jobs": job_counts})
     report = {"qubits": args.qubits, "gate_events": args.operations,
               "measure_every": args.measure_every, "repeats": args.repeats,

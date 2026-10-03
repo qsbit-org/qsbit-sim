@@ -164,6 +164,42 @@ struct TriggeredEvents {
 ```
 <!-- /source -->
 
+## Backend execution
+
+`ControlElectronics` commits time-ordered operations to `BackendExecution`.
+`BackendExecution` owns each operation's events and measurement references until execution.
+`IQuantumBackend::execute()` consumes the complete batch synchronously and returns
+one bit per reference in its terminal measurement, or an empty vector otherwise.
+See [backend execution](backends.md#backend-execution) for batch limits and reset behavior.
+
+Source: [include/qsbit/backend.hpp](../include/qsbit/backend.hpp).
+
+<!-- source: {"path": "include/qsbit/backend.hpp", "start": "struct BackendOperation {", "end": "class BackendExecution {"} -->
+```cpp
+struct BackendOperation {
+  enum class Kind { Evolve, Apply, Measure };
+  Kind kind;
+  Tick from = 0, tick = 0;
+  std::vector<EventSpec> actions;
+  std::vector<MeasurementReference> references;
+};
+struct BackendExecutionConfig {
+  std::uint32_t max_batch_operations = 1024;
+};
+class IQuantumBackend {
+public:
+  virtual ~IQuantumBackend() = default;
+  virtual void validate(const EventSpec &action) const = 0;
+  virtual void reset(std::uint32_t qubits, std::uint32_t seed) = 0;
+  virtual std::vector<bool> execute(Epoch epoch, std::span<const BackendOperation> operations) = 0;
+  [[nodiscard]] virtual std::vector<std::complex<double>> state() const { return {}; }
+  [[nodiscard]] virtual std::vector<std::vector<std::complex<double>>> density_matrix() const {
+    return {};
+  }
+};
+```
+<!-- /source -->
+
 ## Trace record
 
 `TraceEvent` stores a timestamp, kind and event-specific fields.

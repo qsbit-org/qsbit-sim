@@ -1,7 +1,7 @@
 # Quantum device simulation
 
 A backend calculates quantum evolution and measurement outcomes.
-`ControlElectronics` supplies the physical times and orders all calls that change that state.
+`ControlElectronics` supplies physical times and commits operations in order.
 All ports in a run share this backend state.
 
 ## Connections
@@ -25,9 +25,9 @@ digraph module {
 
 ## Calls at a physical boundary
 
-`ControlElectronics` calls `evolve(start, end, drives)` with all drives
-active over the preceding interval. It then measures ending acquisitions
-and applies starting gates. All ports share one backend state.
+`ControlElectronics` commits the preceding evolution interval to `BackendExecution`
+with all active drives. It then measures ending acquisitions and commits starting
+gates. All ports share one backend state.
 
 The mock backend supplies configured bits without quantum evolution.
 Aer applies ideal gates, optional thermal relaxation and measurements with state
@@ -35,14 +35,14 @@ collapse. The pulse backend integrates constant X, Y and Z drives. Stim applies
 Clifford gates and optional gate depolarization. See
 [backend setup](../backends.md) for installation and adapter methods.
 
-Aer batches numerical execution across device boundaries while preserving gate
-and noise order. Measurements and state inspection execute pending work before
-returning; active pulse integration does the same for preceding gates.
+`BackendExecution` collects operations across device boundaries. Measurement,
+state inspection and the configured batch limit execute pending work. Each backend
+receives the complete ordered batch through `execute()`.
 
 Backend calls are synchronous and do not advance simulation time. Output
 timing and result delivery remain controlled by the simulator.
-Before successful completion, the backend evolves through the remaining idle
-interval to the stop tick.
+Before successful completion, the simulator commits the remaining idle interval
+through the stop tick and executes the final batch.
 
 Qubit 0 is the least significant statevector bit. Pulse amplitudes use
 radians per nanosecond; rotation-gate amplitudes use radians.
@@ -51,7 +51,8 @@ radians per nanosecond; rotation-gate amplitudes use radians.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `IQuantumBackend` | replaceable interface | Defines validation, reset, evolution, gate application, measurement and state inspection. |
+| `BackendExecution` | bounded operation batch | Owns pending operations and decides when to execute them. |
+| `IQuantumBackend` | replaceable interface | Defines validation, reset, batch execution and state inspection. |
 | `MockBackend` | deterministic outcomes | Returns configured measurement bits; no quantum statevector. |
 | `PythonBackend` | optional bridge | Calls a selected Python adapter with its validated configuration. Numerical packages are optional. |
 | `ControlElectronics::active_` | drive source | Provides the joint drive set for the preceding interval. |
@@ -64,23 +65,25 @@ Requested events are checked for backend support before timing control acceptanc
 and again before device mutation. Numerical or adapter failures terminate the
 run. An adapter need not support every kind of event or statevector inspection.
 
-Session reset calls the backend with the configured qubit count and seed,
+Session reset discards pending operations and resets the backend with the configured qubit count and seed,
 creating the initial state for the new epoch.
 
 ## Implementation and tests
 
 Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../../include/qsbit/backend.hpp).
 
-**CTest:** `systemc.bell.normal`, `systemc.pulse.normal`.
+**CTest:** `backend.execution`, `systemc.bell.normal`, `systemc.pulse.normal`.
 
-These tests run complete device sequences with the mock backend. Optional
+`backend.execution` checks batch capacity, operation order, measurement boundaries,
+inspection, reset and failures without SystemC. The SystemC tests run complete
+device sequences with the mock backend. Optional
 `numerical.*` tests check numerical Aer and pulse evolution; `python.plugin` checks
-loading and calls to an external adapter.
+loading and unchanged event timing across batch limits with an external adapter.
 Optional `numerical.final_state` checks thermal relaxation through the stop tick
 after the last device event.
 Optional `python.backend_configuration` checks discovery, schema validation and
 CLI precheck. With `QSBIT_TEST_AER` or `QSBIT_TEST_STIM`, it also checks numerical
 noise behavior, measurement collapse and full-program execution.
-Optional `python.aer_batching` checks bounded batches, gate and noise order,
-measurement seeds, reset and inspection. With `QSBIT_TEST_PULSE`, it also checks
-gates interleaved with pulse integration.
+Optional `python.aer_batches` checks gate and noise order, joint measurements,
+measurement seeds and batch validation against numerical expectations.
+With `QSBIT_TEST_PULSE`, it also checks gates interleaved with pulse integration.

@@ -23,7 +23,9 @@ private:
 // Schedules pulse output, acquisition and discrimination against one shared state.
 class ControlElectronics {
 public:
-  ControlElectronics(const Profile &profile, IQuantumBackend &backend, Trace &trace);
+  ControlElectronics(const Profile &profile, IQuantumBackend &backend, Trace &trace,
+                     BackendExecutionConfig execution = {});
+  [[nodiscard]] BackendExecution &backend() { return backend_; }
   void validate(const EventSpec &action) const;
   void preflight(const TriggeredEvents &batch) const;
   void accept(const TriggeredEvents &batch);
@@ -52,7 +54,7 @@ private:
   [[nodiscard]] std::vector<ScheduledEvent> resolve(const TriggeredEvents &batch) const;
   [[nodiscard]] EventSpec gate_action(const std::string &name) const;
   const Profile &profile_;
-  IQuantumBackend &backend_;
+  BackendExecution backend_;
   Trace &trace_;
   ResourceReservations reservations_;
   std::map<Tick, Boundary> boundaries_;

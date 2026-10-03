@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from backend_test_utils import apply, evolve, measure
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--simulator", type=Path, required=True)
@@ -42,8 +43,7 @@ class Configuration(unittest.TestCase):
                             ("stim", {"noise": {"model": "depolarizing", "after_gate_probability": 2}}),
                             ("aer", {"noise": {"model": "thermal_relaxation", "qubits": []}}),
                             ("aer", {"max_parallel_threads": True}), ("aer", []),
-                            ("aer", {"max_batch_operations": 0}),
-                            ("pulse", {"max_batch_operations": True}),
+                            ("aer", {"max_batch_operations": 1024}),
                             ("aer", {"max_parallel_threads": float("nan")})]:
             with self.subTest(name=name, value=value), self.assertRaises(ValueError):
                 registry.options(name, value)
@@ -77,7 +77,7 @@ class Configuration(unittest.TestCase):
         with patch.object(registry.metadata, "entry_points", return_value=[Entry()]):
             backend, resolved = registry.create("external", {"outcome": True})
             backend.reset(1, 4)
-            self.assertEqual(backend.measure([{"target": 0}]), [True])
+            self.assertEqual(measure(backend, [{"target": 0}]), [True])
             self.assertEqual(resolved, {"outcome": True})
             config = json.loads(registry.inspect_backend("external", "generate"))
             self.assertIsNone(config["backend_options"]["outcome"])
@@ -112,17 +112,17 @@ class Aer(unittest.TestCase):
     def test_relaxation_and_interval_composition(self):
         backend, _ = registry.create("aer", THERMAL)
         backend.reset(1, 123)
-        backend.apply([gate("x")])
-        backend.evolve(0, 100, [])
+        apply(backend, [gate("x")])
+        evolve(backend, 0, 100, [])
         self.assertAlmostEqual(backend.density_matrix()[1][1].real, math.exp(-1), places=12)
         self.assertEqual(backend.state(), [])
         backend.reset(1, 123)
-        backend.apply([gate("x")])
-        backend.evolve(0, 30, [])
-        backend.evolve(30, 100, [])
+        apply(backend, [gate("x")])
+        evolve(backend, 0, 30, [])
+        evolve(backend, 30, 100, [])
         self.assertAlmostEqual(backend.density_matrix()[1][1].real, math.exp(-1), places=12)
         backend.reset(1, 123)
-        backend.evolve(0, 100, [])
+        evolve(backend, 0, 100, [])
         self.assertAlmostEqual(backend.density_matrix()[0][0].real, 1, places=12)
 
     def test_coherence_equilibrium_and_unlisted_qubit(self):
@@ -130,8 +130,8 @@ class Aer(unittest.TestCase):
         config["noise"]["qubits"][0]["excited_state_population"] = 0.2
         backend, _ = registry.create("aer", config)
         backend.reset(2, 10)
-        backend.apply([gate("h"), gate("x", (1,))])
-        backend.evolve(0, 100, [])
+        apply(backend, [gate("h"), gate("x", (1,))])
+        evolve(backend, 0, 100, [])
         rho = backend.density_matrix()
         self.assertAlmostEqual(rho[3][3].real, 0.2 + 0.3 * math.exp(-1), places=12)
         self.assertAlmostEqual(rho[2][3].real, 0.5 * math.exp(-0.5), places=12)
@@ -157,11 +157,11 @@ class Aer(unittest.TestCase):
         for config in ({}, {"method": "density_matrix"}):
             backend, _ = registry.create("aer", config)
             backend.reset(2, 3)
-            backend.apply([gate("h"), gate("cx", (0, 1))])
+            apply(backend, [gate("h"), gate("cx", (0, 1))])
             refs = [{"target": 0}, {"target": 1}]
-            bits = backend.measure(refs)
+            bits = measure(backend, refs)
             self.assertEqual(bits[0], bits[1])
-            self.assertEqual(bits, backend.measure(refs))
+            self.assertEqual(bits, measure(backend, refs))
 
 
 class Stim(unittest.TestCase):
@@ -179,11 +179,15 @@ class Stim(unittest.TestCase):
                 circuit.append(event["operation"], event["targets"])
                 circuit.append("DEPOLARIZE1", event["targets"], probability)
             for iteration in range(512):
-                backend.apply(gates)
                 reference.do(circuit)
                 targets = ([2, 0], [1], [1, 0, 2])[iteration % 3]
-                self.assertEqual(backend.measure([{"target": q} for q in targets]),
-                                 reference.measure_many(*targets))
+                operations = [{"tick": iteration, "method": "apply", "args": [[event]]}
+                              for event in gates]
+                operations.append({"tick": iteration, "method": "measure",
+                    "args": [[{"epoch": 1, "target": q} for q in targets]]})
+                batches = [operations] if iteration % 2 else [[op] for op in operations]
+                bits = [bit for batch in batches for bit in backend.execute(1, batch)]
+                self.assertEqual(bits, reference.measure_many(*targets))
                 self.assertEqual(backend._simulator.current_measurement_record(), [])
             self.assertEqual(backend._simulator.current_inverse_tableau(),
                              reference.current_inverse_tableau())
@@ -193,11 +197,11 @@ class Stim(unittest.TestCase):
         outcomes = []
         for _ in range(2):
             backend.reset(2, 4321)
-            backend.apply([gate("h"), gate("cx", (0, 1))])
+            apply(backend, [gate("h"), gate("cx", (0, 1))])
             refs = [{"target": 0}, {"target": 1}]
-            bits = backend.measure(refs)
+            bits = measure(backend, refs)
             self.assertEqual(bits[0], bits[1])
-            self.assertEqual(bits, backend.measure(refs))
+            self.assertEqual(bits, measure(backend, refs))
             outcomes.append(bits)
         self.assertEqual(*outcomes)
 
@@ -205,15 +209,15 @@ class Stim(unittest.TestCase):
         backend, _ = registry.create("stim", {})
         for operation in ("rx", "ry"):
             backend.reset(1, 5)
-            backend.apply([gate(operation, amplitude=math.pi / 2)] * 2)
-            self.assertEqual(backend.measure([{"target": 0}]), [True])
-            backend.apply([gate(operation, amplitude=-math.pi)])
-            self.assertEqual(backend.measure([{"target": 0}]), [False])
+            apply(backend, [gate(operation, amplitude=math.pi / 2)] * 2)
+            self.assertEqual(measure(backend, [{"target": 0}]), [True])
+            apply(backend, [gate(operation, amplitude=-math.pi)])
+            self.assertEqual(measure(backend, [{"target": 0}]), [False])
         for event in (gate("t"), gate("rx", amplitude=math.pi / 4), {"kind": "pulse"}):
             with self.assertRaises(ValueError):
                 backend.validate(event)
         with self.assertRaises(ValueError):
-            backend.evolve(5, 4, [])
+            evolve(backend, 5, 4, [])
 
     def test_rotation_signs(self):
         backend, _ = registry.create("stim", {})
@@ -223,15 +227,15 @@ class Stim(unittest.TestCase):
                 before = [gate("h")] if operation == "rz" else []
                 after = {"rx": [gate("s"), gate("h")], "ry": [gate("h")],
                          "rz": [gate("sdg"), gate("h")]}[operation]
-                backend.apply(before + [gate(operation, amplitude=sign * math.pi / 2)] + after)
-                self.assertEqual(backend.measure([{"target": 0}]), [sign < 0])
+                apply(backend, before + [gate(operation, amplitude=sign * math.pi / 2)] + after)
+                self.assertEqual(measure(backend, [{"target": 0}]), [sign < 0])
 
     def test_depolarization_distribution(self):
         backend, _ = registry.create("stim", {"noise": {
             "model": "depolarizing", "after_gate_probability": 1}})
         backend.reset(4096, 9001)
-        backend.apply([gate("id", (q,)) for q in range(4096)])
-        bits = backend.measure([{"target": q} for q in range(4096)])
+        apply(backend, [gate("id", (q,)) for q in range(4096)])
+        bits = measure(backend, [{"target": q} for q in range(4096)])
         self.assertLess(abs(sum(bits) / len(bits) - 2 / 3), 0.04)
 
 

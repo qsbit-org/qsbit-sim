@@ -23,7 +23,7 @@ rounds or writing outputs. Strategy runs accept no other CLI overrides.
 
 | Field | Meaning |
 | --- | --- |
-| `execution` | `full` executes every round on the control microarchitecture. `replay` records and checks two three-round runs, then repeats backend calls. |
+| `execution` | `full` executes every round on the control microarchitecture. `replay` records and checks two three-round runs, then repeats recorded operation batches. |
 | `quantum_execution` | `direct` evolves and measures the backend for every shot. `transition_probabilities` uses a supporting backend's single-qubit transition probabilities. Default: `direct`. |
 | `region.begin`, `region.end` | ELF symbols delimiting the repeated instructions; begin is inclusive and end is exclusive. |
 | `repetition_count_symbol` | File-backed writable 32-bit word loaded by the loop. The runner patches a working copy of the ELF. |
@@ -80,8 +80,8 @@ Direct replay evolves the final idle interval through the extrapolated controlle
 stop tick after the last round.
 
 The control checks run with fixed zero and one outcomes. The program restrictions
-exclude other control paths; the recorded instructions, queue events and backend
-calls must agree. The final two rounds must also have the same backend-call
+exclude other control paths; the recorded instructions, queue events and quantum
+operations must agree. The final two rounds must also have the same operation
 sequence after subtracting their time offset. Outstanding device operations at a
 region boundary cause an error.
 
@@ -95,7 +95,7 @@ sampling sequence; identical seeds need not produce identical counts across meth
 ## Outputs
 
 The `summary` path is required. Its JSON records counts in measurement order within
-the round, backend options, the resolved profile, program hash, repetition counts
+the round, backend options, execution settings, the resolved profile, program hash, repetition counts
 and host runtime. `control_repetitions_executed` distinguishes actual control runs
 from replayed statistics. `control_stop_tick_source` marks controller completion as
 `observed` or `extrapolated`.

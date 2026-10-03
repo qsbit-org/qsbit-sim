@@ -18,7 +18,7 @@ class PulseBackend(AerBackend):
             raise ValueError("dense pulse prototype supports at most 8 qubits")
         super().reset(qubits, seed)
 
-    def evolve(self, start, end, drives):
+    def _evolve(self, circuit, start, end, drives):
         if end < start:
             raise ValueError("decreasing backend time")
         if end == start or not drives:
@@ -38,5 +38,4 @@ class PulseBackend(AerBackend):
                 local = paulis[drive["axis"]] if qubit == drive["targets"][0] else np.eye(2)
                 operator = np.kron(operator, local)
             hamiltonian += 0.5 * drive["amplitude"] * operator
-        self._flush()
-        self._state = expm(-1j * (end - start) * hamiltonian) @ self._state
+        circuit.unitary(expm(-1j * (end - start) * hamiltonian), list(range(self._qubits)))

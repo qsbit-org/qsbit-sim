@@ -109,11 +109,11 @@ Physical start is `fire_tick + delay`. All durations are positive, and resources
 are occupied over `[start, end)`.
 
 Two matching `gate_output` events must start together. The shared device checks
-both inputs before changing backend state, then applies the configured gate once.
+both inputs before committing the configured gate once.
 
-At each device event tick, `ControlElectronics` evolves the preceding interval
+At each device event tick, `ControlElectronics` commits evolution over the preceding interval
 under the active drives, samples ending acquisitions, removes ended events,
-applies starting gates and activates new
+commits starting gates and activates new
 intervals. Ready results are published last. Overlapping permitted pulses are
 evolved jointly. A gate starting on the same target and tick as a measurement
 sample is unsupported.

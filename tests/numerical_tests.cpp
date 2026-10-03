@@ -16,8 +16,9 @@ int sc_main(int argc, char **argv) {
     PythonSession session(QSBIT_PYTHON_MODULE_DIRECTORY);
     const std::string scenario = argv[1];
     if (scenario == "joint") {
-      PythonBackend backend("qsbit_backend", "PulseBackend");
-      backend.reset(2, 1);
+      PythonBackend adapter("qsbit_backend", "PulseBackend");
+      BackendExecution backend(adapter);
+      backend.reset(2, 1, 1);
       EventSpec x;
       x.kind = ActionKind::Pulse;
       x.port = 0;
@@ -33,7 +34,7 @@ int sc_main(int argc, char **argv) {
       const auto expected = std::complex<double>{0, -1 / std::sqrt(2.0)};
       CHECK(std::abs(state[0] - expected) < 1e-12 && std::abs(state[1] - expected) < 1e-12);
       CHECK(std::abs(state[2]) < 1e-12 && std::abs(state[3]) < 1e-12);
-      backend.reset(2, 1);
+      backend.reset(2, 1, 1);
       std::reverse(drives.begin(), drives.end());
       backend.evolve(0, 10, drives);
       const auto reversed = backend.state();

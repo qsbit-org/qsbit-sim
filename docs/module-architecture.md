@@ -138,10 +138,13 @@ label at different timestamps.
 Before changing quantum state, the model validates all device work at that timestamp.
 It then:
 
-1. Evolves state once over the preceding interval under all previously active drives.
-2. Samples and collapses ending acquisitions, and ends old channel intervals.
-3. Applies starting ideal gates and starts new pulse, acquisition and arm intervals.
+1. Commits the preceding evolution interval with all previously active drives.
+2. Executes pending operations, samples and collapses ending acquisitions, and ends old channel intervals.
+3. Commits starting ideal gates and starts new pulse, acquisition and arm intervals.
 4. Publishes results whose discriminator delay has completed.
+
+Without an ending acquisition, operations remain pending until the batch limit,
+state inspection or successful completion. See [backend execution](backends.md#backend-execution).
 
 Every event has positive duration and reserves `[start, end)`. Adjacent
 intervals may share an endpoint. Ideal gates change state at their start while

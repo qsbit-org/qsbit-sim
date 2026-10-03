@@ -60,18 +60,19 @@ std::unique_ptr<IQuantumBackend> validated(std::unique_ptr<IQuantumBackend> back
 } // namespace
 Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage image,
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
-                     bool reverse_registration, CpuFactory cpu_factory)
+                     bool reverse_registration, CpuFactory cpu_factory,
+                     BackendExecutionConfig execution)
     : Simulator(name,
                 std::vector<CoreConfig>{
                     {0, std::move(profile), std::move(image), std::move(cpu_factory)}},
-                {}, std::move(backend), std::move(resets), reverse_registration) {}
+                {}, std::move(backend), std::move(resets), reverse_registration, execution) {}
 Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> configs,
                      std::vector<SyncConnection> connections,
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
-                     bool reverse_registration)
+                     bool reverse_registration, BackendExecutionConfig execution)
     : sc_module(name), profile_(validated(configs, connections)),
       backend_(validated(std::move(backend))), network_(profile_.tcu, connections),
-      device_(profile_, *backend_, trace_),
+      device_(profile_, *backend_, trace_, execution),
       tcu_clock_("tcu_clock", time_at(profile_.tcu.period), 0.5, time_at(profile_.tcu.phase)),
       resets_(std::move(resets)), reverse_(reverse_registration) {
   require(sc_core::sc_get_time_resolution() == sc_core::sc_time(1, sc_core::SC_NS),

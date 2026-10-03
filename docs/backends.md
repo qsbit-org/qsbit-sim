@@ -111,20 +111,30 @@ within an absolute tolerance of 1e-12 radians.
 
 The pulse adapter accepts no noise configuration.
 
-## Aer execution
+## Backend execution
 
-Aer accumulates gates and thermal-relaxation channels in circuit order. It executes
-the pending circuit when a measurement needs an outcome, state inspection needs
-amplitudes or a density matrix, or the batch reaches `backend_options.max_batch_operations`.
-The default limit is 1024 operations; each gate and each single-qubit noise channel
-counts once. Set the limit to 1 to execute each operation immediately.
+The simulator collects time-ordered operations across device boundaries and sends
+them to the backend when a measurement needs an outcome. State inspection, the
+batch limit and successful completion also execute pending work. Measurements
+sample at acquisition end; result delivery keeps its configured delay.
 
-Measurements execute with preceding operations in the same circuit and retain
-the collapsed state. Noise intervals remain in their original positions between
-gates. Reset discards pending work. The pulse backend uses the same batch limit
-and executes pending gates before integrating an active drive.
+Set the batch limit in the run configuration:
 
-Measurement batch n uses `(seed + n) mod 2^32`, starting at n = 0 after reset.
+```json
+{"backend_execution": {"max_batch_operations": 1024}}
+```
+
+The limit applies to every backend and defaults to 1024. Each evolution interval,
+gate and joint measurement counts as one operation. The value must be an integer
+from 1 to 4294967295; 1 executes each operation immediately. The summary records
+the resolved setting. Reset discards pending operations and initializes the
+backend for the new epoch.
+
+Each backend executes the complete batch before returning. Aer builds one circuit
+per batch, preserving gate, noise and measurement order. The pulse adapter adds
+joint drive evolution to that circuit. Stim updates its persistent tableau.
+
+Aer measurement batch n uses `(seed + n) mod 2^32`, starting at n = 0 after reset.
 Changing the batch limit or inspecting state does not advance the measurement
 seed. Batching changes host execution cost, not simulated timestamps.
 
@@ -134,11 +144,12 @@ Measure backend runtime from the repository root:
 python tools/benchmark_aer.py --output build-clang/aer-benchmark.json
 ```
 
-The benchmark compares limits of 1 and 1024 over repeated runs, checks identical
-measurement samples and final states, and records Aer job counts, host runtimes
-and package versions. `--backend-options FILE` supplies a JSON options object;
+The benchmark passes batches of up to 1 and 1024 operations directly to Aer over
+repeated runs. It checks identical measurement samples and final states, and
+records backend calls, Aer job counts, host runtimes and package versions.
+`--backend-options FILE` supplies a JSON options object;
 `--measure-every` sets the number of gate events between measurements.
-Timing excludes package imports, backend construction and warmup.
+Timing excludes package imports, backend construction, warmup and the C++ simulator.
 
 Stim maintains a persistent stabilizer tableau and updates it directly for
 Clifford operations. Select it for large Clifford circuits whose noise fits
@@ -183,7 +194,7 @@ The function returns a descriptor with these fields:
 
 | Field | Meaning |
 | --- | --- |
-| `api_version` | Integer `1`. |
+| `api_version` | Integer `2`. |
 | `factory` | Implementation class as `module:Class`. |
 | `options_schema` | JSON Schema Draft 2020-12 for `backend_options`. |
 | `requirements` | Python distribution names used to report missing dependencies. |
@@ -211,12 +222,23 @@ Implement these methods on the class selected by `module:Class`:
 | --- | --- |
 | `validate(action)` | Check kind, operation and targets without changing quantum state. |
 | `reset(qubits, seed)` | Initialize state and random sampling for a new epoch. |
-| `evolve(start, end, drives)` | Evolve jointly under all active drives over the interval, in nanoseconds. |
-| `apply(gates)` | Apply the validated ideal-gate batch at one physical boundary. |
-| `measure(references)` | Measure targets jointly, collapse state and return one boolean per measurement reference in input order. |
+| `execute(epoch, operations)` | Execute the ordered batch and return measurement bits in reference order, or an empty list when no measurement is present. |
 | `state()` | Optional. Return complex statevector amplitudes. |
 | `density_matrix()` | Optional. Return rows of complex density-matrix entries. |
 | `transition_probabilities(operations)` | Optional. Return the next Z-measurement probability of one for initial states zero and one. Requires a single qubit, stationary memoryless evolution and ideal projective measurement. |
+
+Each operation has `tick`, `method` and positional `args`:
+
+| Method | Arguments | Behavior |
+| --- | --- | --- |
+| `evolve` | `[start, end, drives]` | Evolve jointly under the active drives over this interval; `tick` equals `end`. |
+| `apply` | `[gates]` | Apply gates at `tick` in input order. |
+| `measure` | `[references]` | Measure targets jointly at `tick` and retain the collapsed state. |
+
+Times are integer nanoseconds and never decrease within an epoch. A measurement
+can appear only at the end of a batch. Its references belong to the supplied
+epoch and name distinct targets. The simulator owns batch formation and bounds
+each batch by `backend_execution.max_batch_operations`.
 
 Event dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`
 and `axis`. Measurement dictionaries contain `epoch`, `measurement` and `target`.
@@ -226,15 +248,13 @@ Density matrices use the same basis order. Missing inspection methods produce no
 state output. Stim does not export a dense quantum state. The summary retains an
 empty `statevector` array when unavailable and adds `density_matrix` when supplied;
 each complex value is encoded as `[real, imaginary]`.
-State inspection includes all preceding `apply()` and `evolve()` calls, including
+The simulator executes pending operations before state inspection, including
 the final evolution through the simulation stop tick.
-Transition operations have `method` (`evolve` or `apply`) and positional `args`.
+Transition operations use the same format with `evolve` and `apply` methods.
 Evolution intervals use nanoseconds relative to zero. Transition calculation returns
 probabilities without sampling a measurement.
 
-Adapters may defer numerical execution until measurement or state inspection,
-but must preserve operation order and return current results from those methods.
-Methods return synchronously and use the supplied seed for reproducibility.
+Adapters retain state between calls and use the supplied seed for reproducibility.
 They do not call SystemC timing functions. A slow call increases host runtime
 without moving a simulated timestamp.
 
@@ -247,6 +267,10 @@ Implement [IQuantumBackend](../include/qsbit/backend.hpp) and pass a
 `std::unique_ptr<IQuantumBackend>` to `Simulator`. The application constructs
 the backend and supplies its dependencies. This interface uses plain C++ types.
 The CLI's dynamic module loader is specific to Python adapters.
+
+`ControlElectronics` commits operations to `BackendExecution`, which owns the
+pending batch and calls `IQuantumBackend::execute()`. Reset discards the batch.
+Execution failures terminate the run and report its epoch and tick range.
 
 The [implementation reference](implementation.md#backend-limits) lists the
 bundled adapters' qubit limits and numerical assumptions.

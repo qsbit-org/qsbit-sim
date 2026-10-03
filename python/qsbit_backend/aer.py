@@ -1,4 +1,4 @@
-"""Bounded Aer circuit batches with persistent quantum state."""
+"""Execute ordered quantum operation batches with Aer."""
 
 import numpy as np
 from qiskit import ClassicalRegister, QuantumCircuit
@@ -6,6 +6,7 @@ from qiskit_aer import AerSimulator
 from qiskit_aer.noise import thermal_relaxation_error
 
 from .registry import options as validate_options
+from .batch import validate_batch
 
 
 class AerBackend:
@@ -34,8 +35,6 @@ class AerBackend:
         self._qubits = 0
         self._seed = 0
         self._measurements = 0
-        self._pending = None
-        self._pending_operations = 0
 
     def validate(self, action):
         kind = action["kind"]
@@ -64,16 +63,12 @@ class AerBackend:
         self._qubits = qubits
         self._seed = seed
         self._measurements = 0
-        self._pending = None
-        self._pending_operations = 0
         self._state = np.zeros(1 << qubits, dtype=complex)
         self._state[0] = 1
         if self._method == "density_matrix":
             self._state = np.outer(self._state, self._state.conj())
 
-    def evolve(self, start, end, drives):
-        if end < start:
-            raise ValueError("decreasing backend time")
+    def _evolve(self, circuit, start, end, drives):
         if drives:
             raise ValueError("pulse drives are unsupported by the Aer circuit adapter")
         if end == start or self._noise["model"] == "none":
@@ -81,78 +76,46 @@ class AerBackend:
         for item in self._noise["qubits"]:
             channel = thermal_relaxation_error(item["t1_ns"], item["t2_ns"], end - start,
                                                item["excited_state_population"])
-            self._circuit().append(channel.to_instruction(), [int(item["qubit"])])
-            self._operation_added()
+            circuit.append(channel.to_instruction(), [int(item["qubit"])])
 
-    def _circuit(self):
-        if self._pending is None:
-            self._pending = QuantumCircuit(self._qubits)
-            getattr(self._pending, "set_" + self._method)(self._state)
-        return self._pending
-
-    def _operation_added(self):
-        self._pending_operations += 1
-        if self._pending_operations >= self.options["max_batch_operations"]:
-            self._flush()
-
-    def _flush(self, memory=False):
-        if self._pending is None:
-            return None
-        circuit = self._pending
+    def execute(self, epoch, operations):
+        validate_batch(self, epoch, operations)
+        circuit = QuantumCircuit(self._qubits)
+        getattr(circuit, "set_" + self._method)(self._state)
+        measured = False
+        for operation in operations:
+            method, args = operation["method"], operation["args"]
+            if method == "evolve":
+                self._evolve(circuit, *args)
+            elif method == "apply":
+                for gate in args[0]:
+                    operands = gate["targets"]
+                    if gate["operation"] in ("rx", "ry", "rz"):
+                        operands = [gate["amplitude"], *operands]
+                    getattr(circuit, gate["operation"])(*operands)
+            elif args[0]:
+                circuit.add_register(ClassicalRegister(len(args[0])))
+                for bit, reference in enumerate(args[0]):
+                    circuit.measure(reference["target"], bit)
+                measured = True
+        if len(circuit.data) == 1:
+            return []
         getattr(circuit, "save_" + self._method)()
-        result = self._simulator.run(
-            circuit, shots=1, memory=memory,
-            seed_simulator=(self._seed + self._measurements) & 0xFFFFFFFF,
-        ).result()
+        result = self._simulator.run(circuit, shots=1, memory=measured,
+            seed_simulator=(self._seed + self._measurements) & 0xFFFFFFFF).result()
         if not result.success:
             raise RuntimeError(result.status)
         self._state = np.asarray(result.data(0)[self._method], dtype=complex)
-        self._pending = None
-        self._pending_operations = 0
-        if memory:
-            self._measurements += 1
-        return result
-
-    def apply(self, gates):
-        if not gates:
-            return
-        for gate in gates:
-            self.validate(gate)
-        for gate in gates:
-            operation = gate["operation"]
-            args = gate["targets"]
-            if operation in ("rx", "ry", "rz"):
-                args = [gate["amplitude"], *args]
-            getattr(self._circuit(), operation)(*args)
-            self._operation_added()
-
-    def measure(self, references):
-        if not references:
+        if not measured:
             return []
-        targets = [reference["target"] for reference in references]
-        if len(set(targets)) != len(targets):
-            raise ValueError("ambiguous repeated target in a measurement batch")
-        if any(q < 0 or q >= self._qubits for q in targets):
-            raise ValueError("measurement target outside configured register")
-        circuit = self._circuit()
-        circuit.add_register(ClassicalRegister(len(references)))
-        for bit, target in enumerate(targets):
-            circuit.measure(target, bit)
-        result = self._flush(memory=True)
-        bits = result.get_memory()[0].replace(" ", "")[::-1]
-        return [bit == "1" for bit in bits]
+        self._measurements += 1
+        return [bit == "1" for bit in result.get_memory()[0].replace(" ", "")[::-1]]
 
     def state(self):
-        if self._method != "statevector":
-            return []
-        self._flush()
-        return self._state.tolist()
+        return self._state.tolist() if self._method == "statevector" else []
 
     def density_matrix(self):
-        if self._method != "density_matrix":
-            return []
-        self._flush()
-        return self._state.tolist()
+        return self._state.tolist() if self._method == "density_matrix" else []
 
     def transition_probabilities(self, operations):
         if self.supports_pulse:
@@ -168,8 +131,7 @@ class AerBackend:
             for operation in operations:
                 if operation["method"] not in ("evolve", "apply"):
                     raise ValueError("transition segment accepts only evolution and gates")
-                getattr(self, operation["method"])(*operation["args"])
-            self._flush()
+            self.execute(1, operations)
             probability = (self._state[1, 1].real if self._method == "density_matrix"
                            else abs(self._state[1]) ** 2)
             if not np.isfinite(probability) or not -1e-12 <= probability <= 1 + 1e-12:

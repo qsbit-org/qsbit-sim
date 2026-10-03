@@ -61,7 +61,7 @@ PythonBackend::PythonBackend(const PythonBackendConfig &config) : impl_(std::mak
                        .attr("create")(config.name, json.attr("loads")(config.options));
     impl_->backend = created[py::int_(0)];
     impl_->options = json.attr("dumps")(created[py::int_(1)]).cast<std::string>();
-    for (const char *method : {"validate", "reset", "evolve", "apply", "measure"}) {
+    for (const char *method : {"validate", "reset", "execute"}) {
       require(py::hasattr(impl_->backend, method) &&
                   PyCallable_Check(impl_->backend.attr(method).ptr()),
               ErrorCode::BackendFailure, std::string("backend requires callable ") + method);
@@ -104,31 +104,35 @@ void PythonBackend::reset(std::uint32_t qubits, std::uint32_t seed) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }
 }
-void PythonBackend::evolve(Tick from, Tick to, std::span<const EventSpec> drives) {
-  try {
-    impl_->backend.attr("evolve")(from, to, descriptors(drives));
-  } catch (const py::error_already_set &e) {
-    throw Fault(ErrorCode::BackendFailure, e.what());
-  }
-}
-void PythonBackend::apply(std::span<const EventSpec> gates) {
-  try {
-    impl_->backend.attr("apply")(descriptors(gates));
-  } catch (const py::error_already_set &e) {
-    throw Fault(ErrorCode::BackendFailure, e.what());
-  }
-}
-std::vector<bool> PythonBackend::measure(std::span<const MeasurementReference> references) {
+std::vector<bool> PythonBackend::execute(Epoch epoch,
+                                         std::span<const BackendOperation> operations) {
   try {
     py::list inputs;
-    for (const auto &t : references) {
+    for (const auto &operation : operations) {
       py::dict item;
-      item["epoch"] = t.epoch;
-      item["measurement"] = t.measurement;
-      item["target"] = t.target;
+      item["tick"] = operation.tick;
+      if (operation.kind == BackendOperation::Kind::Evolve) {
+        item["method"] = "evolve";
+        item["args"] =
+            py::make_tuple(operation.from, operation.tick, descriptors(operation.actions));
+      } else if (operation.kind == BackendOperation::Kind::Apply) {
+        item["method"] = "apply";
+        item["args"] = py::make_tuple(descriptors(operation.actions));
+      } else {
+        item["method"] = "measure";
+        py::list references;
+        for (const auto &reference : operation.references) {
+          py::dict value;
+          value["epoch"] = reference.epoch;
+          value["measurement"] = reference.measurement;
+          value["target"] = reference.target;
+          references.append(std::move(value));
+        }
+        item["args"] = py::make_tuple(references);
+      }
       inputs.append(item);
     }
-    return impl_->backend.attr("measure")(inputs).cast<std::vector<bool>>();
+    return impl_->backend.attr("execute")(epoch, inputs).cast<std::vector<bool>>();
   } catch (const py::error_already_set &e) {
     throw Fault(ErrorCode::BackendFailure, e.what());
   }

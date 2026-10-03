@@ -16,16 +16,15 @@ public:
     gates.clear();
     mutations = 0;
   }
-  void evolve(Tick, Tick, std::span<const EventSpec>) override { ++mutations; }
-  void apply(std::span<const EventSpec> events) override {
-    if (!events.empty())
-      ++mutations;
-    gates.insert(gates.end(), events.begin(), events.end());
-  }
-  std::vector<bool> measure(std::span<const MeasurementReference> samples) override {
-    if (!samples.empty())
-      ++mutations;
-    return std::vector<bool>(samples.size());
+  std::vector<bool> execute(Epoch, std::span<const BackendOperation> operations) override {
+    ++mutations;
+    std::vector<bool> results;
+    for (const auto &operation : operations) {
+      if (operation.kind == BackendOperation::Kind::Apply)
+        gates.insert(gates.end(), operation.actions.begin(), operation.actions.end());
+      results.insert(results.end(), operation.references.size(), false);
+    }
+    return results;
   }
   std::vector<EventSpec> gates;
   unsigned mutations = 0;
@@ -53,6 +52,7 @@ void execution() {
       device.accept(reverse ? first : second);
       CHECK(backend.gates.size() == occurrence - 1);
       device.process(tick, 1, links);
+      (void)device.backend().state();
       CHECK(backend.gates.size() == occurrence);
       CHECK(backend.gates.back().operation == "cx");
       CHECK((backend.gates.back().targets == std::vector<std::uint32_t>{0, 1}));
@@ -140,6 +140,7 @@ void delay_alignment() {
   device.accept(output(p, 1, 10, 120, 2));
   CHECK(device.next_boundary() == 120);
   device.process(120, 1, links);
+  (void)device.backend().state();
   CHECK(backend.gates.size() == 1);
   device.process(140, 1, links);
   CHECK(device.drained());

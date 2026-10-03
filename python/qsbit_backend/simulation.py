@@ -1,6 +1,7 @@
 """Execute or replay a fixed, symbol-delimited quantum program."""
 
 from copy import deepcopy
+from itertools import groupby
 from bisect import bisect_left
 import hashlib
 import io
@@ -137,6 +138,7 @@ def normalized(calls, shift=0):
     result = deepcopy(calls)
     for call in result:
         call.pop("bits", None)
+        call.pop("batch", None)
         call["tick"] -= shift
         if call["method"] == "evolve":
             call["args"][0] -= shift
@@ -279,7 +281,7 @@ def _execute(config, strategy, executable, check_only, started):
                    "measurement_sha256": digest.hexdigest()}
     else:
         if normalized(groups[1], period) != normalized(groups[2], 2 * period):
-            raise ValueError("backend call sequence is not periodic")
+            raise ValueError("quantum operation sequence is not periodic")
         one_summary, one_calls, one_trace = control_run("one", True)
         if normalized(calls) != normalized(one_calls) or summary["stop_tick"] != one_summary["stop_tick"]:
             raise ValueError("measurement outcomes change control timing")
@@ -303,6 +305,7 @@ def _execute(config, strategy, executable, check_only, started):
     timing["last_measurement_trigger_ns"] = last_trigger + (repetitions - rounds) * period
     timing["last_measurement_sample_ns"] = max(c["tick"] for c in calls if c["method"] == "measure") + (repetitions - rounds) * period
     result = {"schema": 1, "success": True, "simulation": strategy, "backend": name,
+              "backend_execution": summary["backend_execution"],
               "backend_options": options, "profile": profile, "timing": timing,
               "control_repetitions_executed": rounds if full else 2 * rounds,
               "control_repetitions_per_validation_run": rounds,
@@ -327,26 +330,33 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
         group = groups[0] if iteration == 0 else groups[1]
         shift = 0 if iteration == 0 else (iteration - 1) * period
         bits = []
-        for call in group:
-            args = deepcopy(call["args"])
-            if call["method"] == "evolve":
-                args[0] += shift
-                args[1] += shift
-            if call["method"] == "measure":
-                for reference in args[0]:
-                    identity += 1
-                    reference.update(epoch=1, measurement=identity)
-            value = getattr(backend, call["method"])(*args)
-            if call["method"] == "measure":
-                if len(value) != len(args[0]):
-                    raise ValueError("backend returned the wrong measurement count")
-                bits.extend(value)
+        for _, recorded in groupby(group, key=lambda call: call["batch"]):
+            operations = deepcopy(list(recorded))
+            expected_results = 0
+            for operation in operations:
+                operation.pop("batch")
+                operation.pop("bits", None)
+                operation["tick"] += shift
+                args = operation["args"]
+                if operation["method"] == "evolve":
+                    args[0] += shift
+                    args[1] += shift
+                if operation["method"] == "measure":
+                    expected_results = len(args[0])
+                    for reference in args[0]:
+                        identity += 1
+                        reference.update(epoch=1, measurement=identity)
+            value = backend.execute(1, operations)
+            if len(value) != expected_results:
+                raise ValueError("backend returned the wrong measurement count")
+            bits.extend(value)
         counts = [int(b) for b in bits] if counts is None else [c + b for c, b in zip(counts, bits)]
         digest.update(bytes(bits))
     if final_idle is not None:
         start, end, drives = final_idle["args"]
         shift = (repetitions - len(groups)) * period
-        backend.evolve(start + shift, end + shift, drives)
+        backend.execute(1, [{"tick": end + shift, "method": "evolve",
+                             "args": [start + shift, end + shift, drives]}])
     return {"counts": counts, "probabilities": [c / repetitions for c in counts],
             "measurement_sha256": digest.hexdigest()}
 
@@ -372,10 +382,14 @@ def sample_transitions(name, options, profile, groups, repetitions):
                 table.append(cache[key])
                 pending = []
             elif call["method"] == "evolve":
-                start, end, drives = call["args"]
-                pending.append({"method": "evolve", "args": [0, end - start, drives]})
+                from_tick, to_tick, drives = call["args"]
+                start = pending[-1]["tick"] if pending else 0
+                duration = to_tick - from_tick
+                pending.append({"tick": start + duration, "method": "evolve",
+                                "args": [start, start + duration, drives]})
             else:
-                pending.append({"method": "apply", "args": call["args"]})
+                pending.append({"tick": pending[-1]["tick"] if pending else 0,
+                                "method": "apply", "args": call["args"]})
         tables.append(table)
     rng = np.random.default_rng(profile["seed"])
     counts = [0] * len(tables[0])

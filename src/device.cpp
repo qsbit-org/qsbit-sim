@@ -62,9 +62,9 @@ void ResourceReservations::discard_before(Tick now) {
   std::erase_if(reservations_, [&](const ScheduledEvent &action) { return action.end < now; });
 }
 ControlElectronics::ControlElectronics(const Profile &profile, IQuantumBackend &backend,
-                                       Trace &trace)
-    : profile_(profile), backend_(backend), trace_(trace) {
-  backend_.reset(profile.qubits, profile.seed);
+                                       Trace &trace, BackendExecutionConfig execution)
+    : profile_(profile), backend_(backend, execution), trace_(trace) {
+  backend_.reset(profile.qubits, profile.seed, 1);
 }
 EventSpec ControlElectronics::gate_action(const std::string &name) const {
   const auto &gate = profile_.gate(name);
@@ -232,9 +232,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
   // All capability, identity and ordering checks precede the first backend mutation.
   if (now > last_tick_)
     backend_.evolve(last_tick_, now, drives);
-  const auto outcomes = backend_.measure(samples);
-  require(outcomes.size() == samples.size(), ErrorCode::BackendFailure,
-          "backend returned wrong measurement count");
+  const auto outcomes = backend_.measure(now, samples);
   for (std::size_t i = 0; i < samples.size(); ++i) {
     readouts_.at(samples[i].measurement).sample = outcomes[i];
     TraceEvent record{now, epoch, "MeasurementSampled", samples[i].measurement};
@@ -253,7 +251,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
     trace_.emit(std::move(record));
     active_.erase(id);
   }
-  backend_.apply(gates);
+  backend_.apply(now, gates);
   for (const auto &[name, outputs] : gate_outputs) {
     (void)outputs;
     const auto &gate = profile_.gate(name);
@@ -302,6 +300,7 @@ void ControlElectronics::finalize(Tick now) {
   if (now > last_tick_)
     backend_.evolve(last_tick_, now, {});
   last_tick_ = now;
+  backend_.flush();
 }
 void ControlElectronics::reset(Tick now, Epoch epoch) {
   for (const auto &action : reservations_.reservations())
@@ -311,7 +310,7 @@ void ControlElectronics::reset(Tick now, Epoch epoch) {
   active_.clear();
   readouts_.clear();
   reservations_.reset();
-  backend_.reset(profile_.qubits, profile_.seed);
+  backend_.reset(profile_.qubits, profile_.seed, epoch, now);
   last_tick_ = now;
   processed_tick_.reset();
 }

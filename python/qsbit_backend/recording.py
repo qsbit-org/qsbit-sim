@@ -1,4 +1,4 @@
-"""Record backend calls for repeated-program simulation."""
+"""Record operation batches for repeated-program simulation."""
 
 import json
 from pathlib import Path
@@ -9,7 +9,7 @@ from .registry import create
 class RecordingBackend:
     @staticmethod
     def describe():
-        return {"api_version": 1, "options_schema": {"type": "object", "properties": {
+        return {"api_version": 2, "options_schema": {"type": "object", "properties": {
             "backend": {"type": "string"}, "options": {"type": "object"},
             "output": {"type": "string"}, "outcome": {"type": ["boolean", "null"]}},
             "required": ["backend", "options", "output", "outcome"], "additionalProperties": False}}
@@ -21,7 +21,7 @@ class RecordingBackend:
         self.output = Path(options["output"])
         self.outcome = options["outcome"]
         self.calls = []
-        self.tick = 0
+        self.batches = 0
 
     def validate(self, action):
         self.backend.validate(action)
@@ -31,24 +31,16 @@ class RecordingBackend:
             raise ValueError("recording does not support session resets")
         self.backend.reset(qubits, seed)
 
-    def evolve(self, start, end, drives):
-        self.tick = end
-        self.calls.append({"tick": end, "method": "evolve", "args": [start, end, drives]})
-        if self.outcome is None:
-            self.backend.evolve(start, end, drives)
-
-    def apply(self, gates):
-        if gates:
-            self.calls.append({"tick": self.tick, "method": "apply", "args": [gates]})
-            if self.outcome is None:
-                self.backend.apply(gates)
-
-    def measure(self, references):
-        if not references:
-            return []
-        bits = (self.backend.measure(references) if self.outcome is None
+    def execute(self, epoch, operations):
+        references = operations[-1]["args"][0] if operations[-1]["method"] == "measure" else []
+        bits = (self.backend.execute(epoch, operations) if self.outcome is None
                 else [self.outcome] * len(references))
-        self.calls.append({"tick": self.tick, "method": "measure", "args": [references], "bits": bits})
+        for operation in operations:
+            record = dict(operation, batch=self.batches)
+            if operation["method"] == "measure":
+                record["bits"] = bits
+            self.calls.append(record)
+        self.batches += 1
         return bits
 
     def state(self):

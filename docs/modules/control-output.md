@@ -39,13 +39,14 @@ are pulses or are the two configured outputs of one gate with identical interval
 For a `GateOutput`, `resolve()` checks the source core, local port and codeword
 against the gate definition and reserves its targets and resources. At the start
 tick, `process()` requires both configured outputs before any backend mutation.
-It applies one ideal gate and emits one `GateApplied` record. Each output retains
+It commits one ideal gate and emits one `GateApplied` record. Each output retains
 its own `OperationStart` and `OperationEnd` records.
 
-At each device event tick, the model validates the scheduled work, evolves
-the preceding interval, samples ending acquisitions, removes ended events,
-applies starting gates and activates new intervals. It publishes ready
-results last.
+At each device event tick, the model validates the scheduled work, commits
+the preceding evolution interval, samples ending acquisitions, removes ended events,
+commits starting gates and activates new intervals. It publishes ready results last.
+`BackendExecution` collects the committed operations and executes them when a
+measurement needs an outcome, on inspection, at the batch limit or before completion.
 
 Permitted overlapping pulses evolve together. For drives active over
 [10,30) and [20,40), evolution covers [10,20) with the first drive,
@@ -69,7 +70,7 @@ unsupported same-target sampling collisions fail before quantum state changes.
 A backend failure stops the run; already performed numerical work is not rolled
 back or retried.
 
-Reset aborts active and future events, clears reservations, and
+Reset aborts active and future events, discards pending backend operations, clears reservations, and
 initializes the backend for the new epoch. Global time continues from the
 reset tick.
 

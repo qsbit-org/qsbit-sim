@@ -12,10 +12,12 @@ public:
   using sc_core::sc_module::trace;
   Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage image,
             std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets = {},
-            bool reverse_registration = false, CpuFactory cpu_factory = {});
+            bool reverse_registration = false, CpuFactory cpu_factory = {},
+            BackendExecutionConfig execution = {});
   Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> cores,
             std::vector<SyncConnection> connections, std::unique_ptr<IQuantumBackend> backend,
-            std::vector<Tick> resets = {}, bool reverse_registration = false);
+            std::vector<Tick> resets = {}, bool reverse_registration = false,
+            BackendExecutionConfig execution = {});
   [[nodiscard]] const Trace &trace() const { return trace_; }
   void include_stalls(bool enabled) { trace_.include_stalls(enabled); }
   [[nodiscard]] const Core &core(std::size_t index) const { return *cores_.at(index); }
@@ -25,7 +27,7 @@ public:
   [[nodiscard]] const MeasurementRegisters &measurement_registers() const {
     return core(0).measurement_registers();
   }
-  [[nodiscard]] const IQuantumBackend &backend() const { return *backend_; }
+  [[nodiscard]] BackendExecution &backend() { return device_.backend(); }
   [[nodiscard]] bool success() const { return success_; }
   [[nodiscard]] const std::optional<ErrorCode> &fault() const { return fault_; }
   [[nodiscard]] const std::string &fault_message() const { return fault_message_; }

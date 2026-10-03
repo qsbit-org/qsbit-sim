@@ -4,6 +4,7 @@ import math
 import stim
 
 from .registry import options as validate_options
+from .batch import validate_batch
 
 
 class StimBackend:
@@ -42,32 +43,26 @@ class StimBackend:
                     rel_tol=0, abs_tol=1e-12):
                 raise ValueError("Stim rotations require integer multiples of pi/2")
 
-    def evolve(self, start, end, drives):
-        if end < start:
-            raise ValueError("decreasing backend time")
-        if drives:
-            raise ValueError("Stim does not support pulse drives")
-
-    def apply(self, gates):
-        for gate in gates:
-            self.validate(gate)
+    def execute(self, epoch, operations):
+        validate_batch(self, epoch, operations)
         circuit = stim.Circuit()
         noise = self.options["noise"]
-        for gate in gates:
-            operation, targets = gate["operation"], gate["targets"]
-            if operation in self._rotations:
-                for _ in range(round(gate["amplitude"] / (math.pi / 2)) % 4):
-                    circuit.append(self._rotations[operation], targets)
-            else:
-                circuit.append(self._gates[operation], targets)
-            if noise["model"] == "depolarizing":
-                circuit.append("DEPOLARIZE1", targets, noise["after_gate_probability"])
+        references = []
+        for item in operations:
+            if item["method"] == "measure":
+                references = item["args"][0]
+            elif item["method"] == "apply":
+                for gate in item["args"][0]:
+                    operation, targets = gate["operation"], gate["targets"]
+                    if operation in self._rotations:
+                        for _ in range(round(gate["amplitude"] / (math.pi / 2)) % 4):
+                            circuit.append(self._rotations[operation], targets)
+                    else:
+                        circuit.append(self._gates[operation], targets)
+                    if noise["model"] == "depolarizing":
+                        circuit.append("DEPOLARIZE1", targets, noise["after_gate_probability"])
         self._simulator.do(circuit)
-
-    def measure(self, references):
         targets = [item["target"] for item in references]
-        if len(set(targets)) != len(targets):
-            raise ValueError("ambiguous repeated target in a measurement batch")
         if not targets:
             return []
         sampled = self._simulator.copy(copy_rng=True)

@@ -31,9 +31,7 @@ public:
   ~PythonBackend() override;
   void validate(const EventSpec &action) const override;
   void reset(std::uint32_t qubits, std::uint32_t seed) override;
-  void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives) override;
-  void apply(std::span<const EventSpec> gates) override;
-  std::vector<bool> measure(std::span<const MeasurementReference> references) override;
+  std::vector<bool> execute(Epoch epoch, std::span<const BackendOperation> operations) override;
   [[nodiscard]] std::vector<std::complex<double>> state() const override;
   [[nodiscard]] std::vector<std::vector<std::complex<double>>> density_matrix() const override;
 

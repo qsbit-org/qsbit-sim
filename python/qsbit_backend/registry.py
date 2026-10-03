@@ -30,7 +30,7 @@ def descriptions():
 
 def describe(name):
     if name == "mock":
-        return {"api_version": 1, "options_schema": obj({}), "requirements": [],
+        return {"api_version": 2, "options_schema": obj({}), "requirements": [],
                 "capabilities": {"state_outputs": [], "measurement": "configured outcomes"}}
     catalog = descriptions()
     if name in catalog:
@@ -41,12 +41,12 @@ def describe(name):
         cls = _load(name)
         describe_method = getattr(cls, "describe", None)
         result = describe_method() if describe_method else {
-            "api_version": 1, "options_schema": obj({}), "requirements": [],
+            "api_version": 2, "options_schema": obj({}), "requirements": [],
             "legacy": True, "capabilities": {"description": "Adapter-defined operations."}}
         result = dict(result, factory=name)
     else:
         raise ValueError(f"unknown backend {name!r}; use --list-backends")
-    if result.get("api_version") != 1:
+    if result.get("api_version") != 2:
         raise ValueError(f"unsupported descriptor API for {name}")
     Draft202012Validator.check_schema(result["options_schema"])
     return result
@@ -130,7 +130,10 @@ def inspect_backend(name, command):
     if command == "schema":
         names = list(dict.fromkeys(["mock", *sorted(descriptions()), name]))
         return json.dumps({"$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object", "properties": {"backend": {"enum": names}},
+            "type": "object", "properties": {"backend": {"enum": names},
+                "backend_execution": obj({"max_batch_operations": {
+                    "type": "integer", "minimum": 1, "maximum": 4294967295,
+                    "description": "Maximum operations in one simulator execution batch."}})},
             "required": ["backend"], "allOf": [
                 {"if": {"properties": {"backend": {"const": key}}},
                  "then": {"properties": {"backend_options": _embedded_schema(key)}}}

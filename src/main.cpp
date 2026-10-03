@@ -88,6 +88,7 @@ int sc_main(int argc, char **argv) {
     std::string memory_dump;
     std::string backend_command;
     Json backend_options = Json::object();
+    BackendExecutionConfig backend_execution;
     std::string cpu_model = "rv32";
     Json core_settings = Json::array(), connection_settings = Json::array();
     std::filesystem::path config_base;
@@ -141,13 +142,29 @@ int sc_main(int argc, char **argv) {
                       "simulation strategies require Python backends");
 #endif
         }
-        const std::set<std::string> allowed{
-            "schema",          "program",         "backend",      "profile",
-            "profile_file",    "trace",           "summary",      "memory_dump",
-            "python_path",     "memory_base",     "memory_size",  "raw_base",
-            "resets",          "inspect",         "outcomes",     "reverse_registration",
-            "backend_options", "$schema",         "trace_stalls", "cpu_model",
-            "cores",           "sync_connections"};
+        const std::set<std::string> allowed{"schema",
+                                            "program",
+                                            "backend",
+                                            "profile",
+                                            "profile_file",
+                                            "trace",
+                                            "summary",
+                                            "memory_dump",
+                                            "python_path",
+                                            "memory_base",
+                                            "memory_size",
+                                            "raw_base",
+                                            "resets",
+                                            "inspect",
+                                            "outcomes",
+                                            "reverse_registration",
+                                            "backend_options",
+                                            "$schema",
+                                            "trace_stalls",
+                                            "cpu_model",
+                                            "cores",
+                                            "sync_connections",
+                                            "backend_execution"};
         for (const auto &[key, ignored] : config.items()) {
           (void)ignored;
           require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown run key: " + key);
@@ -172,6 +189,19 @@ int sc_main(int argc, char **argv) {
           backend_name = json_string(config["backend"], "backend");
         if (config.contains("backend_options"))
           backend_options = config["backend_options"];
+        if (config.contains("backend_execution")) {
+          const auto &execution = config["backend_execution"];
+          require(execution.is_object(), ErrorCode::InvalidProfile,
+                  "backend_execution must be an object");
+          for (const auto &[key, setting] : execution.items()) {
+            require(key == "max_batch_operations", ErrorCode::InvalidProfile,
+                    "unknown backend_execution key: " + key);
+            require(setting.is_number_unsigned() && setting.get<std::uint64_t>() > 0 &&
+                        setting.get<std::uint64_t>() <= std::numeric_limits<std::uint32_t>::max(),
+                    ErrorCode::InvalidProfile, "max_batch_operations must be a positive uint32");
+            backend_execution.max_batch_operations = setting.get<std::uint32_t>();
+          }
+        }
         if (config.contains("cpu_model"))
           cpu_model = json_string(config["cpu_model"], "cpu_model");
         if (config.contains("trace_stalls")) {
@@ -392,7 +422,8 @@ int sc_main(int argc, char **argv) {
       throw Fault(ErrorCode::UnsupportedCapability, "this build has no Python backends");
 #endif
     }
-    Simulator sim("simulator", std::move(cores), connections, std::move(backend), resets, reverse);
+    Simulator sim("simulator", std::move(cores), connections, std::move(backend), resets, reverse,
+                  backend_execution);
     sim.include_stalls(trace_stalls);
     if (check_config) {
       std::cout << "Configuration valid\n";
@@ -406,19 +437,21 @@ int sc_main(int argc, char **argv) {
       require(bool(trace), ErrorCode::InvalidOperand, "cannot open trace output");
       sim.trace().write_jsonl(trace);
     }
-    Json result{{"schema", 1},
-                {"success", sim.success()},
-                {"stop_tick", sc_core::sc_time_stamp().value()},
-                {"backend", backend_name},
-                {"backend_options", backend_options},
-                {"cpu_model", cpu_model},
-                {"configuration", profile_json(profile)},
-                {"configuration_hash", profile.fingerprint()},
-                {"registers", sim.cpu().registers()},
-                {"pc", sim.cpu().pc()},
-                {"statevector", Json::array()},
-                {"memory", Json::object()},
-                {"measurement_registers", Json::array()}};
+    Json result{
+        {"schema", 1},
+        {"success", sim.success()},
+        {"stop_tick", sc_core::sc_time_stamp().value()},
+        {"backend", backend_name},
+        {"backend_options", backend_options},
+        {"backend_execution", {{"max_batch_operations", backend_execution.max_batch_operations}}},
+        {"cpu_model", cpu_model},
+        {"configuration", profile_json(profile)},
+        {"configuration_hash", profile.fingerprint()},
+        {"registers", sim.cpu().registers()},
+        {"pc", sim.cpu().pc()},
+        {"statevector", Json::array()},
+        {"memory", Json::object()},
+        {"measurement_registers", Json::array()}};
     if (sim.fault()) {
       result["fault"] = qsbit::name(*sim.fault());
       result["message"] = sim.fault_message();
