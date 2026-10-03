@@ -1,4 +1,5 @@
 #include "config_json.hpp"
+#include "qsbit/cpu/vliw.hpp"
 #include "qsbit/defaults.hpp"
 #include "qsbit/simulator.hpp"
 #ifdef QSBIT_HAS_PYTHON
@@ -79,7 +80,6 @@ int sc_main(int argc, char **argv) {
     std::string backend_command;
     Json backend_options = Json::object();
     std::string cpu_model = "rv32";
-    Json eqasm_options = Json::object();
     bool check_config = false;
     bool trace_stalls = true;
     std::uint32_t memory_base = 0, memory_size = 65536, raw_base = 0;
@@ -100,8 +100,8 @@ int sc_main(int argc, char **argv) {
                "  --raw-base ADDRESS --backend NAME|MODULE:CLASS\n"
                "  --list-backends --help-backend --backend-schema --generate-config\n"
                "  --check-config\n"
-               "  --cpu-model rv32|eqasm --eqasm-config FILE\n"
-               "    eQASM: quantum bundles, SMIS, SMIT, QWAIT, QWAITR, FMR, LDI, LDUI, NOP, STOP\n"
+               "  --cpu-model rv32|vliw\n"
+               "    vliw: RV32I, HISQ instructions and 32-bit dual-cw bundles\n"
                "  --profile FILE --trace FILE --summary FILE --seed INTEGER --start TICK\n"
                "  --memory-base ADDRESS --memory-size BYTES --outcomes 0,1,...\n"
                "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"
@@ -129,27 +129,12 @@ int sc_main(int argc, char **argv) {
                       "simulation strategies require Python backends");
 #endif
         }
-        const std::set<std::string> allowed{"schema",
-                                            "program",
-                                            "backend",
-                                            "profile",
-                                            "profile_file",
-                                            "trace",
-                                            "summary",
-                                            "memory_dump",
-                                            "python_path",
-                                            "memory_base",
-                                            "memory_size",
-                                            "raw_base",
-                                            "resets",
-                                            "inspect",
-                                            "outcomes",
-                                            "reverse_registration",
-                                            "backend_options",
-                                            "$schema",
-                                            "trace_stalls",
-                                            "cpu_model",
-                                            "eqasm"};
+        const std::set<std::string> allowed{
+            "schema",          "program",     "backend",      "profile",
+            "profile_file",    "trace",       "summary",      "memory_dump",
+            "python_path",     "memory_base", "memory_size",  "raw_base",
+            "resets",          "inspect",     "outcomes",     "reverse_registration",
+            "backend_options", "$schema",     "trace_stalls", "cpu_model"};
         for (const auto &[key, ignored] : config.items()) {
           (void)ignored;
           require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown run key: " + key);
@@ -165,8 +150,6 @@ int sc_main(int argc, char **argv) {
           backend_options = config["backend_options"];
         if (config.contains("cpu_model"))
           cpu_model = json_string(config["cpu_model"], "cpu_model");
-        if (config.contains("eqasm"))
-          eqasm_options = config["eqasm"];
         if (config.contains("trace_stalls")) {
           require(config["trace_stalls"].is_boolean(), ErrorCode::InvalidProfile,
                   "trace_stalls must be a boolean");
@@ -237,8 +220,6 @@ int sc_main(int argc, char **argv) {
         backend_name = value();
       else if (argument == "--cpu-model")
         cpu_model = value();
-      else if (argument == "--eqasm-config")
-        eqasm_options = read_json(value());
       else if (argument == "--trace")
         trace_path = value();
       else if (argument == "--summary")
@@ -304,19 +285,12 @@ int sc_main(int argc, char **argv) {
     require(backend_options.is_object(), ErrorCode::InvalidProfile,
             "backend_options must be an object");
     profile.validate();
-    require(cpu_model == "rv32" || cpu_model == "eqasm", ErrorCode::InvalidProfile,
-            "cpu_model must be rv32 or eqasm");
-    require(eqasm_options.is_object(), ErrorCode::InvalidProfile,
-            "eqasm configuration must be an object");
-    require(cpu_model == "eqasm" || eqasm_options.empty(), ErrorCode::InvalidProfile,
-            "eqasm configuration requires cpu_model=eqasm");
-    require(cpu_model != "eqasm" || raw, ErrorCode::InvalidImage,
-            "eQASM requires a raw instruction image and --raw-base");
+    require(cpu_model == "rv32" || cpu_model == "vliw", ErrorCode::InvalidProfile,
+            "cpu_model must be rv32 or vliw");
     Simulator::CpuFactory cpu_factory;
-    if (cpu_model == "eqasm") {
-      auto configuration = eqasm_configuration(eqasm_options);
-      cpu_factory = [profile, configuration](Clock, std::uint32_t entry, Trace &trace) {
-        return std::make_unique<EqasmCpuCycleModel>(profile, entry, trace, configuration);
+    if (cpu_model == "vliw") {
+      cpu_factory = [](Clock clock, std::uint32_t entry, Trace &trace) {
+        return std::make_unique<VliwCpuCycleModel>(clock, entry, trace);
       };
     }
     std::ifstream input(program, std::ios::binary);
@@ -371,8 +345,6 @@ int sc_main(int argc, char **argv) {
                 {"statevector", Json::array()},
                 {"memory", Json::object()},
                 {"measurement_registers", Json::array()}};
-    if (cpu_model == "eqasm")
-      result["eqasm"] = eqasm_options;
     if (sim.fault()) {
       result["fault"] = qsbit::name(*sim.fault());
       result["message"] = sim.fault_message();

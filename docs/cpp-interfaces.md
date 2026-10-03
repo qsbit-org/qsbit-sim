@@ -30,7 +30,7 @@ Use the CPU factory to supply another implementation.
 
 Source: [include/qsbit/cpu.hpp](../include/qsbit/cpu.hpp).
 
-<!-- source: {"path": "include/qsbit/cpu.hpp", "start": "struct CpuPorts {", "end": "class CpuCycleModel final"} -->
+<!-- source: {"path": "include/qsbit/cpu.hpp", "start": "struct CpuPorts {", "end": "} // namespace qsbit"} -->
 ```cpp
 struct CpuPorts {
   MemoryPort &fetch;

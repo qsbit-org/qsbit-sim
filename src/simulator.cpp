@@ -1,4 +1,5 @@
 #include "qsbit/simulator.hpp"
+#include "qsbit/cpu/rv32.hpp"
 #include <algorithm>
 
 namespace qsbit {

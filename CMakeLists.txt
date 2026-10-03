@@ -53,8 +53,8 @@ endif()
 
 # No SystemC or Python dependency is attached to the pure transition library.
 add_library(qsbit_core STATIC src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp
-  src/control.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/timing_control.cpp src/cpu.cpp
-  src/backend.cpp src/device.cpp src/defaults.cpp src/cpu/eqasm.cpp)
+  src/control.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/timing_control.cpp src/cpu/rv32.cpp
+  src/backend.cpp src/device.cpp src/defaults.cpp src/cpu/vliw.cpp)
 target_include_directories(qsbit_core PUBLIC include)
 target_link_libraries(qsbit_core PUBLIC qsbit_warnings)
 add_library(qsbit_systemc STATIC src/simulator.cpp)
@@ -123,10 +123,10 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
-  add_executable(eqasm_tests tests/eqasm_tests.cpp)
-  target_link_libraries(eqasm_tests PRIVATE qsbit_core)
-  add_test(NAME cpu.eqasm COMMAND eqasm_tests)
-  set_tests_properties(cpu.eqasm PROPERTIES TIMEOUT 15 LABELS "fast;unit")
+  add_executable(vliw_tests tests/vliw_tests.cpp)
+  target_link_libraries(vliw_tests PRIVATE qsbit_core)
+  add_test(NAME cpu.vliw COMMAND vliw_tests)
+  set_tests_properties(cpu.vliw PROPERTIES TIMEOUT 15 LABELS "fast;unit")
   add_executable(control_isa_tests tests/control_isa_tests.cpp)
   target_link_libraries(control_isa_tests PRIVATE qsbit_core)
   add_test(NAME control.instructions COMMAND control_isa_tests)
@@ -156,10 +156,11 @@ if(BUILD_TESTING)
   set_tests_properties(systemc.tcu_trace PROPERTIES TIMEOUT 15 LABELS "fast;integration")
   find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump riscv64-elf-objdump REQUIRED)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
-  add_test(NAME systemc.eqasm COMMAND "${Python3_EXECUTABLE}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/eqasm.py" --simulator "$<TARGET_FILE:qsbit_sim>"
-    --output "${CMAKE_CURRENT_BINARY_DIR}/eqasm-test")
-  set_tests_properties(systemc.eqasm PROPERTIES TIMEOUT 60 LABELS "fast;integration")
+  add_test(NAME systemc.vliw COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/vliw.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+    --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --source "${CMAKE_CURRENT_SOURCE_DIR}"
+    --output "${CMAKE_CURRENT_BINARY_DIR}/vliw-test")
+  set_tests_properties(systemc.vliw PROPERTIES TIMEOUT 60 LABELS "fast;integration")
   add_test(NAME build.dependencies COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/dependency_setup.py"
     --cmake "${CMAKE_COMMAND}" --source "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -191,6 +192,12 @@ if(BUILD_TESTING)
     --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"
     --source "${CMAKE_CURRENT_SOURCE_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/use-cases")
   set_tests_properties(systemc.use_cases PROPERTIES TIMEOUT 120 LABELS "fast;integration")
+  add_test(NAME systemc.vliw_use_cases COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/use_cases.py" --simulator "$<TARGET_FILE:qsbit_sim>"
+    --cpu-model vliw
+    --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --objdump "${RISCV_OBJDUMP}"
+    --source "${CMAKE_CURRENT_SOURCE_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/vliw-use-cases")
+  set_tests_properties(systemc.vliw_use_cases PROPERTIES TIMEOUT 120 LABELS "fast;integration")
   add_test(NAME cli.mock COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
     --build "${CMAKE_CURRENT_BINARY_DIR}" --scenarios mock)

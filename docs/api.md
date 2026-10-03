@@ -15,9 +15,11 @@ Quantum backend operations and the mock implementation. [Open header](../include
 Profiles, event mappings, time point records and measurement references. [Open header](../include/qsbit/control.hpp).
 
 (cpu_8hpp)=
+(rv32_8hpp)=
+(vliw_8hpp)=
 ## cpu.hpp
 
-Replaceable CPU interface and the three-stage implementation. [Open header](../include/qsbit/cpu.hpp).
+Replaceable [CPU interface](../include/qsbit/cpu.hpp) and the [three-stage implementation](../include/qsbit/cpu/rv32.hpp).
 
 (defaults_8hpp)=
 ## defaults.hpp

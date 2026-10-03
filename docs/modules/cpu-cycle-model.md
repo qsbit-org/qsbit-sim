@@ -73,7 +73,7 @@ already retired instruction.
 
 ## Implementation and tests
 
-Source: [cpu.cpp](../../src/cpu.cpp) and [cpu.hpp](../../include/qsbit/cpu.hpp).
+Source: [rv32.cpp](../../src/cpu/rv32.cpp) and [rv32.hpp](../../include/qsbit/cpu/rv32.hpp).
 
 **CTest:** `systemc.use_cases`, `adapter.normal`, `adapter.reset`.
 

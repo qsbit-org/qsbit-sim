@@ -8,6 +8,7 @@ import subprocess
 p = argparse.ArgumentParser()
 for key in ['simulator', 'assembler', 'linker', 'objdump', 'source', 'output']:
     p.add_argument('--' + key, type=Path, required=True)
+p.add_argument('--cpu-model', choices=['rv32', 'vliw'], default='rv32')
 a = p.parse_args()
 a.output.mkdir(parents=True, exist_ok=True)
 count = 0
@@ -31,7 +32,8 @@ def run(root, name='normal', profile=None, args=(), fault=None):
     config = root / (name + '.profile.json')
     config.write_text(json.dumps(profile or {}))
     summary, trace = root / (name + '.json'), root / (name + '.jsonl')
-    cmd = [str(a.simulator), '--program', str(root / 'program.elf'), '--profile', str(config),
+    cmd = [str(a.simulator), '--cpu-model', a.cpu_model,
+           '--program', str(root / 'program.elf'), '--profile', str(config),
            '--trace', str(trace), '--summary', str(summary), '--inspect', '4096', *args]
     result = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
     assert result.returncode == (1 if fault else 0), (name, result.stdout, result.stderr)
@@ -193,7 +195,7 @@ for outcomes in ['1,0', '0,1']:
     assert len(kinds(e, 'OperationStart')) == 2 + int(outcomes[-1])
     assert kinds(e, 'MeasurementRegisterRead')[0]['tick'] > 1560
 
-for field in ['last_one', 'last_zero', 'equal']:
+for field in (['last_one', 'last_zero', 'equal'] if a.cpu_model == 'rv32' else []):
     mapping = {'port': 0, 'codeword': 1, 'actions': [
         {'kind': 'acquire', 'operation': 'measure', 'targets': [0], 'execution_flag': field}]}
     config = a.output / f'invalid-{field}.json'
@@ -220,6 +222,10 @@ late = compile_case('late', 'li t0, 1\nwait.r t0\nli t1, 1\ncw.r.r x0, t1\nsim_e
 run(late, profile={'start': 0}, fault='LateAdmission')
 loop = compile_case('watchdog', 'j _start')
 run(loop, profile={'watchdog': 1200}, fault='Watchdog')
+
+if a.cpu_model == 'vliw':
+    print(f'PASS {count} fresh-process use cases')
+    raise SystemExit(0)
 
 # Raw machine words follow the same decoder; output identity is asserted.
 raw = a.output / 'raw.bin'

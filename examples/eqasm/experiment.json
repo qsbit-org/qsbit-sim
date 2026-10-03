@@ -1,10 +1,7 @@
 {
   "paper": "https://arxiv.org/abs/1808.02449v3",
-  "instruction_formats": "https://arxiv.org/abs/2006.09294",
-  "classical_opcodes": "https://github.com/QE-Lab/eQASM_Assembler/blob/9b024494558287a937cdd5a8ccd63fcaa784b1c4/qisa-as/qisa_opcodes.qmap",
   "backend": "mock",
   "backend_options": {},
-  "opcodes": {"X90": 1, "X": 2, "Y": 3, "MEASZ": 4},
   "profile": {
     "cpu": {"period": 10, "phase": 0},
     "tcu": {"period": 20, "phase": 0},
@@ -27,18 +24,6 @@
       {"port": 2, "codeword": 3, "actions": [{"port": 2, "operation": "y", "targets": [2], "duration": 20, "resources": [{"id": 2, "exclusive": true}]}]},
       {"port": 0, "codeword": 4, "actions": [{"port": 0, "kind": "acquire", "operation": "measure", "targets": [0], "duration": 1000, "resources": [{"id": 0, "exclusive": true}]}]},
       {"port": 2, "codeword": 4, "actions": [{"port": 2, "kind": "acquire", "operation": "measure", "targets": [2], "duration": 1000, "resources": [{"id": 2, "exclusive": true}]}]}
-    ]
-  },
-  "eqasm": {
-    "microcode": [
-      {"opcode": 1, "targets": [0], "port": 0, "codeword": 1},
-      {"opcode": 1, "targets": [2], "port": 2, "codeword": 1},
-      {"opcode": 2, "targets": [0], "port": 0, "codeword": 2},
-      {"opcode": 2, "targets": [2], "port": 2, "codeword": 2},
-      {"opcode": 3, "targets": [0], "port": 0, "codeword": 3},
-      {"opcode": 3, "targets": [2], "port": 2, "codeword": 3},
-      {"opcode": 4, "targets": [0], "port": 0, "codeword": 4},
-      {"opcode": 4, "targets": [2], "port": 2, "codeword": 4}
     ]
   }
 }

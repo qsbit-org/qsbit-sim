@@ -12,6 +12,20 @@
 .macro cw.i.i port, codeword
   .insn r 0x0b, 0, 3, x0, x\port, x\codeword
 .endm
+# Each mode uses bit 0 for an immediate port and bit 1 for an immediate codeword.
+# Register operands use register numbers.
+.macro cw.bundle port0, codeword0, port1, codeword1, mode0=3, mode1=3
+  .if (\port0 < 0) || (\port0 > 31) || (\port1 < 0) || (\port1 > 31)
+    .error "cw.bundle port operand exceeds 5 bits"
+  .endif
+  .if (\codeword0 < 0) || (\codeword0 > 31) || (\codeword1 < 0) || (\codeword1 > 31)
+    .error "cw.bundle codeword operand exceeds 5 bits"
+  .endif
+  .if (\mode0 < 0) || (\mode0 > 3) || (\mode1 < 0) || (\mode1 > 3)
+    .error "cw.bundle mode exceeds 2 bits"
+  .endif
+  .word 0x2b | ((\port0 | (\codeword0 << 5) | (\mode0 << 10)) << 7) | ((\port1 | (\codeword1 << 5) | (\mode1 << 10)) << 19)
+.endm
 .macro wait.r interval
   .insn r 0x0b, 1, 0, x0, \interval, x0
 .endm

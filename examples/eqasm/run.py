@@ -1,39 +1,33 @@
-"""Run paper Figure 3 and compare sustained issue rates for its X90 and X gates."""
+"""Run the Figure 3 gate sequence with HISQ operations and compare scalar and dual-cw issue rates."""
 
 import argparse
 from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
-import struct
+import shutil
 import subprocess
 
-from assemble import assemble, bundle, qwait, smis
 
-
-def cw(port, codeword):
-    return 0x0600000b | (port << 15) | (codeword << 20)
-
-
-def wait(interval):
-    return (interval << 15) | 0x200b
-
-
-def save_program(path, instructions):
-    path.write_bytes(struct.pack(f"<{len(instructions)}I", *(word for word, _ in instructions)))
-    path.with_suffix(".asm").write_text("\n".join(text for _, text in instructions) + "\n")
-
-
-def run_case(simulator, directory, settings, model, instructions):
+def compile_program(directory, source, assembler, linker, **symbols):
     directory.mkdir(parents=True, exist_ok=True)
-    program = directory / "program.bin"
-    save_program(program, instructions)
-    config = {"schema": 1, "program": "program.bin", "raw_base": 0,
+    examples = Path(__file__).resolve().parent.parent
+    program = directory / "program.elf"
+    subprocess.run([assembler, "-march=rv32i", "-mabi=ilp32", "-mno-relax", "-I", str(examples),
+                    *[argument for key, value in symbols.items()
+                      for argument in ("--defsym", f"{key}={value}")],
+                    "-o", str(directory / "program.o"), str(source)], check=True)
+    subprocess.run([linker, "-m", "elf32lriscv", "--no-relax", "-T", str(examples / "link.ld"),
+                    "-o", str(program), str(directory / "program.o")], check=True)
+    return program
+
+
+def run_case(simulator, directory, settings, model, program):
+    directory.mkdir(parents=True, exist_ok=True)
+    config = {"schema": 1, "program": str(program.resolve()),
               "cpu_model": model, "backend": settings["backend"],
               "backend_options": settings["backend_options"],
               "profile": settings["profile"], "trace": "trace.jsonl", "summary": "summary.json"}
-    if model == "eqasm":
-        config["eqasm"] = settings["eqasm"]
     path = directory / "run.json"
     path.write_text(json.dumps(config, indent=2) + "\n")
     result = subprocess.run([str(simulator), "--config", str(path)], capture_output=True,
@@ -48,9 +42,19 @@ def run_case(simulator, directory, settings, model, instructions):
     return summary, trace
 
 
-def figure3(simulator, output, settings):
-    instructions = assemble(Path(__file__).with_name("figure3.eqasm").read_text(), settings)
-    summary, trace = run_case(simulator, output / "figure3", settings, "eqasm", instructions)
+def figure3(simulator, output, settings, assembler, linker):
+    source = Path(__file__).with_name("figure3.S")
+    results = {}
+    for mode in ("rv32", "vliw"):
+        directory = output / ("figure3-" + mode)
+        program = compile_program(directory, source, assembler, linker, VLIW=int(mode == "vliw"))
+        summary, trace = run_case(simulator, directory, settings, mode, program)
+        results[mode] = check_figure3(summary, trace, settings)
+    assert results["rv32"]["operation_starts"] == results["vliw"]["operation_starts"]
+    return results
+
+
+def check_figure3(summary, trace, settings):
     assert summary["success"], summary
     starts = [e for e in trace if e["kind"] == "OperationStart"]
     period, origin = settings["profile"]["tcu"]["period"], settings["profile"]["start"]
@@ -60,31 +64,8 @@ def figure3(simulator, output, settings):
     assert [(e["tick"], e["targets"], e["operation"]) for e in starts] == expected
     if settings["backend"] in ("aer", "stim"):
         assert not summary["measurement_registers"][2]["value"]
-    return {"instructions": len(instructions), "operation_starts": expected,
+    return {"operation_starts": expected,
             "program_sha256": summary["program_sha256"]}
-
-
-def issue_program(mode, points, interval, settings):
-    op = settings["opcodes"]
-    routes = {(entry["opcode"], tuple(entry["targets"])): (entry["port"], entry["codeword"])
-              for entry in settings["eqasm"]["microcode"]}
-    if mode == "rv32":
-        first, second = routes[(op["X90"], (0,))], routes[(op["X"], (2,))]
-        body = [(cw(*first), f"cw.i.i {first[0]}, {first[1]}"),
-                (cw(*second), f"cw.i.i {second[0]}, {second[1]}"),
-                (wait(interval), f"wait.i {interval}")]
-        return body * points + [(0x513, "addi a0, zero, 0"),
-                                (0x05d00893, "addi a7, zero, 93"), (0x73, "ecall")]
-    instructions = [(smis(0, 1), "SMIS S0, {0}"), (smis(2, 4), "SMIS S2, {2}")]
-    for index in range(points):
-        pi = interval if index else 0
-        if mode == "eqasm-split":
-            instructions.extend([(bundle(pi, (op["X90"], 0)), f"{pi}, X90 S0"),
-                                 (bundle(0, (op["X"], 2)), "0, X S2")])
-        else:
-            instructions.append((bundle(pi, (op["X90"], 0), (op["X"], 2)),
-                                 f"{pi}, X90 S0 | X S2"))
-    return instructions + [(qwait(interval), f"QWAIT {interval}"), (0x10000000, "STOP")]
 
 
 def check_issue(summary, trace, settings, points, interval_ns):
@@ -127,34 +108,42 @@ def main():
     parser.add_argument("--points", type=int, default=256)
     parser.add_argument("--intervals", type=int, nargs="+", default=[20, 40, 60, 80, 100, 120],
                         help="gate start intervals in ns")
+    parser.add_argument("--assembler", default=shutil.which("riscv64-unknown-elf-as") or shutil.which("riscv64-elf-as"))
+    parser.add_argument("--linker", default=shutil.which("riscv64-unknown-elf-ld") or shutil.which("riscv64-elf-ld"))
     parser.add_argument("--backend", help="override the backend from the settings file")
     args = parser.parse_args()
+    if not args.assembler or not args.linker:
+        parser.error("RISC-V assembler and linker are required")
     settings = deepcopy(json.loads(args.settings.read_text()))
     if args.backend:
         settings["backend"] = args.backend
     period = settings["profile"]["tcu"]["period"]
     if not 32 <= args.points <= 4096:
         parser.error("--points must be between 32 and 4096")
-    if any(n <= 0 or n % period or n // period > 7 for n in args.intervals):
-        parser.error("intervals must be one to seven TCU cycles")
+    if any(n <= 0 or n % period or n // period > 131071 for n in args.intervals):
+        parser.error("intervals must be positive multiples of the TCU period and fit wait.i")
     output, simulator = args.output.resolve(), args.simulator.resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {"settings": settings, "points": args.points,
-              "figure3": figure3(simulator, output, settings), "issue_rate": []}
+              "figure3": figure3(simulator, output, settings, args.assembler, args.linker), "issue_rate": []}
     print("mode          interval_ns  completed  first_8_submission_ns  all_submission_ns")
-    for mode in ("rv32", "eqasm-split", "eqasm-vliw"):
+    for mode in ("rv32", "vliw-scalar", "vliw-bundle"):
         for interval_ns in args.intervals:
-            instructions = issue_program(mode, args.points, interval_ns // period, settings)
-            summary, trace = run_case(simulator, output / f"{mode}-{interval_ns}ns", settings,
-                                      "rv32" if mode == "rv32" else "eqasm", instructions)
+            directory = output / f"{mode}-{interval_ns}ns"
+            program = compile_program(directory, Path(__file__).with_name("issue_rate.S"),
+                                      args.assembler, args.linker,
+                                      VLIW=int(mode == "vliw-bundle"), POINTS=args.points,
+                                      INTERVAL=interval_ns // period)
+            summary, trace = run_case(simulator, directory, settings,
+                                      "rv32" if mode == "rv32" else "vliw", program)
             metrics = check_issue(summary, trace, settings, args.points, interval_ns)
             report["issue_rate"].append(dict(metrics, mode=mode, interval_ns=interval_ns,
-                                            program_words=len(instructions)))
+                                            program_words=args.points * (2 if mode == "vliw-bundle" else 3) + 3))
             print(f"{mode:13} {interval_ns:11}  {str(metrics['success']):9}  "
                   f"{metrics['first_eight_mean_submission_interval_ns']:21.2f}  "
                   f"{metrics['mean_submission_interval_ns']:.2f}")
     (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Results, instruction listings and traces: {output}")
+    print(f"Results, ELF programs and traces: {output}")
 
 
 if __name__ == "__main__":

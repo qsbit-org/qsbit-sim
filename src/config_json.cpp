@@ -71,45 +71,6 @@ ExecutionFlag flag_value(const std::string &name) {
   throw Fault(ErrorCode::InvalidProfile, "unsupported execution flag: " + name);
 }
 } // namespace
-EqasmConfiguration eqasm_configuration(const Json &input) {
-  keys(input, {"qubit_pairs", "microcode"});
-  EqasmConfiguration configuration;
-  if (input.contains("qubit_pairs")) {
-    require(input["qubit_pairs"].is_array() && input["qubit_pairs"].size() <= 16,
-            ErrorCode::InvalidProfile, "eQASM qubit_pairs must contain at most sixteen pairs");
-    for (const auto &pair : input["qubit_pairs"]) {
-      require(pair.is_array() && pair.size() == 2, ErrorCode::InvalidProfile,
-              "eQASM qubit pair must contain two qubits");
-      std::array<std::uint32_t, 2> parsed{};
-      for (std::size_t i = 0; i < 2; ++i)
-        integer(Json{{"qubit", pair[i]}}, "qubit", parsed[i]);
-      configuration.qubit_pairs.push_back(parsed);
-    }
-  }
-  require(input.contains("microcode") && input["microcode"].is_array() &&
-              input["microcode"].size() <= 511 * 16,
-          ErrorCode::InvalidProfile, "eQASM requires a microcode array");
-  for (const auto &entry : input["microcode"]) {
-    keys(entry, {"opcode", "targets", "port", "codeword"});
-    require(entry.contains("opcode") && entry.contains("targets") && entry.contains("port") &&
-                entry.contains("codeword") && entry["targets"].is_array() &&
-                (entry["targets"].size() == 1 || entry["targets"].size() == 2),
-            ErrorCode::InvalidProfile,
-            "eQASM microcode requires opcode, targets, port and codeword");
-    EqasmMicrocode result;
-    integer(entry, "opcode", result.opcode);
-    integer(entry, "port", result.port);
-    integer(entry, "codeword", result.codeword);
-    for (const auto &target : entry["targets"]) {
-      std::uint32_t qubit = 0;
-      integer(Json{{"qubit", target}}, "qubit", qubit);
-      result.targets.push_back(qubit);
-    }
-    configuration.microcode.push_back(std::move(result));
-  }
-  return configuration;
-}
-
 void apply_profile(Profile &p, const Json &input) {
   keys(input, {"schema",
                "cpu",
