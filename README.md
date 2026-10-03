@@ -27,19 +27,19 @@ See [build options](docs/building.md) for tests, Release builds and sanitizers.
 ## Run an example
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/runs/mock.json
+build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
 The program measures qubit 0, reads the result and branches to select a gate
 on qubit 1. The mock backend supplies result 1. The run writes:
 
-- `build-clang/runs/mock.json`: final state, with `"success": true` and memory word `"4096": 1`.
-- `build-clang/runs/mock.jsonl`: timestamped execution events.
+- `build-clang/examples/measurement-feedback/mock-results.json`: final state, with `"success": true` and memory word `"4096": 1`.
+- `build-clang/examples/measurement-feedback/mock-results.jsonl`: timestamped execution events.
 
 Replay the trace in your browser:
 
 ```sh
-python3 tools/replay_trace.py build-clang/runs/mock.jsonl
+python3 tools/replay_trace.py build-clang/examples/measurement-feedback/mock-results.jsonl
 ```
 
 Press Ctrl+C to stop the local server. The player also reads the matching
@@ -55,7 +55,7 @@ uv sync --frozen --group build --extra aer
 source .venv/bin/activate
 cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
-build-clang/qsbit-sim --config build-clang/examples/runs/bell.json
+build-clang/qsbit-sim --config build-clang/examples/bell-state/run.json
 ```
 
 The Python bridge requires [matching development files](docs/prerequisites.md#optional-python-backends).

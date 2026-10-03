@@ -119,8 +119,8 @@ def plot(result, output):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results", type=Path, default=Path("build-clang/allxy/results.json"))
-    parser.add_argument("--output", type=Path, default=Path("examples/allxy/figs"))
+    parser.add_argument("--results", type=Path, default=Path("build-clang/quma/results.json"))
+    parser.add_argument("--output", type=Path, default=Path("examples/quma/figs"))
     args = parser.parse_args()
     result = json.loads(args.results.read_text())
     control = args.results.parent / (args.results.stem + "-control")

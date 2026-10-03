@@ -129,7 +129,7 @@ positive `wait` after `FMR`.
 The exit ECALL enqueues pending events and halts the CPU after acknowledgment.
 The simulation completes when pending events and result deliveries finish.
 
-[quantum.inc](../examples/quantum.inc) provides GNU assembler macros.
+[quantum.inc](../examples/common/quantum.inc) provides GNU assembler macros.
 `sim_exit` expands to `li a0, 0; li a7, 93; ecall`.
 
 ## Instruction and control operation names
@@ -191,7 +191,7 @@ A run file combines the program, backend, profile and output paths:
 ```json
 {
   "schema": 1,
-  "program": "feedback.elf",
+  "program": "program.elf",
   "backend": "mock",
   "outcomes": [true],
   "inspect": [4096],

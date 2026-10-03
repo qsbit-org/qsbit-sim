@@ -20,9 +20,9 @@ from qsbit_backend.simulation import inspect_program, run_config
 
 output = (args.build / "repetition-test").resolve()
 output.mkdir(exist_ok=True)
-subprocess.run([str(args.assembler), "-march=rv32i", "-mabi=ilp32", "-I", str(args.source / "examples"),
+subprocess.run([str(args.assembler), "-march=rv32i", "-mabi=ilp32", "-I", str(args.source / "examples/common"),
                 str(args.source / "tests/repetition.S"), "-o", str(output / "repeat.o")], check=True)
-subprocess.run([str(args.linker), "-m", "elf32lriscv", "-T", str(args.source / "examples/link.ld"),
+subprocess.run([str(args.linker), "-m", "elf32lriscv", "-T", str(args.source / "examples/common/link.ld"),
                 str(output / "repeat.o"), "-o", str(output / "repeat.elf")], check=True)
 config = {
     "schema": 1, "program": str(output / "repeat.elf"), "backend": "aer",

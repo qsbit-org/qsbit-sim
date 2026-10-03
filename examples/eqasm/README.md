@@ -30,7 +30,7 @@ and projective measurements. Use `--backend mock` for a control-only run.
 
 ## Figure 3 gate sequence
 
-[figure3.S](figure3.S) applies Y to q0 and q2, then X90 to q0 and X to q2,
+[gate_sequence.S](gate_sequence.S) applies Y to q0 and q2, then X90 to q0 and X to q2,
 then measures both qubits. X90 rotates by π/2 about the X axis.
 Each step starts one TCU cycle after the preceding step.
 

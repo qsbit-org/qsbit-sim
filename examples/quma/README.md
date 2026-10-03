@@ -16,8 +16,8 @@ uv sync --frozen --group build --extra experiments
 source .venv/bin/activate
 cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
-build-clang/qsbit-sim --config examples/allxy/run.json
-python examples/allxy/plot.py
+build-clang/qsbit-sim --config examples/quma/run.json
+python examples/quma/plot.py
 ```
 
 [allxy.S](allxy.S) uses `cw.i.i`, `wait.i` and `fmr`. FMR waits for each result
@@ -26,7 +26,7 @@ measurements. No reset instruction is inserted between trials.
 
 [run.json](run.json) selects the backend, physical parameters, clock periods and
 execution strategy. Results and control traces are written under
-`build-clang/allxy/`. The plot command checks the numerical result and writes
+`build-clang/quma/`. The plot command checks the numerical result and writes
 `figs/allxy.png` and its count data in `figs/allxy.json`.
 
 ## Physical model

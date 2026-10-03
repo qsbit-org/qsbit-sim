@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "program": "../../build-clang/examples/allxy.elf",
+  "program": "../../build-clang/examples/quma/allxy.elf",
   "backend": "aer",
   "backend_options": {
     "method": "density_matrix",
@@ -16,7 +16,7 @@
     "repetition_count_symbol": "repetitions",
     "repetitions": 25600
   },
-  "summary": "../../build-clang/allxy/results.json",
+  "summary": "../../build-clang/quma/results.json",
   "profile": {
     "cpu": {"period": 5, "phase": 0},
     "tcu": {"period": 5, "phase": 0},

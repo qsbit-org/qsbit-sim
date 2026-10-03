@@ -95,29 +95,37 @@ endif()
 if(QSBIT_BUILD_EXAMPLES OR BUILD_TESTING)
   find_program(RISCV_AS NAMES riscv64-unknown-elf-as riscv64-elf-as REQUIRED)
   find_program(RISCV_LD NAMES riscv64-unknown-elf-ld riscv64-elf-ld REQUIRED)
-  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples")
-  foreach(run bell feedback overlap pulse mock)
-    configure_file("examples/runs/${run}.json.in"
-      "${CMAKE_CURRENT_BINARY_DIR}/examples/runs/${run}.json" COPYONLY)
-  endforeach()
-  configure_file(examples/overlap.json "${CMAKE_CURRENT_BINARY_DIR}/examples/overlap.json" COPYONLY)
+  set(EXAMPLE_DIRECTORY_bell bell-state)
+  set(EXAMPLE_DIRECTORY_feedback measurement-feedback)
+  set(EXAMPLE_DIRECTORY_pulse single-qubit-pulse)
+  set(EXAMPLE_DIRECTORY_overlap overlapping-pulses)
   foreach(example bell feedback pulse overlap)
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf"
+    set(directory "${EXAMPLE_DIRECTORY_${example}}")
+    set(output "${CMAKE_CURRENT_BINARY_DIR}/examples/${directory}")
+    file(MAKE_DIRECTORY "${output}")
+    configure_file("examples/${directory}/run.json" "${output}/run.json" COPYONLY)
+    set(EXAMPLE_IMAGE_${example} "${output}/program.elf")
+    add_custom_command(OUTPUT "${output}/program.elf"
       COMMAND "${RISCV_AS}" -march=rv32i -mabi=ilp32 -mno-relax
-        -I "${CMAKE_CURRENT_SOURCE_DIR}/examples" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.o"
-        "${CMAKE_CURRENT_SOURCE_DIR}/examples/${example}.S"
-      COMMAND "${RISCV_LD}" -m elf32lriscv --no-relax -T "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld"
-        -o "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf" "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.o"
-      DEPENDS "examples/${example}.S" examples/quantum.inc examples/link.ld VERBATIM)
-    list(APPEND EXAMPLE_IMAGES "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf")
+        -I "${CMAKE_CURRENT_SOURCE_DIR}/examples/common" -o "${output}/program.o"
+        "${CMAKE_CURRENT_SOURCE_DIR}/examples/${directory}/program.S"
+      COMMAND "${RISCV_LD}" -m elf32lriscv --no-relax -T "${CMAKE_CURRENT_SOURCE_DIR}/examples/common/link.ld"
+        -o "${output}/program.elf" "${output}/program.o"
+      DEPENDS "examples/${directory}/program.S" examples/common/quantum.inc examples/common/link.ld VERBATIM)
+    list(APPEND EXAMPLE_IMAGES "${EXAMPLE_IMAGE_${example}}")
   endforeach()
-  add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/examples/allxy.elf"
-    COMMAND "${RISCV_AS}" -march=rv32i -mabi=ilp32 -I "${CMAKE_CURRENT_SOURCE_DIR}/examples"
-      "${CMAKE_CURRENT_SOURCE_DIR}/examples/allxy/allxy.S" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/allxy.o"
-    COMMAND "${RISCV_LD}" -m elf32lriscv -T "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld"
-      "${CMAKE_CURRENT_BINARY_DIR}/examples/allxy.o" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/allxy.elf"
-    DEPENDS examples/allxy/allxy.S examples/quantum.inc examples/link.ld VERBATIM)
-  list(APPEND EXAMPLE_IMAGES "${CMAKE_CURRENT_BINARY_DIR}/examples/allxy.elf")
+  configure_file(examples/measurement-feedback/mock.json
+    "${CMAKE_CURRENT_BINARY_DIR}/examples/measurement-feedback/mock.json" COPYONLY)
+  configure_file(examples/overlapping-pulses/profile.json
+    "${CMAKE_CURRENT_BINARY_DIR}/examples/overlapping-pulses/profile.json" COPYONLY)
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/examples/quma")
+  add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/examples/quma/allxy.elf"
+    COMMAND "${RISCV_AS}" -march=rv32i -mabi=ilp32 -I "${CMAKE_CURRENT_SOURCE_DIR}/examples/common"
+      "${CMAKE_CURRENT_SOURCE_DIR}/examples/quma/allxy.S" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/quma/allxy.o"
+    COMMAND "${RISCV_LD}" -m elf32lriscv -T "${CMAKE_CURRENT_SOURCE_DIR}/examples/common/link.ld"
+      "${CMAKE_CURRENT_BINARY_DIR}/examples/quma/allxy.o" -o "${CMAKE_CURRENT_BINARY_DIR}/examples/quma/allxy.elf"
+    DEPENDS examples/quma/allxy.S examples/common/quantum.inc examples/common/link.ld VERBATIM)
+  list(APPEND EXAMPLE_IMAGES "${CMAKE_CURRENT_BINARY_DIR}/examples/quma/allxy.elf")
   add_custom_target(example_images ALL DEPENDS ${EXAMPLE_IMAGES})
 endif()
 
@@ -214,13 +222,13 @@ if(BUILD_TESTING)
   if(QSBIT_ISA_REFERENCES)
     add_test(NAME reference.rv32_random COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/random_isa.py" --assembler "${RISCV_AS}" --linker "${RISCV_LD}"
-      --script "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld" --simulator "$<TARGET_FILE:qsbit_sim>"
+      --script "${CMAKE_CURRENT_SOURCE_DIR}/examples/common/link.ld" --simulator "$<TARGET_FILE:qsbit_sim>"
       --output "${CMAKE_CURRENT_BINARY_DIR}/random-isa")
     set_tests_properties(reference.rv32_random PROPERTIES TIMEOUT 120 LABELS "reference;randomized")
     if(QSBIT_ARCH_TEST_SOURCE)
       add_test(NAME reference.rv32_architecture COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/architecture_isa.py" --suite "${QSBIT_ARCH_TEST_SOURCE}"
-        --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --script "${CMAKE_CURRENT_SOURCE_DIR}/examples/link.ld"
+        --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --script "${CMAKE_CURRENT_SOURCE_DIR}/examples/common/link.ld"
         --simulator "$<TARGET_FILE:qsbit_sim>" --adapter "${CMAKE_CURRENT_SOURCE_DIR}/tests/arch"
         --output "${CMAKE_CURRENT_BINARY_DIR}/architecture-isa")
       set_tests_properties(reference.rv32_architecture PROPERTIES TIMEOUT 600 LABELS "reference;architecture")
@@ -230,7 +238,7 @@ if(BUILD_TESTING)
     string(REGEX REPLACE "_.*" "" example "${scenario}")
     foreach(order normal reverse)
       add_test(NAME systemc.${scenario}.${order} COMMAND system_tests "${scenario}"
-        "${CMAKE_CURRENT_BINARY_DIR}/examples/${example}.elf" "${order}"
+        "${EXAMPLE_IMAGE_${example}}" "${order}"
         "${CMAKE_CURRENT_BINARY_DIR}/${scenario}-${order}.jsonl")
       set_tests_properties(systemc.${scenario}.${order} PROPERTIES TIMEOUT 15 LABELS "fast;integration")
     endforeach()
@@ -293,7 +301,7 @@ if(BUILD_TESTING)
     add_dependencies(numerical_tests example_images)
     foreach(scenario IN LISTS NUMERICAL_SCENARIOS)
       add_test(NAME numerical.${scenario} COMMAND numerical_tests "${scenario}"
-        "${CMAKE_CURRENT_BINARY_DIR}/examples/${scenario}.elf")
+        "${EXAMPLE_IMAGE_${scenario}}")
       set_tests_properties(numerical.${scenario} PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
     endforeach()
   endif()

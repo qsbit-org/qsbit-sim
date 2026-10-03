@@ -39,6 +39,7 @@ def anchors(text):
 def check(root, test_names, write=False):
     errors = []
     documents = sorted((root / 'docs').rglob('*.md'))
+    documents += sorted((root / 'examples').rglob('*.md'))
     documents += [root / name for name in ('README.md', 'AGENTS.md') if (root / name).exists()]
     for path in documents:
         text = path.read_text()

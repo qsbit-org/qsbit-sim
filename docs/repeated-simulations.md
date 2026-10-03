@@ -2,7 +2,7 @@
 
 Repeated simulations reuse a fixed quantum-operation sequence while preserving
 quantum state between measurements. Select a Python backend, install the `experiments` extra and enable
-`QSBIT_PYTHON_BACKENDS`. The [AllXY example](../examples/allxy/README.md) includes
+`QSBIT_PYTHON_BACKENDS`. The [AllXY example](../examples/quma/README.md) includes
 a program, configuration and numerical checks.
 
 ## Configuration

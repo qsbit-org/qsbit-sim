@@ -18,10 +18,10 @@ def compile_case(name, body, packed=True):
     obj = source.with_suffix(".o")
     program = source.with_suffix(".elf")
     subprocess.run([str(args.assembler), "-march=rv32i", "-mabi=ilp32", "-mno-relax",
-                    "-I", str(args.source / "examples"), "--defsym", f"VLIW={int(packed)}",
+                    "-I", str(args.source / "examples/common"), "--defsym", f"VLIW={int(packed)}",
                     "-o", str(obj), str(source)], check=True, capture_output=True)
     subprocess.run([str(args.linker), "-m", "elf32lriscv", "--no-relax",
-                    "-T", str(args.source / "examples/link.ld"), "-o", str(program), str(obj)],
+                    "-T", str(args.source / "examples/common/link.ld"), "-o", str(program), str(obj)],
                    check=True, capture_output=True)
     return program
 

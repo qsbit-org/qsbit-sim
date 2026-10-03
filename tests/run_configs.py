@@ -12,11 +12,14 @@ parser.add_argument('--build', type=Path, required=True)
 parser.add_argument('--scenarios', nargs='+', required=True)
 args = parser.parse_args()
 
+directories = {'bell': 'bell-state', 'feedback': 'measurement-feedback',
+               'mock': 'measurement-feedback', 'pulse': 'single-qubit-pulse',
+               'overlap': 'overlapping-pulses'}
 for name in args.scenarios:
-    config_path = args.build / 'examples' / 'runs' / f'{name}.json'
+    config_path = args.build / 'examples' / directories[name] / ('mock.json' if name == 'mock' else 'run.json')
     config = json.loads(config_path.read_text())
-    summary_path = args.build / 'runs' / f'{name}.json'
-    trace_path = args.build / 'runs' / f'{name}.jsonl'
+    summary_path = config_path.parent / config['summary']
+    trace_path = config_path.parent / config['trace']
     result = subprocess.run([str(args.simulator), '--config', str(config_path)],
                             cwd=args.build, capture_output=True, text=True,
                             timeout=30)

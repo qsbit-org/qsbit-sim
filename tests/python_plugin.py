@@ -16,7 +16,7 @@ assert all(name not in sys.modules for name in
            ("qsbit_backend.aer", "qsbit_backend.pulse", "qiskit", "qiskit_aer", "scipy", "numpy"))
 out = a.build / "plugin-test"
 out.mkdir(exist_ok=True)
-command = [str(a.simulator), "--program", str(a.build / "examples/feedback.elf"),
+command = [str(a.simulator), "--program", str(a.build / "examples/measurement-feedback/program.elf"),
            "--python-path", str(a.source / "tests/fixtures"),
            "--trace", str(out / "trace.jsonl"), "--summary", str(out / "summary.json"),
            "--inspect", "4096"]

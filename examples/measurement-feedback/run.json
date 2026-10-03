@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "profile": {"start": 200},
+  "program": "program.elf",
+  "backend": "aer",
+  "trace": "results.jsonl",
+  "summary": "results.json",
+  "inspect": [4096]
+}

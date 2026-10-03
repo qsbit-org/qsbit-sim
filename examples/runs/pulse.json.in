@@ -1,9 +1,0 @@
-{
-  "schema": 1,
-  "profile": {"start": 200},
-  "program": "../pulse.elf",
-  "backend": "pulse",
-  "trace": "../../runs/pulse.jsonl",
-  "summary": "../../runs/pulse.json",
-  "inspect": [4096]
-}

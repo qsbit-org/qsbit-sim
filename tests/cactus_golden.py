@@ -81,10 +81,10 @@ def main():
             assembly = fixture / "workloads" / name / "program.S"
             obj, image = work / "program.o", work / "program.elf"
             run([str(args.assembler), "-march=rv32i", "-mabi=ilp32", "-mno-relax",
-                 "-I", str(args.source / "examples"), "-o", str(obj), str(assembly)],
+                 "-I", str(args.source / "examples/common"), "-o", str(obj), str(assembly)],
                 work / "assemble.log")
             run([str(args.linker), "-m", "elf32lriscv", "--no-relax", "-T",
-                 str(args.source / "examples/link.ld"), "-o", str(image), str(obj)],
+                 str(args.source / "examples/common/link.ld"), "-o", str(image), str(obj)],
                 work / "link.log")
             images[name] = image
         case_name = f"{name}-{case['mode']}"

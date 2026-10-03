@@ -20,5 +20,5 @@ __pycache__/
 *.jpeg
 *.webp
 *.gif
-!/examples/allxy/figs/*.png
+!/examples/quma/figs/*.png
 !/examples/eqasm/figs/*.png

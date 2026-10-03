@@ -18,9 +18,9 @@ def compile_case(name, body):
     root = a.output / name
     root.mkdir(exist_ok=True)
     (root / 'program.S').write_text('.include "quantum.inc"\n.global _start\n.text\n_start:\n' + body + '\n')
-    subprocess.run([str(a.assembler), '-march=rv32i', '-mabi=ilp32', '-mno-relax', '-I', str(a.source / 'examples'),
+    subprocess.run([str(a.assembler), '-march=rv32i', '-mabi=ilp32', '-mno-relax', '-I', str(a.source / 'examples/common'),
                     '-o', str(root / 'program.o'), str(root / 'program.S')], check=True, capture_output=True)
-    subprocess.run([str(a.linker), '-m', 'elf32lriscv', '--no-relax', '-T', str(a.source / 'examples/link.ld'),
+    subprocess.run([str(a.linker), '-m', 'elf32lriscv', '--no-relax', '-T', str(a.source / 'examples/common/link.ld'),
                     '-o', str(root / 'program.elf'), str(root / 'program.o')], check=True, capture_output=True)
     disassembly = subprocess.check_output([str(a.objdump), '-d', str(root / 'program.elf')], text=True)
     (root / 'disassembly.txt').write_text(disassembly)

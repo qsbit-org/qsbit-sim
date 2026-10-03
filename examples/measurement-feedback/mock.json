@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "profile": {"start": 200},
-  "program": "../feedback.elf",
+  "program": "program.elf",
   "backend": "mock",
   "outcomes": [true],
   "inspect": [4096],
-  "trace": "../../runs/mock.jsonl",
-  "summary": "../../runs/mock.json"
+  "trace": "mock-results.jsonl",
+  "summary": "mock-results.json"
 }

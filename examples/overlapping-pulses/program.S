@@ -1,4 +1,4 @@
-# Two simultaneous drives on one qubit; run with overlap.json and the pulse backend.
+# Two simultaneous drives on one qubit; run with profile.json and the pulse backend.
 .include "quantum.inc"
 .global _start
 .text

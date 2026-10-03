@@ -44,9 +44,9 @@ with tempfile.TemporaryDirectory(prefix='qsbit-dependencies-') as directory:
         [args.cmake, '--build', str(root / 'configured'), '--target', 'example_images'],
         text=True, capture_output=True, timeout=30)
     assert examples.returncode == 0, examples.stdout + examples.stderr
-    for name in ('bell', 'feedback', 'pulse', 'overlap'):
-        assert (root / 'configured' / 'examples' / f'{name}.elf').read_bytes()[:4] == b'\x7fELF'
-    assert (root / 'configured' / 'examples' / 'runs' / 'mock.json').is_file()
+    for name in ('bell-state', 'measurement-feedback', 'single-qubit-pulse', 'overlapping-pulses'):
+        assert (root / 'configured' / 'examples' / name / 'program.elf').read_bytes()[:4] == b'\x7fELF'
+    assert (root / 'configured' / 'examples' / 'measurement-feedback' / 'mock.json').is_file()
 
     minimal = subprocess.run(
         [*command, '-B', str(root / 'minimal'),

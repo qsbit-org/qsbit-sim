@@ -28,7 +28,7 @@ enable tests.
 ## Run the feedback program
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/runs/mock.json
+build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
 The run configuration selects the feedback ELF, the mock backend and a
@@ -37,8 +37,8 @@ The run creates:
 
 | File | Contents |
 | --- | --- |
-| `build-clang/runs/mock.json` | Success status, final registers, inspected memory and the simulation profile. |
-| `build-clang/runs/mock.jsonl` | Timestamped instruction, control, device and feedback events. |
+| `build-clang/examples/measurement-feedback/mock-results.json` | Success status, final registers, inspected memory and the simulation profile. |
+| `build-clang/examples/measurement-feedback/mock-results.jsonl` | Timestamped instruction, control, device and feedback events. |
 
 Open the summary. `success` should be `true` and `memory["4096"]` should be `1`.
 The program stores its measured bit at address 4096.
@@ -74,10 +74,10 @@ for cycle 26. The TCU enqueues it at 700 ns, then triggers it at
 Override the mock outcome and use separate output files:
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/runs/mock.json \
+build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json \
   --outcomes 0 \
-  --summary build-clang/runs/feedback-zero.json \
-  --trace build-clang/runs/feedback-zero.jsonl
+  --summary build-clang/examples/measurement-feedback/feedback-zero.json \
+  --trace build-clang/examples/measurement-feedback/feedback-zero.jsonl
 ```
 
 The new summary should report `memory["4096"]` as `0`. The operation at

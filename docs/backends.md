@@ -45,11 +45,11 @@ With the environment active, build the bridge and run the Bell example:
 cmake --preset clang-ninja -B build-python \
   -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build-python --parallel
-build-python/qsbit-sim --config build-python/examples/runs/bell.json
+build-python/qsbit-sim --config build-python/examples/bell-state/run.json
 ```
 
 The simulated Bell measurements should agree: either 00 or 11. The summary and
-trace are written under `build-python/runs/`. See the
+trace are written under `build-python/examples/bell-state/`. See the
 [examples](../examples/README.md) for feedback, pulses and overlapping drives.
 
 ## Discover and configure backends

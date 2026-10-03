@@ -101,7 +101,7 @@ class Configuration(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             json.loads(result.stdout)
         result = subprocess.run([str(args.simulator), "--backend", "mock", "--program",
-            str(args.build / "examples/bell.elf"), "--check-config"],
+            str(args.build / "examples/bell-state/program.elf"), "--check-config"],
             capture_output=True, text=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -246,7 +246,7 @@ class Integration(unittest.TestCase):
                 cases.append(("stim", THERMAL, []))
             for name, options, resets in cases:
                 config = {"schema": 1, "backend": name, "backend_options": options,
-                    "program": str((args.build / "examples/bell.elf").resolve()),
+                    "program": str((args.build / "examples/bell-state/program.elf").resolve()),
                     "resets": resets, "summary": "summary.json", "trace": "trace.jsonl"}
                 path = root / "run.json"
                 path.write_text(json.dumps(config))
@@ -267,7 +267,8 @@ class Integration(unittest.TestCase):
             cases += [("aer", {"method": "density_matrix"}, "bell"),
                       ("aer", THERMAL, "bell")]
         for index, (name, options, example) in enumerate(cases):
-            config = {"schema": 1, "program": str((args.build / f"examples/{example}.elf").resolve()),
+            directory = "bell-state" if example == "bell" else "measurement-feedback"
+            config = {"schema": 1, "program": str((args.build / "examples" / directory / "program.elf").resolve()),
                 "backend": name, "backend_options": options, "profile": {"start": 200},
                 "trace": f"{index}.jsonl", "summary": f"{index}.json", "inspect": [4096, 4100]}
             path = out / f"run-{index}.json"

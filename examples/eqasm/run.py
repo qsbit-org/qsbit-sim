@@ -11,13 +11,13 @@ import subprocess
 
 def compile_program(directory, source, assembler, linker, **symbols):
     directory.mkdir(parents=True, exist_ok=True)
-    examples = Path(__file__).resolve().parent.parent
+    common = Path(__file__).resolve().parent.parent / "common"
     program = directory / "program.elf"
-    subprocess.run([assembler, "-march=rv32i", "-mabi=ilp32", "-mno-relax", "-I", str(examples),
+    subprocess.run([assembler, "-march=rv32i", "-mabi=ilp32", "-mno-relax", "-I", str(common),
                     *[argument for key, value in symbols.items()
                       for argument in ("--defsym", f"{key}={value}")],
                     "-o", str(directory / "program.o"), str(source)], check=True)
-    subprocess.run([linker, "-m", "elf32lriscv", "--no-relax", "-T", str(examples / "link.ld"),
+    subprocess.run([linker, "-m", "elf32lriscv", "--no-relax", "-T", str(common / "link.ld"),
                     "-o", str(program), str(directory / "program.o")], check=True)
     return program
 
@@ -43,7 +43,7 @@ def run_case(simulator, directory, settings, model, program):
 
 
 def figure3(simulator, output, settings, assembler, linker):
-    source = Path(__file__).with_name("figure3.S")
+    source = Path(__file__).with_name("gate_sequence.S")
     results = {}
     for mode in ("rv32", "vliw"):
         directory = output / ("figure3-" + mode)
