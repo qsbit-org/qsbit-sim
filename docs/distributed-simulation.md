@@ -96,10 +96,11 @@ The model implements neighbor BISP with fixed link delays and phase-aligned
 TCU clocks. Regional synchronization through routers, `send`, `recv`, clock
 drift and link failures are unsupported.
 
-**CTest:** `sync.neighbor`, `systemc.distributed`; optional `numerical.distributed`.
+**CTest:** `sync.neighbor`, `systemc.distributed`.
 
 The unit test checks countdown timing, early signals, repeated synchronization,
 capacity and reset. The integration test checks result routing, shared resources,
 global completion, unmatched requests and registration-order independence.
-The numerical test prepares a qubit from one core and measures it from another.
+The optional Aer test `numerical.distributed` prepares a qubit from one core and
+measures it from another.
 It also checks thermal relaxation during a TCU pause and through the global stop tick.
