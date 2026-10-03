@@ -33,6 +33,7 @@
 
 ## Repository hygiene
 
+- Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for every commit message, such as `fix(simulator): evolve the final state to the stop tick`. The configured `commit-msg` hook and CI must pass.
 - Keep review notes, agent reports, audit findings, generated traces, local dependencies, and temporary visualizations out of tracked files. Use ignored local directories or an external workspace. Incorporate accepted findings into the relevant code, test, or `docs/` contract.
 - Put design decisions, timing contracts, instruction semantics, and feature scope in `docs/`, not in this file. Update those documents together with behavior changes.
 - Write repository documents as direct technical guidance. Omit commentary about how a document was drafted, which source inspired its wording, or whether its rules are project conventions.

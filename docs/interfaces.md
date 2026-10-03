@@ -348,3 +348,4 @@ registers and statevector entries as `[real, imaginary]` pairs.
 `pending` and `valid`; `valid` is true when `pending` is zero.
 Backends without statevector inspection return an empty array. A backend may
 instead supply `density_matrix` as rows of `[real, imaginary]` entries.
+On successful completion, the quantum state includes evolution through `stop_tick`.

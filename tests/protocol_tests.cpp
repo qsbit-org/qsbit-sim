@@ -110,6 +110,7 @@ void readout_test() {
   faults(ErrorCode::InvalidMeasurement, [&] { device.accept(corrupted); });
   CHECK(device.drained() && device.resources().reservations().empty());
   device.accept(batch);
+  faults(ErrorCode::Protocol, [&] { device.finalize(100); });
   for (Tick tick : {100U, 140U, 180U, 181U})
     device.process(tick, 1, links);
   CHECK(!links.cpu_results.take(180));
@@ -118,6 +119,8 @@ void readout_test() {
   CHECK(!links.fast_results.take(200));
   CHECK(links.fast_results.take(220)->value.reference == reference);
   CHECK(device.drained());
+  faults(ErrorCode::Protocol, [&] { device.finalize(180); });
+  device.finalize(220);
   std::vector<Tick> times;
   for (const auto &e : trace.events())
     if (e.kind == "MeasurementSampled" || e.kind == "ResultReady")

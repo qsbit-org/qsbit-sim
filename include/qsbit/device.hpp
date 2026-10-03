@@ -27,6 +27,7 @@ public:
   void preflight(const TriggeredEvents &batch) const;
   void accept(const TriggeredEvents &batch);
   void process(Tick now, Epoch epoch, ControlLinks &links);
+  void finalize(Tick now);
   void reset(Tick now, Epoch epoch);
   [[nodiscard]] std::optional<Tick> next_boundary() const;
   [[nodiscard]] bool drained() const {

@@ -205,6 +205,7 @@ void Simulator::barrier() {
     if (cpu_->halted() && timing_control_.closed() && !timing_control_.pending() &&
         tcu_.drained() && device_.drained() && !measurement_registers_.deliveries_pending() &&
         links_empty() && memory_.idle()) {
+      device_.finalize(now);
       success_ = true;
       stopped_ = true;
       trace_.emit({now, epoch_, "SimulationCompleted"});

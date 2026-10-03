@@ -37,6 +37,8 @@ Clifford gates and optional gate depolarization. See
 
 Backend calls are synchronous and do not advance simulation time. Output
 timing and result delivery remain controlled by the simulator.
+Before successful completion, the backend evolves through the remaining idle
+interval to the stop tick.
 
 Qubit 0 is the least significant statevector bit. Pulse amplitudes use
 radians per nanosecond; rotation-gate amplitudes use radians.
@@ -70,6 +72,8 @@ Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../
 These tests run complete device sequences with the mock backend. Optional
 `numerical.*` tests check numerical Aer and pulse evolution; `python.plugin` checks
 loading and calls to an external adapter.
+Optional `numerical.final_state` checks thermal relaxation through the stop tick
+after the last device event.
 Optional `python.backend_configuration` checks discovery, schema validation and
 CLI precheck. With `QSBIT_TEST_AER` or `QSBIT_TEST_STIM`, it also checks numerical
 noise behavior, measurement collapse and full-program execution.

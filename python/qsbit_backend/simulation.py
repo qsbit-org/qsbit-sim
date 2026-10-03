@@ -151,10 +151,16 @@ def partition(calls, trace, program, rounds):
     if len(ends) != rounds:
         raise ValueError("executed repetition count differs from configuration")
     groups = [[] for _ in ends]
+    final_idle = None
     for call in calls:
         index = bisect_left(ends, call["tick"])
         if index == len(ends):
-            raise ValueError("device work remains after repeat-region end")
+            if (call is not calls[-1] or call["method"] != "evolve" or call["args"][2]
+                    or trace[-1]["kind"] != "SimulationCompleted"
+                    or call["tick"] != trace[-1]["tick"]):
+                raise ValueError("device work remains after repeat-region end")
+            final_idle = call
+            continue
         groups[index].append(call)
     for event in trace:
         if event["kind"] == "OperationStart":
@@ -163,7 +169,7 @@ def partition(calls, trace, program, rounds):
                 raise ValueError("operation crosses the repeat-region boundary")
     if not all(groups):
         raise ValueError("empty repeat region")
-    return groups
+    return groups, final_idle
 
 
 def run_config(path, executable, check_only=False):
@@ -259,7 +265,7 @@ def _execute(config, strategy, executable, check_only, started):
         raise ValueError("repeated controller completion exceeds uint64")
     if summary["stop_tick"] + (strategy["repetitions"] - rounds) * period >= profile["watchdog"]:
         raise ValueError("repeated controller completion reaches the configured watchdog")
-    groups = partition(calls, trace, program, rounds)
+    groups, final_idle = partition(calls, trace, program, rounds)
     if full:
         counts = [0] * measurements
         digest = hashlib.sha256()
@@ -285,7 +291,7 @@ def _execute(config, strategy, executable, check_only, started):
         if strategy["quantum_execution"] == "transition_probabilities":
             quantum = sample_transitions(name, options, profile, groups, strategy["repetitions"])
         else:
-            quantum = replay_direct(name, options, profile, groups, period, strategy["repetitions"])
+            quantum = replay_direct(name, options, profile, groups, period, strategy["repetitions"], final_idle)
     repetitions = strategy["repetitions"]
     acquisitions = {a["operation"] for m in profile["mappings"] for a in m["actions"] if a["kind"] == "acquire"}
     last_trigger = max(e["tick"] for e in trace if e["kind"] == "OperationStart" and e["operation"] in acquisitions)
@@ -311,7 +317,7 @@ def _execute(config, strategy, executable, check_only, started):
     print(f"Completed {repetitions} repetitions; results: {output}", flush=True)
 
 
-def replay_direct(name, options, profile, groups, period, repetitions):
+def replay_direct(name, options, profile, groups, period, repetitions, final_idle):
     backend, _ = create(name, options)
     backend.reset(profile["qubits"], profile["seed"])
     counts = None
@@ -337,6 +343,10 @@ def replay_direct(name, options, profile, groups, period, repetitions):
                 bits.extend(value)
         counts = [int(b) for b in bits] if counts is None else [c + b for c, b in zip(counts, bits)]
         digest.update(bytes(bits))
+    if final_idle is not None:
+        start, end, drives = final_idle["args"]
+        shift = (repetitions - len(groups)) * period
+        backend.evolve(start + shift, end + shift, drives)
     return {"counts": counts, "probabilities": [c / repetitions for c in counts],
             "measurement_sha256": digest.hexdigest()}
 

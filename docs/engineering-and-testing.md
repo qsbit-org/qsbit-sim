@@ -35,7 +35,8 @@ pre-commit install --install-hooks
 pre-commit run --all-files
 ```
 
-The hooks check formatting, whitespace, merge markers, and YAML, JSON and
+The installation enables both `pre-commit` and `commit-msg` hooks. They check
+commit messages, formatting, whitespace, merge markers, and YAML, JSON and
 TOML syntax. If a hook changes a file, review and stage the edit, then rerun
 the checks. With pip, install `.[dev]` into `.venv` instead of using uv.
 
@@ -47,8 +48,9 @@ ctest --test-dir build-gcc -L fast --output-on-failure
 ```
 
 Run the relevant optional or integration tests for the changed behavior.
-CI runs the pre-commit hooks on all tracked files and runs the complete
-configured CTest suites.
+CI checks every commit introduced by a push or pull request against the
+[commit-message requirement](../AGENTS.md#repository-hygiene), runs the pre-commit
+hooks on all tracked files and runs the complete configured CTest suites.
 
 ## What each test family checks
 

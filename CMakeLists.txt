@@ -276,7 +276,7 @@ if(BUILD_TESTING)
     set(NUMERICAL_SCENARIOS "")
     set(CLI_SCENARIOS "")
     if(QSBIT_TEST_AER)
-      list(APPEND NUMERICAL_SCENARIOS bell feedback capability)
+      list(APPEND NUMERICAL_SCENARIOS bell feedback capability final_state)
       list(APPEND CLI_SCENARIOS bell feedback)
       add_test(NAME reference.cactus_golden COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/cactus_golden.py"

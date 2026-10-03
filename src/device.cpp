@@ -226,6 +226,13 @@ void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
 std::optional<Tick> ControlElectronics::next_boundary() const {
   return boundaries_.empty() ? std::nullopt : std::optional<Tick>{boundaries_.begin()->first};
 }
+void ControlElectronics::finalize(Tick now) {
+  require(drained(), ErrorCode::Protocol, "cannot finalize pending device work");
+  require(now >= last_tick_, ErrorCode::Protocol, "final state time precedes device time");
+  if (now > last_tick_)
+    backend_.evolve(last_tick_, now, {});
+  last_tick_ = now;
+}
 void ControlElectronics::reset(Tick now, Epoch epoch) {
   for (const auto &action : reservations_.reservations())
     if (action.end >= now)

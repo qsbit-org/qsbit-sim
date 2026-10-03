@@ -76,6 +76,8 @@ phases. Raw images, session resets, memory dumps and a `trace` path override are
 The first round retains its startup timing. Later rounds use the steady event
 sequence, with absolute times advanced by the verified period. The backend is
 reset once, not once per round. Each replayed measurement receives a new identity.
+Direct replay evolves the final idle interval through the extrapolated controller
+stop tick after the last round.
 
 The control checks run with fixed zero and one outcomes. The program restrictions
 exclude other control paths; the recorded instructions, queue events and backend

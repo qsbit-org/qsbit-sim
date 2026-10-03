@@ -2,6 +2,7 @@
 #include "qsbit/python_backend.hpp"
 #include "qsbit/simulator.hpp"
 #include "test.hpp"
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iterator>
@@ -39,6 +40,41 @@ int sc_main(int argc, char **argv) {
       for (std::size_t i = 0; i < state.size(); ++i)
         CHECK(std::abs(state[i] - reversed[i]) < 1e-12);
       CHECK(sc_core::sc_time_stamp() == sc_core::SC_ZERO_TIME);
+    } else if (scenario == "final_state") {
+      // wait.i 8; cw.i.i 0, 1; wait.i 100; sim_exit
+      const std::array<std::uint32_t, 6> words{
+          (8U << 15) | 0x200bU, 0x0610000bU, (100U << 15) | 0x200bU,
+          0x00000513U,          0x05d00893U, 0x00000073U};
+      std::vector<std::uint8_t> bytes;
+      for (const auto word : words)
+        for (unsigned shift = 0; shift < 32; shift += 8)
+          bytes.push_back(static_cast<std::uint8_t>(word >> shift));
+      auto p = default_profile();
+      auto backend = std::make_unique<PythonBackend>(PythonBackendConfig{
+          "aer", R"({"method":"density_matrix","noise":{"model":"thermal_relaxation",
+          "qubits":[{"qubit":0,"t1_ns":1000,"t2_ns":2000,"excited_state_population":0}]}})"});
+      Simulator sim("sim", p, ProgramImage::raw(bytes, 0, 0, 4096), std::move(backend));
+      sc_core::sc_start(sc_core::sc_time::from_value(p.watchdog + 20));
+      CHECK(sim.success());
+      std::vector<Tick> starts, ends;
+      for (const auto &event : sim.trace().events()) {
+        if (event.kind == "OperationStart")
+          starts.push_back(event.tick);
+        if (event.kind == "OperationEnd")
+          ends.push_back(event.tick);
+      }
+      CHECK((starts == std::vector<Tick>{1160}));
+      CHECK((ends == std::vector<Tick>{1180}));
+      CHECK(sc_core::sc_time_stamp().value() == 3160);
+      const double excited = std::exp(-2000.0 / 1000.0);
+      const std::array<double, 4> populations{1.0 - excited, excited, 0.0, 0.0};
+      const auto density = sim.backend().density_matrix();
+      CHECK(density.size() == populations.size());
+      for (std::size_t row = 0; row < density.size(); ++row)
+        for (std::size_t column = 0; column < density[row].size(); ++column) {
+          const double expected = row == column ? populations[row] : 0.0;
+          CHECK(std::abs(density[row][column] - expected) < 1e-12);
+        }
     } else if (scenario == "capability") {
       PythonBackend backend("qsbit_backend", "AerBackend");
       backend.reset(2, 1);
