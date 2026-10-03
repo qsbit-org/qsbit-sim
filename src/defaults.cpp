@@ -8,23 +8,24 @@ Profile default_profile() {
     for (std::uint32_t code = 1; code <= 5; ++code) {
       EventSpec a;
       a.port = q;
-      a.targets = {q};
-      a.resources = {{q, true}};
-      if (code == 1)
-        a.operation = "x";
-      if (code == 2)
-        a.operation = "h";
-      if (code == 3)
-        a.operation = "z";
-      if (code == 4) {
-        a.operation = "measure";
-        a.kind = ActionKind::Acquire;
+      const QuantumSpec common{"x", {q}, {{q, true}}};
+      if (code <= 3) {
+        GateSpec gate;
+        static_cast<QuantumSpec &>(gate) = common;
+        gate.operation = code == 1 ? "x" : code == 2 ? "h" : "z";
+        a.spec = gate;
+      } else if (code == 4) {
+        AcquireSpec acquisition;
+        static_cast<QuantumSpec &>(acquisition) = common;
+        acquisition.operation = "measure";
+        a.spec = acquisition;
         a.duration = 40;
-      }
-      if (code == 5) {
-        a.operation = "drive_x";
-        a.kind = ActionKind::Pulse;
-        a.amplitude = std::numbers::pi / 20.0;
+      } else {
+        PulseSpec pulse;
+        static_cast<QuantumSpec &>(pulse) = common;
+        pulse.operation = "drive_x";
+        pulse.amplitude = std::numbers::pi / 20.0;
+        a.spec = pulse;
       }
       p.mappings.push_back({q, code, {a}});
     }
@@ -33,19 +34,17 @@ Profile default_profile() {
       {"cx01", "cx", {0, 1}, {{0, 0, 6}, {0, 1, 10}}, {{0, true}, {1, true}}, 20});
   for (auto [port, code] : {std::pair{0U, 6U}, std::pair{1U, 10U}}) {
     EventSpec output;
-    output.kind = ActionKind::GateOutput;
+    output.spec = GateOutputSpec{"cx01"};
     output.port = port;
-    output.operation.clear();
-    output.gate = "cx01";
     p.mappings.push_back({port, code, {output}});
   }
   for (std::uint32_t q = 0; q < p.qubits; ++q) {
     for (auto flag : {ExecutionFlag::LastOne, ExecutionFlag::LastZero, ExecutionFlag::Equal}) {
       EventSpec action;
       action.port = q;
-      action.targets = {q};
-      action.resources = {{q, true}};
-      action.execution_flag = flag;
+      action.get<GateSpec>().targets = {q};
+      action.get<GateSpec>().resources = {{q, true}};
+      action.get<GateSpec>().execution_flag = flag;
       p.mappings.push_back({q, 6 + static_cast<std::uint32_t>(flag), {action}});
     }
   }

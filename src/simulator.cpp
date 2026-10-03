@@ -37,15 +37,15 @@ Profile validated(const std::vector<CoreConfig> &cores, const std::vector<SyncCo
         return m.port == input.port && m.codeword == input.codeword;
       });
       require(mapping != mappings.end() && mapping->actions.size() == 1 &&
-                  mapping->actions.front().kind == ActionKind::GateOutput &&
-                  mapping->actions.front().gate == gate.name,
+                  mapping->actions.front().kind() == ActionKind::GateOutput &&
+                  mapping->actions.front().get<GateOutputSpec>().gate == gate.name,
               ErrorCode::InvalidProfile, "gate input has no matching output mapping");
     }
   for (const auto &core : cores)
     for (const auto &mapping : core.profile.mappings)
       for (const auto &action : mapping.actions)
-        if (action.kind == ActionKind::GateOutput) {
-          const auto &inputs = first.gate(action.gate).inputs;
+        if (action.kind() == ActionKind::GateOutput) {
+          const auto &inputs = first.gate(action.get<GateOutputSpec>().gate).inputs;
           require(std::find(inputs.begin(), inputs.end(),
                             GateInput{core.id, mapping.port, mapping.codeword}) != inputs.end(),
                   ErrorCode::InvalidProfile, "output mapping is not a configured gate input");

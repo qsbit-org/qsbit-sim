@@ -4,12 +4,13 @@ import json
 from pathlib import Path
 
 from .registry import create
+from .protocol import API_VERSION
 
 
 class RecordingBackend:
     @staticmethod
     def describe():
-        return {"api_version": 2, "options_schema": {"type": "object", "properties": {
+        return {"api_version": API_VERSION, "options_schema": {"type": "object", "properties": {
             "backend": {"type": "string"}, "options": {"type": "object"},
             "output": {"type": "string"}, "outcome": {"type": ["boolean", "null"]}},
             "required": ["backend", "options", "output", "outcome"], "additionalProperties": False}}
@@ -32,12 +33,12 @@ class RecordingBackend:
         self.backend.reset(qubits, seed)
 
     def execute(self, epoch, operations):
-        references = operations[-1]["args"][0] if operations[-1]["method"] == "measure" else []
+        references = operations[-1]["references"] if operations[-1]["kind"] == "measure" else []
         bits = (self.backend.execute(epoch, operations) if self.outcome is None
                 else [self.outcome] * len(references))
         for operation in operations:
             record = dict(operation, batch=self.batches)
-            if operation["method"] == "measure":
+            if operation["kind"] == "measure":
                 record["bits"] = bits
             self.calls.append(record)
         self.batches += 1

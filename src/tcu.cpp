@@ -39,8 +39,8 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       const auto it = gathered.find(id);
       require(it != gathered.end(), ErrorCode::ManifestMismatch, "manifested event is missing");
       const auto &event = it->second;
-      if (event.action.execution_flag != ExecutionFlag::Always &&
-          !execution_flags_.evaluate(event.action.targets.front(), event.action.execution_flag))
+      if (event.action.execution_flag() != ExecutionFlag::Always &&
+          !execution_flags_.evaluate(event.action.targets().front(), event.action.execution_flag()))
         cancelled.push_back(event);
       else
         batch.events.push_back(event);
@@ -94,8 +94,8 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
     for (const auto &event : cancelled) {
       TraceEvent record{now, epoch, "ConditionCancelled", event.id, label, cycle};
       record.port = event.action.port;
-      record.operation = event.action.operation;
-      record.targets = event.action.targets;
+      record.operation = event.action.operation();
+      record.targets = event.action.targets();
       trace_.emit(std::move(record));
     }
   }

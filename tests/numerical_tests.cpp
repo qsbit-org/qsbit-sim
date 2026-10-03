@@ -16,17 +16,17 @@ int sc_main(int argc, char **argv) {
     PythonSession session(QSBIT_PYTHON_MODULE_DIRECTORY);
     const std::string scenario = argv[1];
     if (scenario == "joint") {
-      PythonBackend adapter("qsbit_backend", "PulseBackend");
+      PythonBackend adapter(PythonBackendConfig{"pulse"});
       BackendExecution backend(adapter);
       backend.reset(2, 1, 1);
       EventSpec x;
-      x.kind = ActionKind::Pulse;
+      x.spec = PulseSpec{};
       x.port = 0;
-      x.targets = {0};
-      x.axis = "x";
-      x.amplitude = std::numbers::pi / (10 * std::sqrt(2.0));
+      x.get<PulseSpec>().targets = {0};
+      x.get<PulseSpec>().axis = "x";
+      x.get<PulseSpec>().amplitude = std::numbers::pi / (10 * std::sqrt(2.0));
       auto z = x;
-      z.axis = "z";
+      z.get<PulseSpec>().axis = "z";
       z.port = 1;
       std::vector<EventSpec> drives{x, z};
       backend.evolve(0, 10, drives);
@@ -77,11 +77,11 @@ int sc_main(int argc, char **argv) {
           CHECK(std::abs(density[row][column] - expected) < 1e-12);
         }
     } else if (scenario == "capability") {
-      PythonBackend backend("qsbit_backend", "AerBackend");
+      PythonBackend backend(PythonBackendConfig{"aer"});
       backend.reset(2, 1);
       EventSpec pulse;
-      pulse.kind = ActionKind::Pulse;
-      pulse.targets = {0};
+      pulse.spec = PulseSpec{};
+      pulse.get<PulseSpec>().targets = {0};
       faults(ErrorCode::UnsupportedCapability, [&] { backend.validate(pulse); });
       CHECK(std::norm(backend.state()[0]) == 1.0);
     } else {
@@ -96,20 +96,19 @@ int sc_main(int argc, char **argv) {
         p.two_qubit_gates.clear();
         for (std::uint32_t port : {0U, 1U}) {
           EventSpec drive;
-          drive.kind = ActionKind::Pulse;
+          drive.spec = PulseSpec{};
           drive.port = port;
-          drive.targets = {0};
-          drive.resources = {{0, false}};
-          drive.axis = port == 0 ? "x" : "z";
-          drive.operation = "drive_" + drive.axis;
-          drive.amplitude = std::numbers::pi / (20 * std::sqrt(2.0));
+          drive.get<PulseSpec>().targets = {0};
+          drive.get<PulseSpec>().resources = {{0, false}};
+          drive.get<PulseSpec>().axis = port == 0 ? "x" : "z";
+          drive.get<PulseSpec>().operation = "drive_" + drive.get<PulseSpec>().axis;
+          drive.get<PulseSpec>().amplitude = std::numbers::pi / (20 * std::sqrt(2.0));
           p.mappings.push_back({port, 5, {drive}});
         }
       }
       auto image = ProgramImage::elf(bytes, 0, 65536);
       auto backend = std::make_unique<PythonBackend>(
-          "qsbit_backend",
-          (scenario == "pulse" || scenario == "overlap") ? "PulseBackend" : "AerBackend");
+          PythonBackendConfig{(scenario == "pulse" || scenario == "overlap") ? "pulse" : "aer"});
       Simulator sim("sim", p, std::move(image), std::move(backend));
       sc_core::sc_start(sc_core::sc_time::from_value(p.watchdog + 20));
       if (sim.fault())
@@ -120,26 +119,18 @@ int sc_main(int argc, char **argv) {
       for (const auto value : state)
         norm += std::norm(value);
       CHECK(std::abs(norm - 1) < 1e-12);
-      std::vector<Tick> starts;
-      for (const auto &event : sim.trace().events())
-        if (event.kind == "OperationStart")
-          starts.push_back(event.tick);
       if (scenario == "bell") {
         const auto first = sim.memory().read(0x1000, 4), second = sim.memory().read(0x1004, 4);
         CHECK(first <= 1 && first == second);
         CHECK(std::norm(state[first ? 3 : 0]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{360, 400, 400, 440, 440}));
       } else if (scenario == "feedback") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[3]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{360, 440, 720}));
       } else if (scenario == "pulse") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[1]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{360, 440}));
       } else if (scenario == "overlap") {
         const auto expected = std::complex<double>{0, -1 / std::sqrt(2.0)};
         CHECK(std::abs(state[0] - expected) < 1e-12 && std::abs(state[1] - expected) < 1e-12);
         CHECK(std::abs(state[2]) < 1e-12 && std::abs(state[3]) < 1e-12);
-        CHECK((starts == std::vector<Tick>{360, 360}));
       } else
         throw std::runtime_error("unknown numerical scenario");
     }

@@ -8,19 +8,26 @@ namespace qsbit {
 namespace {
 py::dict descriptor(const EventSpec &a) {
   const char *kind = "gate";
-  if (a.kind == ActionKind::Pulse)
+  if (a.kind() == ActionKind::Pulse)
     kind = "pulse";
-  if (a.kind == ActionKind::Acquire)
+  if (a.kind() == ActionKind::Acquire)
     kind = "acquire";
-  if (a.kind == ActionKind::DiscriminatorArm)
+  if (a.kind() == ActionKind::DiscriminatorArm)
     kind = "arm";
   py::dict out;
   out["kind"] = kind;
-  out["operation"] = a.operation;
-  out["targets"] = a.targets;
-  out["port"] = a.port;
-  out["amplitude"] = a.amplitude;
-  out["axis"] = a.axis;
+  out["operation"] = a.operation();
+  out["targets"] = a.targets();
+  std::visit(
+      [&](const auto &value) {
+        if constexpr (requires { value.amplitude; })
+          out["amplitude"] = value.amplitude;
+        if constexpr (requires { value.axis; }) {
+          out["axis"] = value.axis;
+          out["port"] = a.port;
+        }
+      },
+      a.spec);
   return out;
 }
 py::list descriptors(std::span<const EventSpec> actions) {
@@ -52,8 +59,6 @@ struct PythonBackend::Impl {
   py::object backend;
   std::string options;
 };
-PythonBackend::PythonBackend(const std::string &module, const std::string &class_name)
-    : PythonBackend(PythonBackendConfig{module + ":" + class_name, "{}"}) {}
 PythonBackend::PythonBackend(const PythonBackendConfig &config) : impl_(std::make_unique<Impl>()) {
   try {
     auto json = py::module_::import("json");
@@ -110,26 +115,30 @@ std::vector<bool> PythonBackend::execute(Epoch epoch,
     py::list inputs;
     for (const auto &operation : operations) {
       py::dict item;
-      item["tick"] = operation.tick;
-      if (operation.kind == BackendOperation::Kind::Evolve) {
-        item["method"] = "evolve";
-        item["args"] =
-            py::make_tuple(operation.from, operation.tick, descriptors(operation.actions));
-      } else if (operation.kind == BackendOperation::Kind::Apply) {
-        item["method"] = "apply";
-        item["args"] = py::make_tuple(descriptors(operation.actions));
-      } else {
-        item["method"] = "measure";
-        py::list references;
-        for (const auto &reference : operation.references) {
-          py::dict value;
-          value["epoch"] = reference.epoch;
-          value["measurement"] = reference.measurement;
-          value["target"] = reference.target;
-          references.append(std::move(value));
-        }
-        item["args"] = py::make_tuple(references);
-      }
+      std::visit(
+          [&](const auto &value) {
+            item["tick"] = value.tick;
+            if constexpr (std::is_same_v<std::decay_t<decltype(value)>, BackendEvolution>) {
+              item["kind"] = "evolve";
+              item["start"] = value.start;
+              item["drives"] = descriptors(value.drives);
+            } else if constexpr (std::is_same_v<std::decay_t<decltype(value)>, BackendGates>) {
+              item["kind"] = "apply";
+              item["gates"] = descriptors(value.gates);
+            } else {
+              item["kind"] = "measure";
+              py::list references;
+              for (const auto &reference : value.references) {
+                py::dict entry;
+                entry["epoch"] = reference.epoch;
+                entry["measurement"] = reference.measurement;
+                entry["target"] = reference.target;
+                references.append(std::move(entry));
+              }
+              item["references"] = references;
+            }
+          },
+          operation);
       inputs.append(item);
     }
     return impl_->backend.attr("execute")(epoch, inputs).cast<std::vector<bool>>();

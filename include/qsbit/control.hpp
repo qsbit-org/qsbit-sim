@@ -4,6 +4,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace qsbit {
@@ -14,18 +15,46 @@ struct ResourceUse {
   bool exclusive = true;
   bool operator==(const ResourceUse &) const = default;
 };
-struct EventSpec {
-  ActionKind kind = ActionKind::IdealGate;
-  std::uint32_t port = 0;
+struct QuantumSpec {
   std::string operation = "x";
   std::vector<std::uint32_t> targets;
   std::vector<ResourceUse> resources;
-  Tick delay = 0, duration = 20, discriminator_delay = 20;
+  bool operator==(const QuantumSpec &) const = default;
+};
+struct GateSpec : QuantumSpec {
+  double amplitude = 0.0;
+  ExecutionFlag execution_flag = ExecutionFlag::Always;
+  bool operator==(const GateSpec &) const = default;
+};
+struct PulseSpec : QuantumSpec {
   double amplitude = 0.0;
   std::string axis = "x";
-  bool separate_arm = false;
   ExecutionFlag execution_flag = ExecutionFlag::Always;
-  std::string gate = {};
+  bool operator==(const PulseSpec &) const = default;
+};
+struct AcquireSpec : QuantumSpec {
+  Tick discriminator_delay = 20;
+  bool separate_arm = false;
+  bool operator==(const AcquireSpec &) const = default;
+};
+struct ArmSpec : QuantumSpec {
+  bool operator==(const ArmSpec &) const = default;
+};
+struct GateOutputSpec {
+  std::string gate;
+  bool operator==(const GateOutputSpec &) const = default;
+};
+struct EventSpec {
+  std::uint32_t port = 0;
+  Tick delay = 0, duration = 20;
+  std::variant<GateSpec, PulseSpec, AcquireSpec, ArmSpec, GateOutputSpec> spec = GateSpec{};
+  template <typename T> T &get() { return std::get<T>(spec); }
+  template <typename T> const T &get() const { return std::get<T>(spec); }
+  [[nodiscard]] ActionKind kind() const { return static_cast<ActionKind>(spec.index()); }
+  [[nodiscard]] const std::vector<std::uint32_t> &targets() const;
+  [[nodiscard]] const std::vector<ResourceUse> &resources() const;
+  [[nodiscard]] std::string operation() const;
+  [[nodiscard]] ExecutionFlag execution_flag() const;
   bool operator==(const EventSpec &) const = default;
 };
 struct Mapping {
@@ -106,6 +135,7 @@ struct TriggeredEvents {
 struct ScheduledEvent {
   OperationEvent event;
   Tick start = 0, end = 0;
+  EventSpec resolved;
 };
 
 [[nodiscard]] std::vector<OperationEvent>

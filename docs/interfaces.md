@@ -258,8 +258,9 @@ a nonempty `actions` array.
 A mapping is looked up by source `port` and `codeword`. Each selected event
 has its own physical output `port`; neither port is necessarily a qubit index.
 An event selects `kind`, output `port`, `operation`, `targets` and `resources`.
-It also supplies `delay` and `duration`, plus `discriminator_delay`,
-`amplitude`, `axis` or `separate_arm` as applicable. `execution_flag` selects
+It also supplies `delay` and `duration`. Gates accept `amplitude`; pulses accept
+`amplitude` and `axis`; acquisitions accept `discriminator_delay` and `separate_arm`.
+Fields belonging to another event kind are rejected. For gates and pulses, `execution_flag` selects
 `always` (default), `last_one`, `last_zero` or `equal`. Conditional flags
 require a single-qubit gate or pulse and enabled fast feedback. A resource has a numeric
 `id` and an `exclusive` boolean. Two overlapping events sharing that resource

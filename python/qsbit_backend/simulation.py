@@ -121,7 +121,10 @@ def validate_mappings(program, profile):
             if key not in mappings:
                 raise ValueError(f"unmapped port and codeword: {key}")
             for action in mappings[key]:
-                if action["execution_flag"] != "always" or action["kind"] not in ("gate", "gate_output", "acquire") or action["separate_arm"]:
+                kind = action["kind"]
+                if (kind not in ("gate", "gate_output", "acquire")
+                        or (kind == "gate" and action["execution_flag"] != "always")
+                        or (kind == "acquire" and action["separate_arm"])):
                     raise ValueError("replay supports unconditional gates and unarmed acquisitions")
                 if action["kind"] == "acquire":
                     pending.update(action["targets"])
@@ -140,11 +143,10 @@ def normalized(calls, shift=0):
         call.pop("bits", None)
         call.pop("batch", None)
         call["tick"] -= shift
-        if call["method"] == "evolve":
-            call["args"][0] -= shift
-            call["args"][1] -= shift
-        elif call["method"] == "measure":
-            call["args"][0] = [{"target": r["target"]} for r in call["args"][0]]
+        if call["kind"] == "evolve":
+            call["start"] -= shift
+        elif call["kind"] == "measure":
+            call["references"] = [{"target": r["target"]} for r in call["references"]]
     return result
 
 
@@ -157,7 +159,7 @@ def partition(calls, trace, program, rounds):
     for call in calls:
         index = bisect_left(ends, call["tick"])
         if index == len(ends):
-            if (call is not calls[-1] or call["method"] != "evolve" or call["args"][2]
+            if (call is not calls[-1] or call["kind"] != "evolve" or call["drives"]
                     or trace[-1]["kind"] != "SimulationCompleted"
                     or call["tick"] != trace[-1]["tick"]):
                 raise ValueError("device work remains after repeat-region end")
@@ -272,7 +274,7 @@ def _execute(config, strategy, executable, check_only, started):
         counts = [0] * measurements
         digest = hashlib.sha256()
         for group in groups:
-            bits = [b for c in group if c["method"] == "measure" for b in c["bits"]]
+            bits = [b for c in group if c["kind"] == "measure" for b in c["bits"]]
             if len(bits) != measurements:
                 raise ValueError("measurement count differs from program")
             counts = [a + b for a, b in zip(counts, bits)]
@@ -303,7 +305,7 @@ def _execute(config, strategy, executable, check_only, started):
               "control_stop_tick": summary["stop_tick"] + (repetitions - rounds) * period,
               "control_stop_tick_source": "observed" if full else "extrapolated"}
     timing["last_measurement_trigger_ns"] = last_trigger + (repetitions - rounds) * period
-    timing["last_measurement_sample_ns"] = max(c["tick"] for c in calls if c["method"] == "measure") + (repetitions - rounds) * period
+    timing["last_measurement_sample_ns"] = max(c["tick"] for c in calls if c["kind"] == "measure") + (repetitions - rounds) * period
     result = {"schema": 1, "success": True, "simulation": strategy, "backend": name,
               "backend_execution": summary["backend_execution"],
               "backend_options": options, "profile": profile, "timing": timing,
@@ -337,13 +339,11 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
                 operation.pop("batch")
                 operation.pop("bits", None)
                 operation["tick"] += shift
-                args = operation["args"]
-                if operation["method"] == "evolve":
-                    args[0] += shift
-                    args[1] += shift
-                if operation["method"] == "measure":
-                    expected_results = len(args[0])
-                    for reference in args[0]:
+                if operation["kind"] == "evolve":
+                    operation["start"] += shift
+                if operation["kind"] == "measure":
+                    expected_results = len(operation["references"])
+                    for reference in operation["references"]:
                         identity += 1
                         reference.update(epoch=1, measurement=identity)
             value = backend.execute(1, operations)
@@ -353,10 +353,9 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
         counts = [int(b) for b in bits] if counts is None else [c + b for c, b in zip(counts, bits)]
         digest.update(bytes(bits))
     if final_idle is not None:
-        start, end, drives = final_idle["args"]
+        start, end, drives = final_idle["start"], final_idle["tick"], final_idle["drives"]
         shift = (repetitions - len(groups)) * period
-        backend.execute(1, [{"tick": end + shift, "method": "evolve",
-                             "args": [start + shift, end + shift, drives]}])
+        backend.execute(1, [{"kind": "evolve", "start": start + shift, "tick": end + shift, "drives": drives}])
     return {"counts": counts, "probabilities": [c / repetitions for c in counts],
             "measurement_sha256": digest.hexdigest()}
 
@@ -373,23 +372,22 @@ def sample_transitions(name, options, profile, groups, repetitions):
     for group in groups[:2]:
         table = []
         for call in group:
-            if call["method"] == "measure":
-                if len(call["args"][0]) != 1 or call["args"][0][0]["target"] != 0:
+            if call["kind"] == "measure":
+                if len(call["references"]) != 1 or call["references"][0]["target"] != 0:
                     raise ValueError("transition_probabilities requires single-qubit Z measurements")
                 key = json.dumps(pending, sort_keys=True)
                 if key not in cache:
                     cache[key] = backend.transition_probabilities(pending)
                 table.append(cache[key])
                 pending = []
-            elif call["method"] == "evolve":
-                from_tick, to_tick, drives = call["args"]
+            elif call["kind"] == "evolve":
+                from_tick, to_tick, drives = call["start"], call["tick"], call["drives"]
                 start = pending[-1]["tick"] if pending else 0
                 duration = to_tick - from_tick
-                pending.append({"tick": start + duration, "method": "evolve",
-                                "args": [start, start + duration, drives]})
+                pending.append({"kind": "evolve", "start": start, "tick": start + duration, "drives": drives})
             else:
                 pending.append({"tick": pending[-1]["tick"] if pending else 0,
-                                "method": "apply", "args": call["args"]})
+                                "kind": "apply", "gates": call["gates"]})
         tables.append(table)
     rng = np.random.default_rng(profile["seed"])
     counts = [0] * len(tables[0])

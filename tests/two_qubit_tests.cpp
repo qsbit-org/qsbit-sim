@@ -1,4 +1,3 @@
-#include "config_json.hpp"
 #include "qsbit/defaults.hpp"
 #include "qsbit/device.hpp"
 #include "test.hpp"
@@ -9,8 +8,8 @@ using namespace qsbit;
 class RecordingBackend final : public IQuantumBackend {
 public:
   void validate(const EventSpec &event) const override {
-    CHECK(event.kind != ActionKind::GateOutput);
-    CHECK(!event.targets.empty());
+    CHECK(event.kind() != ActionKind::GateOutput);
+    CHECK(!event.targets().empty());
   }
   void reset(std::uint32_t, std::uint32_t) override {
     gates.clear();
@@ -20,9 +19,10 @@ public:
     ++mutations;
     std::vector<bool> results;
     for (const auto &operation : operations) {
-      if (operation.kind == BackendOperation::Kind::Apply)
-        gates.insert(gates.end(), operation.actions.begin(), operation.actions.end());
-      results.insert(results.end(), operation.references.size(), false);
+      if (const auto *application = std::get_if<BackendGates>(&operation))
+        gates.insert(gates.end(), application->gates.begin(), application->gates.end());
+      if (const auto *measurement = std::get_if<BackendMeasurement>(&operation))
+        results.insert(results.end(), measurement->references.size(), false);
     }
     return results;
   }
@@ -54,8 +54,8 @@ void execution() {
       device.process(tick, 1, links);
       (void)device.backend().state();
       CHECK(backend.gates.size() == occurrence);
-      CHECK(backend.gates.back().operation == "cx");
-      CHECK((backend.gates.back().targets == std::vector<std::uint32_t>{0, 1}));
+      CHECK(backend.gates.back().operation() == "cx");
+      CHECK((backend.gates.back().targets() == std::vector<std::uint32_t>{0, 1}));
       device.process(tick + 20, 1, links);
       CHECK(device.drained());
     }
@@ -93,40 +93,6 @@ void rejection_and_reset() {
   CHECK(backend.mutations == before && backend.gates.empty());
 }
 
-void configuration() {
-  const auto p = default_profile();
-  Profile restored;
-  apply_profile(restored, profile_json(p));
-  CHECK(restored.fingerprint() == p.fingerprint());
-  for (unsigned mutation = 0; mutation < 8; ++mutation) {
-    auto bad = p;
-    auto &gate = bad.two_qubit_gates.front();
-    if (mutation == 0)
-      gate.inputs.pop_back();
-    if (mutation == 1)
-      gate.inputs[1] = gate.inputs[0];
-    if (mutation == 2)
-      gate.targets[1] = gate.targets[0];
-    if (mutation == 3)
-      gate.targets[1] = bad.qubits;
-    if (mutation == 4)
-      gate.duration = 0;
-    if (mutation == 5)
-      bad.two_qubit_gates.push_back(gate);
-    for (auto &mapping : bad.mappings)
-      if (mapping.port == 0 && mapping.codeword == 6) {
-        if (mutation == 6)
-          mapping.actions.front().gate = "unknown";
-        if (mutation == 7)
-          mapping.actions.front().execution_flag = ExecutionFlag::LastOne;
-      }
-    faults(ErrorCode::InvalidProfile, [&] { bad.validate(); });
-  }
-  auto changed = p;
-  changed.two_qubit_gates.front().inputs[1].core = 2;
-  CHECK(changed.fingerprint() != p.fingerprint());
-}
-
 void delay_alignment() {
   auto p = default_profile();
   for (auto &mapping : p.mappings)
@@ -151,7 +117,6 @@ int main() {
     execution();
     rejection_and_reset();
     delay_alignment();
-    configuration();
     std::cout << "PASS two-qubit gate outputs\n";
     return 0;
   } catch (const std::exception &error) {

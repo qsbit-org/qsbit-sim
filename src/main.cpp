@@ -1,5 +1,5 @@
-#include "config_json.hpp"
-#include "qsbit/cpu/vliw.hpp"
+#include "app/config.hpp"
+#include "app/output.hpp"
 #include "qsbit/defaults.hpp"
 #include "qsbit/simulator.hpp"
 #ifdef QSBIT_HAS_PYTHON
@@ -8,76 +8,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <limits>
 #include <set>
 #include <sstream>
 
 using namespace qsbit;
-namespace {
-std::uint64_t number(const std::string &text) {
-  require(!text.empty() && text.front() != '-', ErrorCode::InvalidOperand,
-          "expected a nonnegative integer");
-  std::size_t end = 0;
-  const auto value = std::stoull(text, &end, 0);
-  require(end == text.size(), ErrorCode::InvalidOperand, "invalid integer argument");
-  return value;
-}
-std::uint32_t word(const std::string &text) {
-  const auto value = number(text);
-  require(value <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::InvalidOperand,
-          "argument exceeds uint32");
-  return static_cast<std::uint32_t>(value);
-}
-std::uint64_t json_number(const Json &value, const std::string &key) {
-  require(value.is_number_integer() &&
-              (value.is_number_unsigned() || value.get<std::int64_t>() >= 0),
-          ErrorCode::InvalidProfile, key + " must be a nonnegative integer");
-  return value.get<std::uint64_t>();
-}
-std::uint32_t json_word(const Json &value, const std::string &key) {
-  const auto result = json_number(value, key);
-  require(result <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::InvalidProfile,
-          key + " exceeds uint32");
-  return static_cast<std::uint32_t>(result);
-}
-std::string json_string(const Json &value, const std::string &key) {
-  require(value.is_string(), ErrorCode::InvalidProfile, key + " must be a string");
-  return value.get<std::string>();
-}
-Json read_json(const std::filesystem::path &path) {
-  std::ifstream stream(path);
-  require(bool(stream), ErrorCode::InvalidProfile, "cannot read " + path.string());
-  Json value;
-  stream >> value;
-  return value;
-}
-std::string relative_to(const std::filesystem::path &base, const Json &value,
-                        const std::string &key) {
-  return (base / json_string(value, key)).lexically_normal().string();
-}
-void ensure_parent(const std::string &path) {
-  const auto parent = std::filesystem::path(path).parent_path();
-  if (!parent.empty())
-    std::filesystem::create_directories(parent);
-}
-void write_json(const std::string &path, const Json &value) {
-  ensure_parent(path);
-  std::ofstream stream(path);
-  require(bool(stream), ErrorCode::InvalidOperand, "cannot open " + path);
-  stream << value.dump(2) << '\n';
-  require(bool(stream), ErrorCode::Protocol, "cannot write " + path);
-}
-Core::CpuFactory cpu_factory(const std::string &model) {
-  require(model == "rv32" || model == "vliw", ErrorCode::InvalidProfile,
-          "cpu_model must be rv32 or vliw");
-  if (model == "vliw")
-    return [](Clock clock, std::uint32_t entry, Trace &trace) {
-      return std::make_unique<VliwCpuCycleModel>(clock, entry, trace);
-    };
-  return {};
-}
-} // namespace
+using namespace qsbit::app;
 int sc_main(int argc, char **argv) {
   try {
     sc_core::sc_set_time_resolution(1, sc_core::SC_NS);
@@ -344,65 +280,10 @@ int sc_main(int argc, char **argv) {
     require(backend_options.is_object(), ErrorCode::InvalidProfile,
             "backend_options must be an object");
     profile.validate();
-    const auto load_image = [&](const std::string &path) {
-      std::ifstream input(path, std::ios::binary);
-      require(bool(input), ErrorCode::InvalidImage, "cannot read program: " + path);
-      const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(input), {}};
-      return raw ? ProgramImage::raw(bytes, raw_base, memory_base, memory_size)
-                 : ProgramImage::elf(bytes, memory_base, memory_size);
-    };
-    std::vector<CoreConfig> cores;
-    std::vector<std::string> models;
-    if (core_settings.empty()) {
-      cores.push_back({0, profile, load_image(program), cpu_factory(cpu_model)});
-      models.push_back(cpu_model);
-    } else {
-      const std::set<std::string> allowed{"id",           "program",   "profile",
-                                          "profile_file", "cpu_model", "sync_capacity"};
-      for (const auto &settings : core_settings) {
-        require(settings.is_object() && settings.contains("id") && settings.contains("program"),
-                ErrorCode::InvalidProfile, "each core requires id and program");
-        for (const auto &[key, ignored] : settings.items()) {
-          (void)ignored;
-          require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown core key: " + key);
-        }
-        auto p = profile;
-        if (settings.contains("profile_file"))
-          apply_profile(
-              p, read_json(relative_to(config_base, settings["profile_file"], "profile_file")));
-        if (settings.contains("profile"))
-          apply_profile(p, settings["profile"]);
-        const auto model = settings.contains("cpu_model")
-                               ? json_string(settings["cpu_model"], "cpu_model")
-                               : cpu_model;
-        cores.push_back({json_word(settings["id"], "core id"), p,
-                         load_image(relative_to(config_base, settings["program"], "program")),
-                         cpu_factory(model),
-                         settings.contains("sync_capacity")
-                             ? json_word(settings["sync_capacity"], "sync_capacity")
-                             : 8});
-        models.push_back(model);
-      }
-    }
-    std::vector<SyncConnection> connections;
-    for (const auto &settings : connection_settings) {
-      const std::set<std::string> allowed{"first", "second", "first_to_second", "second_to_first",
-                                          "capacity"};
-      require(settings.is_object(), ErrorCode::InvalidProfile, "sync connection must be an object");
-      for (const auto &[key, ignored] : settings.items()) {
-        (void)ignored;
-        require(allowed.contains(key), ErrorCode::InvalidProfile,
-                "unknown sync connection key: " + key);
-      }
-      for (auto key : {"first", "second", "first_to_second", "second_to_first"})
-        require(settings.contains(key), ErrorCode::InvalidProfile,
-                std::string("missing sync connection key: ") + key);
-      connections.push_back(
-          {json_word(settings["first"], "first"), json_word(settings["second"], "second"),
-           json_number(settings["first_to_second"], "first_to_second"),
-           json_number(settings["second_to_first"], "second_to_first"),
-           settings.contains("capacity") ? json_word(settings["capacity"], "capacity") : 8});
-    }
+    auto [cores, models] =
+        configure_cores(profile, program, core_settings, cpu_model, config_base,
+                        {memory_base, memory_size, raw ? std::optional{raw_base} : std::nullopt});
+    const auto connections = configure_connections(connection_settings);
 #ifdef QSBIT_HAS_PYTHON
     std::unique_ptr<PythonSession> python;
 #endif
@@ -437,64 +318,9 @@ int sc_main(int argc, char **argv) {
       require(bool(trace), ErrorCode::InvalidOperand, "cannot open trace output");
       sim.trace().write_jsonl(trace);
     }
-    Json result{
-        {"schema", 1},
-        {"success", sim.success()},
-        {"stop_tick", sc_core::sc_time_stamp().value()},
-        {"backend", backend_name},
-        {"backend_options", backend_options},
-        {"backend_execution", {{"max_batch_operations", backend_execution.max_batch_operations}}},
-        {"cpu_model", cpu_model},
-        {"configuration", profile_json(profile)},
-        {"configuration_hash", profile.fingerprint()},
-        {"registers", sim.cpu().registers()},
-        {"pc", sim.cpu().pc()},
-        {"statevector", Json::array()},
-        {"memory", Json::object()},
-        {"measurement_registers", Json::array()}};
-    if (sim.fault()) {
-      result["fault"] = qsbit::name(*sim.fault());
-      result["message"] = sim.fault_message();
-    }
-    if (!core_settings.empty()) {
-      result["cores"] = Json::array();
-      for (std::size_t i = 0; i < sim.core_count(); ++i) {
-        const auto &core = sim.core(i);
-        Json registers = Json::array();
-        for (const auto &reg : core.measurement_registers().registers())
-          registers.push_back(
-              {{"pending", reg.pending}, {"valid", reg.pending == 0}, {"value", reg.value}});
-        result["cores"].push_back({{"id", core.id()},
-                                   {"cpu_model", models[i]},
-                                   {"configuration", profile_json(core.profile())},
-                                   {"registers", core.cpu().registers()},
-                                   {"pc", core.cpu().pc()},
-                                   {"drained", core.drained()},
-                                   {"measurement_registers", registers}});
-      }
-      result["sync_connections"] = connection_settings;
-      for (auto key : {"registers", "pc", "cpu_model", "configuration", "configuration_hash",
-                       "measurement_registers"})
-        result.erase(key);
-    }
-    for (const auto &amplitude : sim.backend().state())
-      result["statevector"].push_back({amplitude.real(), amplitude.imag()});
-    const auto density = sim.backend().density_matrix();
-    if (!density.empty()) {
-      result["density_matrix"] = Json::array();
-      for (const auto &row : density) {
-        Json values = Json::array();
-        for (const auto &entry : row)
-          values.push_back({entry.real(), entry.imag()});
-        result["density_matrix"].push_back(std::move(values));
-      }
-    }
-    for (auto address : inspect)
-      result["memory"][std::to_string(address)] = sim.memory().read(address, 4);
-    if (core_settings.empty())
-      for (const auto &reg : sim.measurement_registers().registers())
-        result["measurement_registers"].push_back(
-            {{"pending", reg.pending}, {"valid", reg.pending == 0}, {"value", reg.value}});
+    const auto result =
+        simulation_summary(sim, backend_name, backend_options, backend_execution, models,
+                           connection_settings, inspect, !core_settings.empty());
     write_json(summary_path, result);
     if (!memory_dump.empty()) {
       ensure_parent(memory_dump);

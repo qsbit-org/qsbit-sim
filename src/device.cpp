@@ -5,38 +5,40 @@
 namespace qsbit {
 namespace {
 bool common_target(const EventSpec &a, const EventSpec &b) {
-  return std::any_of(a.targets.begin(), a.targets.end(), [&](auto q) {
-    return std::find(b.targets.begin(), b.targets.end(), q) != b.targets.end();
+  return std::any_of(a.targets().begin(), a.targets().end(), [&](auto q) {
+    return std::find(b.targets().begin(), b.targets().end(), q) != b.targets().end();
   });
 }
-bool is_arm(const EventSpec &a) { return a.kind == ActionKind::DiscriminatorArm; }
+bool is_arm(const EventSpec &a) { return a.kind() == ActionKind::DiscriminatorArm; }
 bool is_gate(const EventSpec &a) {
-  return a.kind == ActionKind::IdealGate || a.kind == ActionKind::GateOutput;
+  return a.kind() == ActionKind::IdealGate || a.kind() == ActionKind::GateOutput;
 }
 } // namespace
 void ResourceReservations::pair(const ScheduledEvent &a, const ScheduledEvent &b) {
-  const auto &x = a.event.action;
-  const auto &y = b.event.action;
+  const auto &x = a.resolved;
+  const auto &y = b.resolved;
   const bool overlap = a.start < b.end && b.start < a.end;
   if (overlap) {
     require(x.port != y.port, ErrorCode::ResourceConflict, "output port intervals overlap");
-    if (x.kind == ActionKind::GateOutput && y.kind == ActionKind::GateOutput && x.gate == y.gate) {
+    if (a.event.action.kind() == ActionKind::GateOutput &&
+        b.event.action.kind() == ActionKind::GateOutput &&
+        a.event.action.get<GateOutputSpec>().gate == b.event.action.get<GateOutputSpec>().gate) {
       require(a.start == b.start && a.end == b.end, ErrorCode::GateInputMismatch,
               "two-qubit gate output intervals differ");
       return;
     }
-    for (const auto &rx : x.resources)
-      for (const auto &ry : y.resources)
+    for (const auto &rx : x.resources())
+      for (const auto &ry : y.resources())
         require(rx.id != ry.id || (!rx.exclusive && !ry.exclusive), ErrorCode::ResourceConflict,
                 "exclusive resource intervals overlap");
     if (!is_arm(x) && !is_arm(y) && common_target(x, y))
-      require(x.kind == ActionKind::Pulse && y.kind == ActionKind::Pulse,
+      require(x.kind() == ActionKind::Pulse && y.kind() == ActionKind::Pulse,
               ErrorCode::ResourceConflict, "incompatible quantum actions overlap on one target");
   }
   if (common_target(x, y)) {
     const bool measurement_gate =
-        (x.kind == ActionKind::Acquire && is_gate(y) && a.end == b.start) ||
-        (y.kind == ActionKind::Acquire && is_gate(x) && b.end == a.start);
+        (x.kind() == ActionKind::Acquire && is_gate(y) && a.end == b.start) ||
+        (y.kind() == ActionKind::Acquire && is_gate(x) && b.end == a.start);
     require(!measurement_gate, ErrorCode::ResourceConflict,
             "measurement sample and ideal gate share a target and tick");
   }
@@ -69,14 +71,16 @@ ControlElectronics::ControlElectronics(const Profile &profile, IQuantumBackend &
 EventSpec ControlElectronics::gate_action(const std::string &name) const {
   const auto &gate = profile_.gate(name);
   EventSpec action;
-  action.operation = gate.operation;
-  action.targets = gate.targets;
-  action.resources = gate.resources;
+  action.get<GateSpec>().operation = gate.operation;
+  action.get<GateSpec>().targets = gate.targets;
+  action.get<GateSpec>().resources = gate.resources;
   action.duration = gate.duration;
   return action;
 }
 void ControlElectronics::validate(const EventSpec &action) const {
-  backend_.validate(action.kind == ActionKind::GateOutput ? gate_action(action.gate) : action);
+  backend_.validate(action.kind() == ActionKind::GateOutput
+                        ? gate_action(action.get<GateOutputSpec>().gate)
+                        : action);
 }
 std::vector<ScheduledEvent> ControlElectronics::resolve(const TriggeredEvents &batch) const {
   std::vector<ScheduledEvent> actions;
@@ -85,18 +89,17 @@ std::vector<ScheduledEvent> ControlElectronics::resolve(const TriggeredEvents &b
             "launch event identity mismatch");
     validate(event.action);
     const Tick start = checked_add(batch.fire_tick, event.action.delay);
-    auto mapped = event;
-    if (event.action.kind == ActionKind::GateOutput) {
-      const auto &gate = profile_.gate(event.action.gate);
+    auto resolved = event.action;
+    if (event.action.kind() == ActionKind::GateOutput) {
+      const auto &gate = profile_.gate(event.action.get<GateOutputSpec>().gate);
       const GateInput input{event.core.value_or(0), event.source_port, event.codeword};
       require(std::find(gate.inputs.begin(), gate.inputs.end(), input) != gate.inputs.end() &&
                   event.action.duration == gate.duration,
               ErrorCode::GateInputMismatch, "unexpected gate output endpoint or duration");
-      mapped.action.operation = gate.operation;
-      mapped.action.targets = gate.targets;
-      mapped.action.resources = gate.resources;
+      resolved.spec = gate_action(gate.name).spec;
     }
-    actions.push_back({std::move(mapped), start, checked_add(start, event.action.duration)});
+    actions.push_back(
+        {event, start, checked_add(start, event.action.duration), std::move(resolved)});
   }
   return actions;
 }
@@ -107,10 +110,10 @@ void ControlElectronics::preflight(const TriggeredEvents &batch) const {
   std::map<Id, MeasurementReference> identities;
   for (const auto &action : actions) {
     const auto &e = action.event;
-    if (e.action.kind == ActionKind::Acquire || is_arm(e.action)) {
+    if (e.action.kind() == ActionKind::Acquire || is_arm(e.action)) {
       require(e.reference && e.reference->epoch == batch.epoch, ErrorCode::InvalidMeasurement,
               "readout reference missing or stale");
-      require(e.action.targets.size() == 1 && e.action.targets.front() == e.reference->target,
+      require(e.action.targets().size() == 1 && e.action.targets().front() == e.reference->target,
               ErrorCode::InvalidMeasurement, "readout target and reference differ");
       const auto [identity, inserted] = identities.emplace(e.reference->measurement, *e.reference);
       require(inserted || identity->second == *e.reference, ErrorCode::InvalidMeasurement,
@@ -122,17 +125,18 @@ void ControlElectronics::preflight(const TriggeredEvents &batch) const {
     }
   }
   for (const auto &action : actions)
-    if (action.event.action.kind == ActionKind::Acquire) {
+    if (action.event.action.kind() == ActionKind::Acquire) {
       const auto id = action.event.reference->measurement;
       require(acquisitions[id] == 1 && !readouts_.contains(id) &&
-                  arms[id] == (action.event.action.separate_arm ? 1U : 0U),
+                  arms[id] == (action.event.action.get<AcquireSpec>().separate_arm ? 1U : 0U),
               ErrorCode::Protocol, "invalid acquisition and arm pairing");
       Tick arm = action.start;
-      if (action.event.action.separate_arm)
+      if (action.event.action.get<AcquireSpec>().separate_arm)
         for (const auto &other : actions)
           if (is_arm(other.event.action) && other.event.reference == action.event.reference)
             arm = other.start;
-      (void)checked_add(std::max(action.end, arm), action.event.action.discriminator_delay);
+      (void)checked_add(std::max(action.end, arm),
+                        action.event.action.get<AcquireSpec>().discriminator_delay);
     }
   for (const auto &[id, count] : arms)
     if (count > 0)
@@ -148,13 +152,14 @@ void ControlElectronics::accept(const TriggeredEvents &batch) {
     const auto &e = action.event;
     boundaries_[action.start].starts.push_back(action);
     boundaries_[action.end].ends.push_back(e.id);
-    if (e.action.kind == ActionKind::Acquire) {
+    if (e.action.kind() == ActionKind::Acquire) {
       Tick arm = action.start;
-      if (e.action.separate_arm)
+      if (e.action.get<AcquireSpec>().separate_arm)
         for (const auto &other : actions)
           if (is_arm(other.event.action) && other.event.reference == e.reference)
             arm = other.start;
-      const Tick ready = checked_add(std::max(action.end, arm), e.action.discriminator_delay);
+      const Tick ready =
+          checked_add(std::max(action.end, arm), e.action.get<AcquireSpec>().discriminator_delay);
       readouts_.emplace(e.reference->measurement,
                         Readout{*e.reference, action.end, arm, ready, {}, e.core});
       boundaries_[ready].ready.push_back(e.reference->measurement);
@@ -163,8 +168,8 @@ void ControlElectronics::accept(const TriggeredEvents &batch) {
     record.core = e.core;
     record.port = e.action.port;
     record.codeword = e.codeword;
-    record.targets = e.action.targets;
-    record.operation = e.action.operation;
+    record.targets = action.resolved.targets();
+    record.operation = action.resolved.operation();
     trace_.emit(std::move(record));
   }
 }
@@ -187,13 +192,13 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
   std::map<std::string, std::vector<const ScheduledEvent *>> gate_outputs;
   for (const auto &[id, action] : active_) {
     (void)id;
-    if (action.event.action.kind == ActionKind::Pulse)
+    if (action.event.action.kind() == ActionKind::Pulse)
       drives.push_back(action.event.action);
   }
   for (auto id : boundary.ends) {
     const auto action = active_.find(id);
     require(action != active_.end(), ErrorCode::Protocol, "physical end has no active action");
-    if (action->second.event.action.kind == ActionKind::Acquire)
+    if (action->second.event.action.kind() == ActionKind::Acquire)
       samples.push_back(*action->second.event.reference);
   }
   std::set<std::uint32_t> sampled_targets;
@@ -205,11 +210,11 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
             "old epoch reached physical boundary");
     validate(action.event.action);
     if (is_gate(action.event.action)) {
-      for (auto target : action.event.action.targets)
+      for (auto target : action.resolved.targets())
         require(!sampled_targets.contains(target), ErrorCode::ResourceConflict,
                 "sample and gate collide at physical boundary");
-      if (action.event.action.kind == ActionKind::GateOutput)
-        gate_outputs[action.event.action.gate].push_back(&action);
+      if (action.event.action.kind() == ActionKind::GateOutput)
+        gate_outputs[action.event.action.get<GateOutputSpec>().gate].push_back(&action);
       else
         gates.push_back(action.event.action);
     }
@@ -246,8 +251,8 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
     TraceEvent record{now, epoch, "OperationEnd", id, action.event.label};
     record.core = action.event.core;
     record.port = action.event.action.port;
-    record.targets = action.event.action.targets;
-    record.operation = action.event.action.operation;
+    record.targets = action.resolved.targets();
+    record.operation = action.resolved.operation();
     trace_.emit(std::move(record));
     active_.erase(id);
   }
@@ -269,8 +274,8 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
     record.core = action.event.core;
     record.port = action.event.action.port;
     record.codeword = action.event.codeword;
-    record.targets = action.event.action.targets;
-    record.operation = action.event.action.operation;
+    record.targets = action.resolved.targets();
+    record.operation = action.resolved.operation();
     record.value = action.end - action.start;
     trace_.emit(std::move(record));
   }

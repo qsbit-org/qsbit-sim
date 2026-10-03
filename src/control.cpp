@@ -7,6 +7,48 @@
 #include <tuple>
 
 namespace qsbit {
+const std::vector<std::uint32_t> &EventSpec::targets() const {
+  static const std::vector<std::uint32_t> empty;
+  return std::visit(
+      [](const auto &value) -> const std::vector<std::uint32_t> & {
+        if constexpr (requires { value.targets; })
+          return value.targets;
+        else
+          return empty;
+      },
+      spec);
+}
+const std::vector<ResourceUse> &EventSpec::resources() const {
+  static const std::vector<ResourceUse> empty;
+  return std::visit(
+      [](const auto &value) -> const std::vector<ResourceUse> & {
+        if constexpr (requires { value.resources; })
+          return value.resources;
+        else
+          return empty;
+      },
+      spec);
+}
+std::string EventSpec::operation() const {
+  return std::visit(
+      [](const auto &value) -> std::string {
+        if constexpr (requires { value.operation; })
+          return value.operation;
+        else
+          return {};
+      },
+      spec);
+}
+ExecutionFlag EventSpec::execution_flag() const {
+  return std::visit(
+      [](const auto &value) {
+        if constexpr (requires { value.execution_flag; })
+          return value.execution_flag;
+        else
+          return ExecutionFlag::Always;
+      },
+      spec);
+}
 void Profile::validate() const {
   cpu.validate();
   tcu.validate();
@@ -43,43 +85,47 @@ void Profile::validate() const {
     unsigned acquisitions = 0, arms = 0;
     bool separate = false;
     for (const auto &a : map.actions) {
-      require(a.port < ports && (a.kind == ActionKind::GateOutput || !a.targets.empty()) &&
-                  a.duration > 0 && std::isfinite(a.amplitude),
+      require(a.port < ports && (a.kind() == ActionKind::GateOutput || !a.targets().empty()) &&
+                  a.duration > 0,
               ErrorCode::InvalidProfile, "invalid action descriptor");
-      if (a.kind == ActionKind::GateOutput) {
-        require(map.actions.size() == 1 && a.port == map.port && a.targets.empty() &&
-                    a.resources.empty() && a.operation.empty() && !a.separate_arm &&
-                    a.amplitude == 0 && a.execution_flag == ExecutionFlag::Always,
-                ErrorCode::InvalidProfile, "gate output must be one unconditional port action");
-        require(a.duration == gate(a.gate).duration, ErrorCode::InvalidProfile,
-                "gate output duration differs from gate duration");
-      } else {
-        require(a.gate.empty(), ErrorCode::InvalidProfile, "gate reference on non-output action");
+      if (a.kind() == ActionKind::GateOutput) {
+        require(map.actions.size() == 1 && a.port == map.port, ErrorCode::InvalidProfile,
+                "gate output must be one port action");
+        require(a.duration == gate(a.get<GateOutputSpec>().gate).duration,
+                ErrorCode::InvalidProfile, "gate output duration differs from gate duration");
       }
-      require(a.execution_flag >= ExecutionFlag::Always && a.execution_flag <= ExecutionFlag::Equal,
+      require(a.execution_flag() >= ExecutionFlag::Always &&
+                  a.execution_flag() <= ExecutionFlag::Equal,
               ErrorCode::InvalidProfile, "invalid execution flag");
-      require(a.execution_flag == ExecutionFlag::Always ||
-                  (a.targets.size() == 1 &&
-                   (a.kind == ActionKind::IdealGate || a.kind == ActionKind::Pulse)),
+      require(a.execution_flag() == ExecutionFlag::Always || a.targets().size() == 1,
               ErrorCode::InvalidProfile, "execution flags require a single-qubit gate or pulse");
       std::set<std::uint32_t> targets;
-      for (auto q : a.targets)
+      for (auto q : a.targets())
         require(q < qubits && targets.insert(q).second, ErrorCode::InvalidProfile,
                 "invalid target list");
       std::set<std::uint32_t> resources;
-      for (const auto &r : a.resources)
+      for (const auto &r : a.resources())
         require(resources.insert(r.id).second, ErrorCode::InvalidProfile,
                 "duplicate action resource");
-      if (a.kind == ActionKind::Acquire) {
+      if (a.kind() == ActionKind::Acquire) {
         ++acquisitions;
-        separate = a.separate_arm;
-        require(a.targets.size() == 1, ErrorCode::InvalidProfile,
+        separate = a.get<AcquireSpec>().separate_arm;
+        require(a.targets().size() == 1, ErrorCode::InvalidProfile,
                 "acquisition requires one target");
       }
-      if (a.kind == ActionKind::DiscriminatorArm)
+      if (a.kind() == ActionKind::DiscriminatorArm)
         ++arms;
-      if (a.kind == ActionKind::Pulse)
-        require(a.targets.size() == 1 && (a.axis == "x" || a.axis == "y" || a.axis == "z"),
+      std::visit(
+          [](const auto &value) {
+            if constexpr (requires { value.amplitude; })
+              require(std::isfinite(value.amplitude), ErrorCode::InvalidProfile,
+                      "nonfinite amplitude");
+          },
+          a.spec);
+      if (a.kind() == ActionKind::Pulse)
+        require(a.targets().size() == 1 &&
+                    (a.get<PulseSpec>().axis == "x" || a.get<PulseSpec>().axis == "y" ||
+                     a.get<PulseSpec>().axis == "z"),
                 ErrorCode::InvalidProfile, "unsupported pulse descriptor");
     }
     require(acquisitions <= 1 && arms == (separate ? 1U : 0U), ErrorCode::InvalidProfile,
@@ -87,11 +133,11 @@ void Profile::validate() const {
     if (separate) {
       const auto acquisition =
           std::find_if(map.actions.begin(), map.actions.end(),
-                       [](const EventSpec &a) { return a.kind == ActionKind::Acquire; });
+                       [](const EventSpec &a) { return a.kind() == ActionKind::Acquire; });
       const auto arm = std::find_if(map.actions.begin(), map.actions.end(), [](const EventSpec &a) {
-        return a.kind == ActionKind::DiscriminatorArm;
+        return a.kind() == ActionKind::DiscriminatorArm;
       });
-      require(acquisition->targets == arm->targets, ErrorCode::InvalidProfile,
+      require(acquisition->targets() == arm->targets(), ErrorCode::InvalidProfile,
               "acquisition and discriminator arm must address the same target");
     }
   }
@@ -123,13 +169,25 @@ std::string Profile::fingerprint() const {
   for (const auto &m : mappings) {
     text << " m " << m.port << ' ' << m.codeword;
     for (const auto &a : m.actions) {
-      text << " a " << static_cast<int>(a.kind) << ' ' << a.port << ' ' << std::quoted(a.operation)
-           << ' ' << a.delay << ' ' << a.duration << ' ' << a.discriminator_delay << ' '
-           << a.amplitude << ' ' << std::quoted(a.axis) << ' ' << a.separate_arm << ' '
-           << static_cast<int>(a.execution_flag) << ' ' << std::quoted(a.gate);
-      for (auto q : a.targets)
+      text << " a " << static_cast<int>(a.kind()) << ' ' << a.port << ' '
+           << std::quoted(a.operation()) << ' ' << a.delay << ' ' << a.duration;
+      std::visit(
+          [&](const auto &value) {
+            if constexpr (requires { value.amplitude; })
+              text << ' ' << value.amplitude;
+            if constexpr (requires { value.axis; })
+              text << ' ' << std::quoted(value.axis);
+            if constexpr (requires { value.execution_flag; })
+              text << ' ' << static_cast<int>(value.execution_flag);
+            if constexpr (requires { value.discriminator_delay; })
+              text << ' ' << value.discriminator_delay << ' ' << value.separate_arm;
+            if constexpr (requires { value.gate; })
+              text << ' ' << std::quoted(value.gate);
+          },
+          a.spec);
+      for (auto q : a.targets())
         text << " q " << q;
-      for (auto r : a.resources)
+      for (auto r : a.resources())
         text << " r " << r.id << ' ' << r.exclusive;
     }
   }
@@ -160,10 +218,10 @@ std::vector<OperationEvent> decode_codeword(const Profile &profile, std::uint32_
   std::vector<OperationEvent> events;
   for (const auto &action : map.actions) {
     const bool readout =
-        action.kind == ActionKind::Acquire || action.kind == ActionKind::DiscriminatorArm;
+        action.kind() == ActionKind::Acquire || action.kind() == ActionKind::DiscriminatorArm;
     require(!readout || reference.has_value(), ErrorCode::InvalidMeasurement,
             "readout has no reserved reference");
-    require(action.execution_flag == ExecutionFlag::Always || profile.fast_feedback,
+    require(action.execution_flag() == ExecutionFlag::Always || profile.fast_feedback,
             ErrorCode::UnsupportedCapability, "fast feedback is disabled");
     OperationEvent event{
         epoch,  checked_add(first_event, events.size()), instruction, 0, port, codeword,

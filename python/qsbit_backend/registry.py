@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import best_match
 
 from .catalog import builtins, obj
+from .protocol import API_VERSION
 
 
 def _load(target):
@@ -30,7 +31,7 @@ def descriptions():
 
 def describe(name):
     if name == "mock":
-        return {"api_version": 2, "options_schema": obj({}), "requirements": [],
+        return {"api_version": API_VERSION, "options_schema": obj({}), "requirements": [],
                 "capabilities": {"state_outputs": [], "measurement": "configured outcomes"}}
     catalog = descriptions()
     if name in catalog:
@@ -39,14 +40,12 @@ def describe(name):
         result = deepcopy(next(item for item in catalog.values() if item["factory"] == name))
     elif ":" in name:
         cls = _load(name)
-        describe_method = getattr(cls, "describe", None)
-        result = describe_method() if describe_method else {
-            "api_version": 2, "options_schema": obj({}), "requirements": [],
-            "legacy": True, "capabilities": {"description": "Adapter-defined operations."}}
-        result = dict(result, factory=name)
+        if not callable(getattr(cls, "describe", None)):
+            raise ValueError("backend requires callable describe")
+        result = dict(cls.describe(), factory=name)
     else:
         raise ValueError(f"unknown backend {name!r}; use --list-backends")
-    if result.get("api_version") != 2:
+    if result.get("api_version") != API_VERSION:
         raise ValueError(f"unsupported descriptor API for {name}")
     Draft202012Validator.check_schema(result["options_schema"])
     return result
@@ -115,7 +114,7 @@ def create(name, value):
     if absent:
         raise ValueError(f"{name}: missing {', '.join(absent)}; {desc.get('install', 'install adapter dependencies')}")
     cls = _load(desc["factory"])
-    backend = cls() if desc.get("legacy") else cls(resolved)
+    backend = cls(resolved)
     return backend, resolved
 
 

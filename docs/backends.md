@@ -125,7 +125,8 @@ Set the batch limit in the run configuration:
 ```
 
 The limit applies to every backend and defaults to 1024. Each evolution interval,
-gate and joint measurement counts as one operation. The value must be an integer
+gate application at one device boundary and joint measurement counts as one record.
+Gates starting together stay in one application record. The value must be an integer
 from 1 to 4294967295; 1 executes each operation immediately. The summary records
 the resolved setting. Reset discards pending operations and initializes the
 backend for the new epoch.
@@ -172,8 +173,8 @@ in the run configuration:
 }
 ```
 
-For a legacy adapter, the loader imports `Backend` from `my_adapter` and constructs
-it with no arguments. Legacy adapters accept only empty `backend_options`.
+The loader imports `Backend` from `my_adapter` and constructs it with validated
+`backend_options`.
 `python_path` is optional for an installed package. All configured paths resolve
 relative to the run file.
 
@@ -194,7 +195,7 @@ The function returns a descriptor with these fields:
 
 | Field | Meaning |
 | --- | --- |
-| `api_version` | Integer `2`. |
+| `api_version` | Integer `3`. |
 | `factory` | Implementation class as `module:Class`. |
 | `options_schema` | JSON Schema Draft 2020-12 for `backend_options`. |
 | `requirements` | Python distribution names used to report missing dependencies. |
@@ -211,7 +212,7 @@ cross-field constraints in the constructor and register-dependent constraints in
 `reset()`. Help and editor schemas use the same descriptor as runtime validation.
 The bundled [catalog](../python/qsbit_backend/catalog.py) contains examples.
 
-A direct `module:Class` adapter can expose the same descriptor through a static
+A direct `module:Class` adapter must expose the same descriptor through a static
 `describe()` method. Its module must be importable to inspect configuration.
 
 ## Python adapter methods
@@ -227,21 +228,23 @@ Implement these methods on the class selected by `module:Class`:
 | `density_matrix()` | Optional. Return rows of complex density-matrix entries. |
 | `transition_probabilities(operations)` | Optional. Return the next Z-measurement probability of one for initial states zero and one. Requires a single qubit, stationary memoryless evolution and ideal projective measurement. |
 
-Each operation has `tick`, `method` and positional `args`:
+Operation records are defined in [protocol.py](../python/qsbit_backend/protocol.py).
+Each record has `kind`, `tick` and fields specific to its kind:
 
-| Method | Arguments | Behavior |
+| Kind | Fields | Behavior |
 | --- | --- | --- |
-| `evolve` | `[start, end, drives]` | Evolve jointly under the active drives over this interval; `tick` equals `end`. |
-| `apply` | `[gates]` | Apply gates at `tick` in input order. |
-| `measure` | `[references]` | Measure targets jointly at `tick` and retain the collapsed state. |
+| `evolve` | `start`, `drives` | Evolve jointly under the active drives from `start` through `tick`. |
+| `apply` | `gates` | Apply gates at `tick` in input order. |
+| `measure` | `references` | Measure targets jointly at `tick` and retain the collapsed state. |
 
 Times are integer nanoseconds and never decrease within an epoch. A measurement
 can appear only at the end of a batch. Its references belong to the supplied
 epoch and name distinct targets. The simulator owns batch formation and bounds
 each batch by `backend_execution.max_batch_operations`.
 
-Event dictionaries contain `kind`, `operation`, `targets`, `port`, `amplitude`
-and `axis`. Measurement dictionaries contain `epoch`, `measurement` and `target`.
+Gate dictionaries contain `kind`, `operation`, `targets` and `amplitude`.
+Drives also contain `port` and `axis`. Measurement references contain
+`epoch`, `measurement` and `target`.
 Qubit 0 is the least significant statevector bit: basis index 1 represents
 qubit 0 set to one and all other qubits set to zero.
 Density matrices use the same basis order. Missing inspection methods produce no
@@ -250,7 +253,7 @@ empty `statevector` array when unavailable and adds `density_matrix` when suppli
 each complex value is encoded as `[real, imaginary]`.
 The simulator executes pending operations before state inspection, including
 the final evolution through the simulation stop tick.
-Transition operations use the same format with `evolve` and `apply` methods.
+Transition operations use the same format with `evolve` and `apply` kinds.
 Evolution intervals use nanoseconds relative to zero. Transition calculation returns
 probabilities without sampling a measurement.
 

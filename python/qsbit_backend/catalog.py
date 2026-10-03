@@ -1,5 +1,6 @@
 """Backend descriptions without imports of numerical packages."""
 
+from .protocol import API_VERSION
 
 def obj(properties, required=()):
     return {"type": "object", "properties": properties,
@@ -31,7 +32,7 @@ GATES = ["id", "x", "y", "z", "h", "s", "sdg", "t", "tdg", "rx", "ry", "rz",
 
 
 def descriptor(factory, extra, requirements, schema, capabilities):
-    return {"api_version": 2, "factory": factory,
+    return {"api_version": API_VERSION, "factory": factory,
             "install": f"python -m pip install 'qsbit-sim-backends[{extra}]'",
             "requirements": requirements, "options_schema": schema,
             "capabilities": capabilities}

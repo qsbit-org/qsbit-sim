@@ -49,7 +49,7 @@ for limit in (1, 3, 1024):
     assert all(0 < len(batch["operations"]) <= limit for batch in batches)
     operations = [operation for batch in batches for operation in batch["operations"]]
     for batch in batches:
-        assert all(op["method"] != "measure" for op in batch["operations"][:-1])
+        assert all(op["kind"] != "measure" for op in batch["operations"][:-1])
     assert operations[-1]["tick"] == summary["stop_tick"]
     events = [json.loads(line) for line in (out / "trace.jsonl").read_text().splitlines()]
     timing = [(event["tick"], event["kind"], event["id"], event["value"])

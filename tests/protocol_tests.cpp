@@ -87,13 +87,15 @@ void resources_test() {
 void readout_test() {
   auto p = default_profile();
   auto &map = p.mappings[3];
-  CHECK(map.actions[0].kind == ActionKind::Acquire);
-  map.actions[0].separate_arm = true;
-  map.actions[0].discriminator_delay = 0;
+  CHECK(map.actions[0].kind() == ActionKind::Acquire);
+  map.actions[0].get<AcquireSpec>().separate_arm = true;
+  map.actions[0].get<AcquireSpec>().discriminator_delay = 0;
   EventSpec arm = map.actions[0];
-  arm.kind = ActionKind::DiscriminatorArm;
+  ArmSpec specification;
+  static_cast<QuantumSpec &>(specification) = arm.get<AcquireSpec>();
+  arm.spec = specification;
   arm.port = 2;
-  arm.resources = {{20, true}};
+  arm.get<ArmSpec>().resources = {{20, true}};
   arm.delay = 80;
   arm.duration = 1;
   map.actions.push_back(arm);
@@ -126,13 +128,13 @@ void readout_test() {
     if (e.kind == "MeasurementSampled" || e.kind == "ResultReady")
       times.push_back(e.tick);
   CHECK(times == std::vector<Tick>({140, 180}));
-  p.mappings[3].actions.back().targets = {1};
+  p.mappings[3].actions.back().get<ArmSpec>().targets = {1};
   faults(ErrorCode::InvalidProfile, [&] { p.validate(); });
 }
 void overflow_test() {
   auto p = default_profile();
   p.mappings[3].actions[0].duration = 1;
-  p.mappings[3].actions[0].discriminator_delay = 10;
+  p.mappings[3].actions[0].get<AcquireSpec>().discriminator_delay = 10;
   MockBackend backend;
   Trace trace;
   ControlElectronics device(p, backend, trace);

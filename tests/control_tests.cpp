@@ -14,12 +14,12 @@ Profile profile() {
   p.event_capacity = 1;
   EventSpec a;
   a.port = 0;
-  a.targets = {0};
-  a.resources = {{0, true}};
+  a.get<GateSpec>().targets = {0};
+  a.get<GateSpec>().resources = {{0, true}};
   EventSpec b = a;
   b.port = 1;
-  b.targets = {1};
-  b.resources = {{1, true}};
+  b.get<GateSpec>().targets = {1};
+  b.get<GateSpec>().resources = {{1, true}};
   p.mappings = {{0, 1, {a}}, {1, 1, {b}}};
   p.validate();
   return p;
@@ -131,7 +131,7 @@ void registers_test() {
 }
 void fast_test() {
   auto p = profile();
-  p.mappings[0].actions[0].execution_flag = ExecutionFlag::LastOne;
+  p.mappings[0].actions[0].get<GateSpec>().execution_flag = ExecutionFlag::LastOne;
   Trace trace;
   TcuCycleModel tcu(p, trace);
   MeasurementRegisters registers(p);
@@ -168,14 +168,15 @@ void mapping_test() {
   bad.mappings.push_back(bad.mappings[0]);
   faults(ErrorCode::InvalidProfile, [&] { bad.validate(); });
   const auto unconditional = p.fingerprint();
-  p.mappings[0].actions[0].execution_flag = ExecutionFlag::LastOne;
+  p.mappings[0].actions[0].get<GateSpec>().execution_flag = ExecutionFlag::LastOne;
   p.validate();
   CHECK(p.fingerprint() != unconditional);
   auto two_qubit = p;
-  two_qubit.mappings[0].actions[0].targets = {0, 1};
+  two_qubit.mappings[0].actions[0].get<GateSpec>().targets = {0, 1};
   faults(ErrorCode::InvalidProfile, [&] { two_qubit.validate(); });
   auto invalid_flag = p;
-  invalid_flag.mappings[0].actions[0].execution_flag = static_cast<ExecutionFlag>(4);
+  invalid_flag.mappings[0].actions[0].get<GateSpec>().execution_flag =
+      static_cast<ExecutionFlag>(4);
   faults(ErrorCode::InvalidProfile, [&] { invalid_flag.validate(); });
 }
 int main(int argc, char **argv) {

@@ -22,7 +22,6 @@ struct PythonBackendConfig {
 };
 class PythonBackend final : public IQuantumBackend {
 public:
-  PythonBackend(const std::string &module, const std::string &class_name);
   explicit PythonBackend(const PythonBackendConfig &config);
   static std::string inspect(const std::string &name, const std::string &command);
   static void run_simulation(const std::string &config, const std::string &executable,

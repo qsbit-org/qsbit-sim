@@ -174,15 +174,21 @@ See [backend execution](backends.md#backend-execution) for batch limits and rese
 
 Source: [include/qsbit/backend.hpp](../include/qsbit/backend.hpp).
 
-<!-- source: {"path": "include/qsbit/backend.hpp", "start": "struct BackendOperation {", "end": "class BackendExecution {"} -->
+<!-- source: {"path": "include/qsbit/backend.hpp", "start": "struct BackendEvolution {", "end": "class BackendExecution {"} -->
 ```cpp
-struct BackendOperation {
-  enum class Kind { Evolve, Apply, Measure };
-  Kind kind;
-  Tick from = 0, tick = 0;
-  std::vector<EventSpec> actions;
+struct BackendEvolution {
+  Tick start, tick;
+  std::vector<EventSpec> drives;
+};
+struct BackendGates {
+  Tick tick;
+  std::vector<EventSpec> gates;
+};
+struct BackendMeasurement {
+  Tick tick;
   std::vector<MeasurementReference> references;
 };
+using BackendOperation = std::variant<BackendEvolution, BackendGates, BackendMeasurement>;
 struct BackendExecutionConfig {
   std::uint32_t max_batch_operations = 1024;
 };

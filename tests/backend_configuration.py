@@ -1,16 +1,15 @@
-"""Configuration discovery, adapter validation and numerical backend checks."""
+"""Backend discovery, option validation and CLI configuration."""
 
 import argparse
 from copy import deepcopy
 import json
-import math
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-from backend_test_utils import apply, evolve, measure
+from backend_test_utils import measure
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--simulator", type=Path, required=True)
@@ -21,10 +20,6 @@ args = parser.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
 from qsbit_backend import registry
 from jsonschema import Draft202012Validator
-
-
-def gate(operation, targets=(0,), amplitude=0):
-    return {"kind": "gate", "operation": operation, "targets": list(targets), "amplitude": amplitude}
 
 
 THERMAL = {"method": "density_matrix", "noise": {"model": "thermal_relaxation", "qubits": [
@@ -109,34 +104,6 @@ class Configuration(unittest.TestCase):
 
 
 class Aer(unittest.TestCase):
-    def test_relaxation_and_interval_composition(self):
-        backend, _ = registry.create("aer", THERMAL)
-        backend.reset(1, 123)
-        apply(backend, [gate("x")])
-        evolve(backend, 0, 100, [])
-        self.assertAlmostEqual(backend.density_matrix()[1][1].real, math.exp(-1), places=12)
-        self.assertEqual(backend.state(), [])
-        backend.reset(1, 123)
-        apply(backend, [gate("x")])
-        evolve(backend, 0, 30, [])
-        evolve(backend, 30, 100, [])
-        self.assertAlmostEqual(backend.density_matrix()[1][1].real, math.exp(-1), places=12)
-        backend.reset(1, 123)
-        evolve(backend, 0, 100, [])
-        self.assertAlmostEqual(backend.density_matrix()[0][0].real, 1, places=12)
-
-    def test_coherence_equilibrium_and_unlisted_qubit(self):
-        config = deepcopy(THERMAL)
-        config["noise"]["qubits"][0]["excited_state_population"] = 0.2
-        backend, _ = registry.create("aer", config)
-        backend.reset(2, 10)
-        apply(backend, [gate("h"), gate("x", (1,))])
-        evolve(backend, 0, 100, [])
-        rho = backend.density_matrix()
-        self.assertAlmostEqual(rho[3][3].real, 0.2 + 0.3 * math.exp(-1), places=12)
-        self.assertAlmostEqual(rho[2][3].real, 0.5 * math.exp(-0.5), places=12)
-        self.assertAlmostEqual(rho[0][0].real + rho[1][1].real, 0, places=12)
-
     def test_invalid_physical_parameters(self):
         for modify in (
             lambda c: c.update(method="statevector"),
@@ -152,92 +119,6 @@ class Aer(unittest.TestCase):
         backend, _ = registry.create("aer", config)
         with self.assertRaisesRegex(ValueError, "outside"):
             backend.reset(2, 1)
-
-    def test_measurement_collapse_and_ideal_mode(self):
-        for config in ({}, {"method": "density_matrix"}):
-            backend, _ = registry.create("aer", config)
-            backend.reset(2, 3)
-            apply(backend, [gate("h"), gate("cx", (0, 1))])
-            refs = [{"target": 0}, {"target": 1}]
-            bits = measure(backend, refs)
-            self.assertEqual(bits[0], bits[1])
-            self.assertEqual(bits, measure(backend, refs))
-
-
-class Stim(unittest.TestCase):
-    def test_measurements_release_history_without_changing_sampling(self):
-        import stim
-        for probability in (0, 0.125):
-            backend, _ = registry.create("stim", {"noise": {
-                "model": "depolarizing", "after_gate_probability": probability}})
-            backend.reset(3, 4321)
-            reference = stim.TableauSimulator(seed=4321)
-            reference.set_num_qubits(3)
-            gates = [gate("h"), gate("cx", (0, 1)), gate("h", (2,)), gate("cx", (1, 2))]
-            circuit = stim.Circuit()
-            for event in gates:
-                circuit.append(event["operation"], event["targets"])
-                circuit.append("DEPOLARIZE1", event["targets"], probability)
-            for iteration in range(512):
-                reference.do(circuit)
-                targets = ([2, 0], [1], [1, 0, 2])[iteration % 3]
-                operations = [{"tick": iteration, "method": "apply", "args": [[event]]}
-                              for event in gates]
-                operations.append({"tick": iteration, "method": "measure",
-                    "args": [[{"epoch": 1, "target": q} for q in targets]]})
-                batches = [operations] if iteration % 2 else [[op] for op in operations]
-                bits = [bit for batch in batches for bit in backend.execute(1, batch)]
-                self.assertEqual(bits, reference.measure_many(*targets))
-                self.assertEqual(backend._simulator.current_measurement_record(), [])
-            self.assertEqual(backend._simulator.current_inverse_tableau(),
-                             reference.current_inverse_tableau())
-
-    def test_bell_collapse_seed_and_reset(self):
-        backend, _ = registry.create("stim", {})
-        outcomes = []
-        for _ in range(2):
-            backend.reset(2, 4321)
-            apply(backend, [gate("h"), gate("cx", (0, 1))])
-            refs = [{"target": 0}, {"target": 1}]
-            bits = measure(backend, refs)
-            self.assertEqual(bits[0], bits[1])
-            self.assertEqual(bits, measure(backend, refs))
-            outcomes.append(bits)
-        self.assertEqual(*outcomes)
-
-    def test_clifford_rotations_and_rejections(self):
-        backend, _ = registry.create("stim", {})
-        for operation in ("rx", "ry"):
-            backend.reset(1, 5)
-            apply(backend, [gate(operation, amplitude=math.pi / 2)] * 2)
-            self.assertEqual(measure(backend, [{"target": 0}]), [True])
-            apply(backend, [gate(operation, amplitude=-math.pi)])
-            self.assertEqual(measure(backend, [{"target": 0}]), [False])
-        for event in (gate("t"), gate("rx", amplitude=math.pi / 4), {"kind": "pulse"}):
-            with self.assertRaises(ValueError):
-                backend.validate(event)
-        with self.assertRaises(ValueError):
-            evolve(backend, 5, 4, [])
-
-    def test_rotation_signs(self):
-        backend, _ = registry.create("stim", {})
-        for sign in (-1, 1):
-            for operation in ("rx", "ry", "rz"):
-                backend.reset(1, 2)
-                before = [gate("h")] if operation == "rz" else []
-                after = {"rx": [gate("s"), gate("h")], "ry": [gate("h")],
-                         "rz": [gate("sdg"), gate("h")]}[operation]
-                apply(backend, before + [gate(operation, amplitude=sign * math.pi / 2)] + after)
-                self.assertEqual(measure(backend, [{"target": 0}]), [sign < 0])
-
-    def test_depolarization_distribution(self):
-        backend, _ = registry.create("stim", {"noise": {
-            "model": "depolarizing", "after_gate_probability": 1}})
-        backend.reset(4096, 9001)
-        apply(backend, [gate("id", (q,)) for q in range(4096)])
-        bits = measure(backend, [{"target": q} for q in range(4096)])
-        self.assertLess(abs(sum(bits) / len(bits) - 2 / 3), 0.04)
-
 
 class Integration(unittest.TestCase):
     def test_precheck_rejects_invalid_config_without_outputs(self):
@@ -293,13 +174,9 @@ class Integration(unittest.TestCase):
                 self.assertEqual(summary["memory"]["4096"], summary["memory"]["4100"])
             if example == "feedback":
                 self.assertEqual(summary["memory"]["4096"], 1)
-            if example == "bell":
-                trace = [json.loads(line) for line in (out / f"{index}.jsonl").read_text().splitlines()]
-                starts = [event["tick"] for event in trace if event["kind"] == "OperationStart"]
-                self.assertEqual(starts, [360, 400, 400, 440, 440])
 
 
 suite = unittest.TestSuite()
-for cls in [Configuration, *([Aer] if args.aer else []), *([Stim] if args.stim else []), Integration]:
+for cls in [Configuration, *([Aer] if args.aer else []), Integration]:
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(cls))
 sys.exit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

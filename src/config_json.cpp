@@ -182,45 +182,76 @@ void apply_profile(Profile &p, const Json &input) {
       integer(mapping, "codeword", map.codeword);
       require(mapping["actions"].is_array(), ErrorCode::InvalidProfile, "actions must be an array");
       for (const auto &spec : mapping["actions"]) {
-        keys(spec, {"kind", "port", "operation", "targets", "resources", "delay", "duration",
-                    "discriminator_delay", "amplitude", "axis", "separate_arm", "execution_flag",
-                    "gate"});
+        require(spec.is_object(), ErrorCode::InvalidProfile, "action must be an object");
         EventSpec action;
         action.port = map.port;
-        action.kind = kind_value(spec.value("kind", std::string("gate")));
-        action.gate = spec.value("gate", std::string{});
-        action.operation = spec.value(
-            "operation", action.kind == ActionKind::GateOutput ? std::string{} : std::string("x"));
-        if (action.kind == ActionKind::GateOutput)
-          action.duration = p.gate(action.gate).duration;
-        action.axis = spec.value("axis", std::string("x"));
-        action.amplitude = spec.value("amplitude", 0.0);
-        action.separate_arm = spec.value("separate_arm", false);
-        action.execution_flag = flag_value(spec.value("execution_flag", std::string("always")));
+        const auto kind = kind_value(spec.value("kind", std::string("gate")));
+        switch (kind) {
+        case ActionKind::IdealGate:
+          keys(spec, {"kind", "port", "delay", "duration", "operation", "targets", "resources",
+                      "amplitude", "execution_flag"});
+          action.spec = GateSpec{};
+          break;
+        case ActionKind::Pulse:
+          keys(spec, {"kind", "port", "delay", "duration", "operation", "targets", "resources",
+                      "amplitude", "axis", "execution_flag"});
+          action.spec = PulseSpec{};
+          break;
+        case ActionKind::Acquire:
+          keys(spec, {"kind", "port", "delay", "duration", "operation", "targets", "resources",
+                      "discriminator_delay", "separate_arm"});
+          action.spec = AcquireSpec{};
+          break;
+        case ActionKind::DiscriminatorArm:
+          keys(spec, {"kind", "port", "delay", "duration", "operation", "targets", "resources"});
+          action.spec = ArmSpec{};
+          break;
+        case ActionKind::GateOutput:
+          keys(spec, {"kind", "port", "delay", "duration", "gate"});
+          action.spec = GateOutputSpec{spec.value("gate", std::string{})};
+          action.duration = p.gate(action.get<GateOutputSpec>().gate).duration;
+          break;
+        }
         integer(spec, "port", action.port);
         integer(spec, "delay", action.delay);
         integer(spec, "duration", action.duration);
-        integer(spec, "discriminator_delay", action.discriminator_delay);
-        require((action.kind == ActionKind::GateOutput && !spec.contains("targets")) ||
-                    (spec.contains("targets") && spec["targets"].is_array()),
-                ErrorCode::InvalidProfile, "action targets are required");
-        for (const auto &value : spec.value("targets", Json::array())) {
-          std::uint32_t target = 0;
-          integer(Json{{"target", value}}, "target", target);
-          action.targets.push_back(target);
-        }
-        if (spec.contains("resources")) {
-          require(spec["resources"].is_array(), ErrorCode::InvalidProfile,
-                  "resources must be an array");
-          for (const auto &value : spec["resources"]) {
-            keys(value, {"id", "exclusive"});
-            require(value.contains("id"), ErrorCode::InvalidProfile, "resource ID missing");
-            ResourceUse resource;
-            integer(value, "id", resource.id);
-            resource.exclusive = value.value("exclusive", true);
-            action.resources.push_back(resource);
-          }
-        }
+        std::visit(
+            [&](auto &value) {
+              if constexpr (requires { value.targets; }) {
+                value.operation = spec.value("operation", std::string("x"));
+                require(spec.contains("targets") && spec["targets"].is_array(),
+                        ErrorCode::InvalidProfile, "action targets are required");
+                for (const auto &entry : spec["targets"]) {
+                  std::uint32_t target = 0;
+                  integer(Json{{"target", entry}}, "target", target);
+                  value.targets.push_back(target);
+                }
+                if (spec.contains("resources")) {
+                  require(spec["resources"].is_array(), ErrorCode::InvalidProfile,
+                          "resources must be an array");
+                  for (const auto &entry : spec["resources"]) {
+                    keys(entry, {"id", "exclusive"});
+                    require(entry.contains("id"), ErrorCode::InvalidProfile, "resource ID missing");
+                    ResourceUse resource;
+                    integer(entry, "id", resource.id);
+                    resource.exclusive = entry.value("exclusive", true);
+                    value.resources.push_back(resource);
+                  }
+                }
+              }
+              if constexpr (requires { value.amplitude; })
+                value.amplitude = spec.value("amplitude", 0.0);
+              if constexpr (requires { value.axis; })
+                value.axis = spec.value("axis", std::string("x"));
+              if constexpr (requires { value.execution_flag; })
+                value.execution_flag =
+                    flag_value(spec.value("execution_flag", std::string("always")));
+              if constexpr (requires { value.discriminator_delay; }) {
+                integer(spec, "discriminator_delay", value.discriminator_delay);
+                value.separate_arm = spec.value("separate_arm", false);
+              }
+            },
+            action.spec);
         map.actions.push_back(std::move(action));
       }
       p.mappings.push_back(std::move(map));
@@ -266,22 +297,34 @@ Json profile_json(const Profile &p) {
   for (const auto &mapping : p.mappings) {
     Json map{{"port", mapping.port}, {"codeword", mapping.codeword}, {"actions", Json::array()}};
     for (const auto &action : mapping.actions) {
-      Json spec{{"kind", kind_name(action.kind)},
+      Json spec{{"kind", kind_name(action.kind())},
                 {"port", action.port},
-                {"operation", action.operation},
-                {"targets", action.targets},
                 {"delay", action.delay},
-                {"duration", action.duration},
-                {"discriminator_delay", action.discriminator_delay},
-                {"amplitude", action.amplitude},
-                {"axis", action.axis},
-                {"separate_arm", action.separate_arm},
-                {"execution_flag", flag_name(action.execution_flag)},
-                {"resources", Json::array()}};
-      if (!action.gate.empty())
-        spec["gate"] = action.gate;
-      for (const auto &r : action.resources)
-        spec["resources"].push_back({{"id", r.id}, {"exclusive", r.exclusive}});
+                {"duration", action.duration}};
+      std::visit(
+          [&](const auto &value) {
+            if constexpr (requires { value.targets; }) {
+              spec["operation"] = value.operation;
+              spec["targets"] = value.targets;
+              spec["resources"] = Json::array();
+              for (const auto &resource : value.resources)
+                spec["resources"].push_back(
+                    {{"id", resource.id}, {"exclusive", resource.exclusive}});
+            }
+            if constexpr (requires { value.amplitude; })
+              spec["amplitude"] = value.amplitude;
+            if constexpr (requires { value.axis; })
+              spec["axis"] = value.axis;
+            if constexpr (requires { value.execution_flag; })
+              spec["execution_flag"] = flag_name(value.execution_flag);
+            if constexpr (requires { value.discriminator_delay; }) {
+              spec["discriminator_delay"] = value.discriminator_delay;
+              spec["separate_arm"] = value.separate_arm;
+            }
+            if constexpr (requires { value.gate; })
+              spec["gate"] = value.gate;
+          },
+          action.spec);
       map["actions"].push_back(std::move(spec));
     }
     j["mappings"].push_back(std::move(map));

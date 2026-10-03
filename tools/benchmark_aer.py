@@ -37,7 +37,7 @@ def main():
         target = (index // 3) % args.qubits
         targets = [target, (target + 1) % args.qubits] if operation == "cx" else [target]
         operations.append({"kind": "gate", "operation": operation, "targets": targets, "amplitude": 0})
-    references = [{"epoch": 1, "target": q} for q in range(args.qubits)]
+    references = [{"epoch": 1, "measurement": q, "target": q} for q in range(args.qubits)]
     segments = []
     interval = args.measure_every or args.operations
     for begin in range(0, args.operations, interval):
@@ -45,9 +45,9 @@ def main():
         segment = []
         for tick in range(begin, end):
             segment.extend([
-                {"tick": tick + 1, "method": "evolve", "args": [tick, tick + 1, []]},
-                {"tick": tick + 1, "method": "apply", "args": [[operations[tick]]]}])
-        segment.append({"tick": end, "method": "measure", "args": [references]})
+                {"tick": tick + 1, "kind": "evolve", "start": tick, "drives": []},
+                {"tick": tick + 1, "kind": "apply", "gates": [operations[tick]]}])
+        segment.append({"tick": end, "kind": "measure", "references": references})
         segments.append(segment)
     records = []
     expected = None
@@ -56,11 +56,11 @@ def main():
                    for begin in range(0, len(segment), size)]
         backend = AerBackend(options)
         backend.reset(args.qubits, 1)
-        backend.execute(1, [{"tick": 0, "method": "apply", "args": [operations[:1]]}])
+        backend.execute(1, [{"tick": 0, "kind": "apply", "gates": operations[:1]}])
         backend.state()
         backend.density_matrix()
         elapsed, job_counts = [], []
-        original_run = backend._simulator.run
+        original_run = backend.executor.simulator.run
         for _ in range(args.repeats):
             backend.reset(args.qubits, 123)
             jobs = 0
@@ -71,7 +71,7 @@ def main():
                 return original_run(*positional, **keywords)
 
             bits = []
-            with patch.object(backend._simulator, "run", counted_run):
+            with patch.object(backend.executor.simulator, "run", counted_run):
                 start = time.perf_counter()
                 for batch in batches:
                     bits.extend(backend.execute(1, batch))

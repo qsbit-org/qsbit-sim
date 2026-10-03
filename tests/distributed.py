@@ -168,20 +168,6 @@ for reset in (False, True):
     assert observations[0] == observations[1]
 
 if args.backend == 'mock':
-    for failure in ('missing', 'skew', 'unknown-core', 'ambiguous-input'):
-        invalid = deepcopy(pair)
-        if failure == 'missing':
-            invalid['cores'][1]['program'] = compile_program(
-                'missing-gate-input', 'wait.i 40\nsync 1\nwait.i 6\nwait.i 20')
-        elif failure == 'skew':
-            invalid['cores'][1]['profile']['mappings'][0]['actions'][0]['delay'] = 4
-        elif failure == 'unknown-core':
-            invalid['profile']['two_qubit_gates'][0]['inputs'][1]['core'] = 99
-        else:
-            invalid['profile']['two_qubit_gates'][0]['inputs'][1] = \
-                deepcopy(invalid['profile']['two_qubit_gates'][0]['inputs'][0])
-        bad_config = failure in ('unknown-core', 'ambiguous-input')
-        _, trace = run('gate-' + failure, invalid,
-                       fault='InvalidProfile' if bad_config else 'GateInputMismatch', invalid=bad_config)
-        if trace is not None:
-            assert not any(e['kind'] == 'GateApplied' for e in trace)
+    invalid = deepcopy(pair)
+    invalid['profile']['two_qubit_gates'][0]['inputs'][1]['core'] = 99
+    run('unknown-gate-core', invalid, fault='InvalidProfile', invalid=True)

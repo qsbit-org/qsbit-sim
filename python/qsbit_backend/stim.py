@@ -4,7 +4,7 @@ import math
 import stim
 
 from .registry import options as validate_options
-from .batch import validate_batch
+from .protocol import validate_batch
 
 
 class StimBackend:
@@ -44,15 +44,15 @@ class StimBackend:
                 raise ValueError("Stim rotations require integer multiples of pi/2")
 
     def execute(self, epoch, operations):
-        validate_batch(self, epoch, operations)
+        validate_batch(epoch, operations, self._qubits, self.validate)
         circuit = stim.Circuit()
         noise = self.options["noise"]
         references = []
         for item in operations:
-            if item["method"] == "measure":
-                references = item["args"][0]
-            elif item["method"] == "apply":
-                for gate in item["args"][0]:
+            if item["kind"] == "measure":
+                references = item["references"]
+            elif item["kind"] == "apply":
+                for gate in item["gates"]:
                     operation, targets = gate["operation"], gate["targets"]
                     if operation in self._rotations:
                         for _ in range(round(gate["amplitude"] / (math.pi / 2)) % 4):

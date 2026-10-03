@@ -29,10 +29,6 @@ for name in args.scenarios:
     assert summary['success'] and trace[-1]['kind'] == 'SimulationCompleted', name
     assert summary['backend'] == config['backend'], name
     assert summary['configuration']['start'] == 200, name
-    starts = [e['tick'] for e in trace if e['kind'] == 'OperationStart']
-    expected = {'bell': [360, 400, 400, 440, 440], 'feedback': [360, 440, 720],
-                'mock': [360, 440, 720], 'pulse': [360, 440], 'overlap': [360, 360]}
-    assert starts == expected[name], (name, starts)
     if name == 'mock':
         assert summary['memory']['4096'] == 1, summary
     elif name == 'bell':

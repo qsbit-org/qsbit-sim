@@ -55,7 +55,7 @@ Sampled waveforms and oscillator-register operations are unsupported.
 | --- | --- | --- |
 | `Mapping::port and codeword` | lookup key | Source control port and digital codeword. |
 | `Mapping::actions` | `vector<EventSpec>` | IdealGate, Pulse, Acquire, DiscriminatorArm or GateOutput descriptors. |
-| `EventSpec` | event specification | Physical port, targets, resources, timing, and readout and pulse parameters. |
+| `EventSpec` | port and timing with a typed payload | Holds one of `GateSpec`, `PulseSpec`, `AcquireSpec`, `ArmSpec` or `GateOutputSpec`. |
 
 [C++ API](../api.md#controlhpp).
 
@@ -72,8 +72,9 @@ simulator to change these definitions.
 
 Source: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
 
-**CTest:** `control.mapping`, `protocol.readout`.
+**CTest:** `config.profile`, `control.mapping`, `protocol.readout`.
 
 The tests reject unknown port and codeword pairs, duplicate mappings and
 incompatible acquisition and arm targets. They also check that changing a mapping
-changes the profile fingerprint.
+changes the profile fingerprint. `config.profile` checks JSON round trips and
+rejects fields belonging to another event kind.

@@ -82,8 +82,6 @@ loading and unchanged event timing across batch limits with an external adapter.
 Optional `numerical.final_state` checks thermal relaxation through the stop tick
 after the last device event.
 Optional `python.backend_configuration` checks discovery, schema validation and
-CLI precheck. With `QSBIT_TEST_AER` or `QSBIT_TEST_STIM`, it also checks numerical
-noise behavior, measurement collapse and full-program execution.
-Optional `python.aer_batches` checks gate and noise order, joint measurements,
-measurement seeds and batch validation against numerical expectations.
-With `QSBIT_TEST_PULSE`, it also checks gates interleaved with pulse integration.
+CLI precheck and backend selection in full-program execution.
+Optional `python.backend_semantics` checks numerical evolution, noise,
+measurement collapse, batch partitioning and validation for each enabled backend.

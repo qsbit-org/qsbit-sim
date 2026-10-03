@@ -14,8 +14,9 @@ void BackendExecution::reset(std::uint32_t qubits, std::uint32_t seed, Epoch epo
   backend_.reset(qubits, seed);
 }
 void BackendExecution::commit(BackendOperation operation) {
-  require(operation.tick >= committed_tick_, ErrorCode::Protocol, "backend time decreased");
-  committed_tick_ = operation.tick;
+  const auto tick = std::visit([](const auto &value) { return value.tick; }, operation);
+  require(tick >= committed_tick_, ErrorCode::Protocol, "backend time decreased");
+  committed_tick_ = tick;
   pending_.push_back(std::move(operation));
   if (pending_.size() == config_.max_batch_operations)
     flush();
@@ -24,13 +25,13 @@ void BackendExecution::evolve(Tick from, Tick to, std::span<const EventSpec> dri
   require(from == committed_tick_ && to >= from, ErrorCode::Protocol,
           "backend evolution must cover the next time interval");
   if (to > from)
-    commit({BackendOperation::Kind::Evolve, from, to, {drives.begin(), drives.end()}, {}});
+    commit(BackendEvolution{from, to, {drives.begin(), drives.end()}});
 }
 void BackendExecution::apply(Tick now, std::span<const EventSpec> gates) {
   for (const auto &gate : gates)
     validate(gate);
-  for (const auto &gate : gates)
-    commit({BackendOperation::Kind::Apply, now, now, {gate}, {}});
+  if (!gates.empty())
+    commit(BackendGates{now, {gates.begin(), gates.end()}});
 }
 std::vector<bool> BackendExecution::measure(Tick now,
                                             std::span<const MeasurementReference> references) {
@@ -42,15 +43,21 @@ std::vector<bool> BackendExecution::measure(Tick now,
     require(reference.epoch == epoch_ && targets.insert(reference.target).second,
             ErrorCode::Protocol, "invalid measurement epoch or duplicate target");
   committed_tick_ = now;
-  pending_.push_back(
-      {BackendOperation::Kind::Measure, now, now, {}, {references.begin(), references.end()}});
+  pending_.push_back(BackendMeasurement{now, {references.begin(), references.end()}});
   return execute(references.size());
 }
 std::vector<bool> BackendExecution::execute(std::size_t expected_results) {
   if (pending_.empty())
     return {};
-  const auto first = pending_.front().from;
-  const auto last = pending_.back().tick;
+  const auto first = std::visit(
+      [](const auto &value) {
+        if constexpr (requires { value.start; })
+          return value.start;
+        else
+          return value.tick;
+      },
+      pending_.front());
+  const auto last = std::visit([](const auto &value) { return value.tick; }, pending_.back());
   try {
     auto results = backend_.execute(epoch_, pending_);
     require(results.size() == expected_results, ErrorCode::BackendFailure,
@@ -74,7 +81,7 @@ std::vector<std::vector<std::complex<double>>> BackendExecution::density_matrix(
   return backend_.density_matrix();
 }
 void MockBackend::validate(const EventSpec &action) const {
-  require(!action.targets.empty(), ErrorCode::UnsupportedCapability, "empty target list");
+  require(!action.targets().empty(), ErrorCode::UnsupportedCapability, "empty target list");
 }
 void MockBackend::reset(std::uint32_t qubits, std::uint32_t) {
   qubits_ = qubits;
@@ -83,16 +90,13 @@ void MockBackend::reset(std::uint32_t qubits, std::uint32_t) {
 std::vector<bool> MockBackend::execute(Epoch epoch, std::span<const BackendOperation> operations) {
   std::vector<bool> values;
   for (const auto &operation : operations) {
-    require(operation.tick >= operation.from, ErrorCode::BackendFailure, "backend time decreased");
-    for (const auto &action : operation.actions)
-      for (auto target : action.targets)
-        require(target < qubits_, ErrorCode::BackendFailure, "invalid backend target");
-    for (const auto &reference : operation.references) {
-      require(reference.epoch == epoch && reference.target < qubits_, ErrorCode::BackendFailure,
-              "invalid measurement reference");
-      const auto it = outcomes_.find(reference.measurement);
-      values.push_back(it != outcomes_.end() && it->second);
-    }
+    if (const auto *measurement = std::get_if<BackendMeasurement>(&operation))
+      for (const auto &reference : measurement->references) {
+        require(reference.epoch == epoch && reference.target < qubits_, ErrorCode::BackendFailure,
+                "invalid measurement reference");
+        const auto it = outcomes_.find(reference.measurement);
+        values.push_back(it != outcomes_.end() && it->second);
+      }
   }
   ++calls_;
   return values;

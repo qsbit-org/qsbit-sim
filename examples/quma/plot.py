@@ -23,7 +23,7 @@ def check_control(trace, calls, start):
         assert event["tick"] == start + trial * 200040 + 200000 + operation * 20
         expected = "measure" if operation == 2 else operations[PAIRS[(trial % 42) // 2][operation]]
         assert event["operation"] == expected and event["targets"] == [0]
-    gates = [gate for call in calls if call["method"] == "apply" for gate in call["args"][0]]
+    gates = [gate for call in calls if call["kind"] == "apply" for gate in call["gates"]]
     for index, gate in enumerate(gates):
         trial, position = divmod(index, 2)
         symbol = PAIRS[(trial % 42) // 2][position]

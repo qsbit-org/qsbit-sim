@@ -110,10 +110,10 @@ std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &ope
   std::optional<std::uint32_t> measurement_target;
   for (const auto &action : map.actions) {
     validate_(action);
-    require(action.execution_flag == ExecutionFlag::Always || profile_.fast_feedback,
+    require(action.execution_flag() == ExecutionFlag::Always || profile_.fast_feedback,
             ErrorCode::UnsupportedCapability, "fast feedback is disabled");
-    if (action.kind == ActionKind::Acquire)
-      measurement_target = action.targets.front();
+    if (action.kind() == ActionKind::Acquire)
+      measurement_target = action.targets().front();
   }
   const auto count = checked_add(pending_events_.size(), map.actions.size());
   require(count <= profile_.staging_capacity, ErrorCode::Capacity,
