@@ -146,7 +146,7 @@ A tick with scheduled output starts, ends, measurement samples or ready results.
 ### RV32I
 
 The base 32-bit RISC-V integer instruction set. qsbit-sim adds
-[custom-0 control instructions](interfaces.md#quantum-instruction-encoding).
+[custom-0 control instructions and custom-1 bundles](interfaces.md#quantum-instruction-encoding).
 
 ### ISA and microarchitecture
 

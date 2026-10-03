@@ -28,6 +28,9 @@ digraph module {
 `decode()` identifies RV32I and custom-0 instructions, checks fixed encoding
 bits, and extracts registers and immediates.
 
+The [VLIW CPU](cpu-cycle-model.md#dual-codeword-execution) decodes custom-1
+bundles with `decode_cw_bundle()`.
+
 `evaluate()` calculates arithmetic results, branch decisions, the next PC
 and memory access parameters. The CPU commits those effects and issues
 memory requests. RV32I arithmetic wraps at 32 bits.

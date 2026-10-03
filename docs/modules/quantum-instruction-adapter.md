@@ -7,7 +7,7 @@ operands into a `ControlOperation` for the CPU-side timing control.
 
 - **Input:** `rv32::Decoded`, instruction ID and captured operand values.
 - **Output:** one `ControlOperation` for `TimingControl::execute()`.
-- **Caller:** the CPU, when the quantum instruction is oldest and may issue its effect.
+- **Caller:** the CPU, while preparing or submitting a decoded control operation.
 
 ```{graphviz}
 digraph module {
@@ -29,7 +29,9 @@ interval; `FMR` supplies a qubit index.
 
 The CPU passes the resulting operation to timing control. An absent
 optional result keeps the instruction blocked; a returned value lets
-it retire. The adapter itself neither queues events nor waits.
+the CPU advance past that operation. A scalar instruction retires after
+one accepted operation; a bundle retires after both are accepted.
+The adapter itself neither queues events nor waits.
 
 See [instruction encodings](../interfaces.md#quantum-instruction-encoding)
 and [reserve-phase behavior](reserve-phase.md).

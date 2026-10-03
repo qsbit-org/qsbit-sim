@@ -61,10 +61,11 @@ def check_figure3(summary, trace, settings):
     expected = [(origin + (10000 + i) * period, [q], operation)
                 for i, operations in enumerate((("y", "y"), ("rx", "x"), ("measure", "measure")))
                 for q, operation in zip((0, 2), operations)]
-    assert [(e["tick"], e["targets"], e["operation"]) for e in starts] == expected
+    observed = [(e["tick"], e["targets"], e["operation"]) for e in starts]
+    assert observed == expected
     if settings["backend"] in ("aer", "stim"):
         assert not summary["measurement_registers"][2]["value"]
-    return {"operation_starts": expected,
+    return {"operation_starts": observed,
             "program_sha256": summary["program_sha256"]}
 
 
@@ -125,6 +126,7 @@ def main():
     output, simulator = args.output.resolve(), args.simulator.resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {"settings": settings, "points": args.points,
+              "simulator_sha256": hashlib.sha256(simulator.read_bytes()).hexdigest(),
               "figure3": figure3(simulator, output, settings, args.assembler, args.linker), "issue_rate": []}
     print("mode          interval_ns  completed  first_8_submission_ns  all_submission_ns")
     for mode in ("rv32", "vliw-scalar", "vliw-bundle"):

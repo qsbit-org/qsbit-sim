@@ -96,7 +96,7 @@ The timing-control model draws on these architectures:
 - [eQASM](https://arxiv.org/abs/1808.02449): reserve and trigger phases, operation timing and feedback.
 - [Distributed-HISQ](https://arxiv.org/abs/2509.04798): RISC-V control extensions using ports, codewords and time points.
 
-qsbit-sim uses its own [custom-0 instruction encoding](docs/interfaces.md#quantum-instruction-encoding).
+qsbit-sim uses [custom-0 control instructions and custom-1 bundles](docs/interfaces.md#quantum-instruction-encoding).
 It does not execute eQASM or HISQ binaries. Timing regression tests compare
 selected workloads against [CACTUS](https://github.com/gtaifu/CACTUS).
 

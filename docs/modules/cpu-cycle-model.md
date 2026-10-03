@@ -1,8 +1,14 @@
 # CPU cycle model
 
-`CpuCycleModel` executes RV32I programs through fetch, decode and execute stages.
-The execute stage commits results. Memory delays and blocked control instructions
-hold the pipeline while the TCU continues running.
+`CpuCycleModel` executes RV32I and scalar HISQ control instructions.
+`VliwCpuCycleModel` also executes 32-bit dual-codeword bundles. Both use
+fetch, decode and execute stages, with results committed in execute.
+Memory delays and blocked control instructions hold the pipeline while the
+TCU continues running.
+
+Select the implementation with
+[`--cpu-model`](../interfaces.md#cpu-selection). Both fetch one 32-bit word
+per request and use the same memory and timing-control interfaces.
 
 Applications can supply another `ICpuCycleModel` through the `Simulator` CPU
 factory. The [CPU adapter contract](../cpp-interfaces.md#cpu-adapter) defines that
@@ -22,7 +28,7 @@ digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Memory, timing control and feedback inputs"];
-  owner [label="CpuCycleModel"];
+  owner [label="CPU cycle model"];
   state [label="registers_, pc_\nfetch_pc_, fetch_request_\nfetched_, decode_, execute_"];
   output [label="MemoryRequest and ControlOperation and retirement"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
@@ -50,6 +56,21 @@ generation to reject their pending replies. exit ECALL also discards younger
 work and halts the CPU after publishing closure. The simulation continues
 until queued work and result deliveries finish.
 
+## Dual-codeword execution
+
+`VliwCpuCycleModel` captures both operations' operands when the bundle enters
+execute. `decode_cw_bundle()` converts each 12-bit operation to a scalar
+`cw` encoding and applies the shared decoder and quantum instruction adapter.
+
+On an execute edge, the CPU submits operation 0, then operation 1. If both
+are accepted, the bundle retires on that edge. If either blocks, execute
+retains the captured operands and retries the first unaccepted operation
+on a later edge. An accepted operation is not submitted again.
+
+The bundle produces one `InstructionRetired` record. Its two
+`CodewordQueued` records carry the same instruction ID and planned time
+point. The TCU triggers their mapped events at that time point.
+
 ## Objects and state
 
 | Object or member | Representation | Role |
@@ -58,6 +79,7 @@ until queued work and result deliveries finish.
 | `fetch_pc_, fetch_request_` | fetch state | Next fetch address and outstanding request identity and generation. |
 | `fetched_, decode_, execute_` | optional Frame latches | Buffered instructions and captured operands, effects or faults. |
 | `generation_, halted_` | control state | Invalidates wrong-path fetch replies and stops issue after exit ECALL. |
+| VLIW frame `operations, completed_lanes` | Two captured operations and an accepted-operation count | Preserves progress while a bundle is blocked. |
 
 [C++ API](../api.md#cpuhpp).
 
@@ -73,9 +95,15 @@ already retired instruction.
 
 ## Implementation and tests
 
-Source: [rv32.cpp](../../src/cpu/rv32.cpp) and [rv32.hpp](../../include/qsbit/cpu/rv32.hpp).
+Implementations: [rv32.cpp](../../src/cpu/rv32.cpp) and
+[vliw.cpp](../../src/cpu/vliw.cpp). Declarations:
+[rv32.hpp](../../include/qsbit/cpu/rv32.hpp) and
+[vliw.hpp](../../include/qsbit/cpu/vliw.hpp).
 
-**CTest:** `systemc.use_cases`, `adapter.normal`, `adapter.reset`.
+**CTest:** `cpu.vliw`, `systemc.vliw`, `systemc.use_cases`, `systemc.vliw_use_cases`, `adapter.normal`, `adapter.reset`.
 
-The tests exercise data hazards, branch flushes and older faults. They also
-check unique retirement IDs and construction and reset of a replacement CPU.
+The scalar use cases exercise data hazards, branch flushes, feedback and
+reset on both implementations. Bundle tests check operand modes, reserved
+bits, partial acceptance, resource conflicts and event timing across clock
+phases and process registration orders. Adapter tests check construction
+and reset of a replacement CPU.

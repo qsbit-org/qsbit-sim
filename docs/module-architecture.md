@@ -17,7 +17,7 @@ The request stays unchanged until acknowledgment.
 | C++ owner or interface | Implementation responsibility |
 | --- | --- |
 | `ProgramImage` and `rv32` | Load programs and calculate instruction effects. |
-| `CpuCycleModel` and `MemoryModel` | Advance the CPU and service timed memory requests. |
+| `ICpuCycleModel` and `MemoryModel` | Advance the selected CPU and service timed memory requests. |
 | `TimingControl` and `MeasurementRegisters` | Prepare time points and maintain measurement result registers. |
 | `TcuCycleModel` | Own timing and event queues, timer and execution flags. |
 | `ControlElectronics` | Schedule output, acquisition and discrimination; check resource conflicts. |

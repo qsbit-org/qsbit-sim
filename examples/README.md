@@ -3,9 +3,13 @@
 With `QSBIT_BUILD_EXAMPLES=ON` or `BUILD_TESTING=ON`, CMake assembles these sources
 into `<build-dir>/examples/*.elf` using GNU RISC-V binutils and copies the run
 configurations into `<build-dir>/examples/runs/`.
-`quantum.inc` uses `.insn`; the simulator never parses assembly. `link.ld` provides a
-bare-metal entry at zero and writable data at 0x1000. All instructions are RV32I or
-custom-0; compressed instructions and relaxation are disabled.
+`quantum.inc` uses `.insn` and `.word`; the simulator loads machine code.
+`link.ld` provides a bare-metal entry at zero and writable data at 0x1000.
+Instructions use RV32I, custom-0 scalar control encodings and custom-1 dual-codeword
+bundles. Compressed instructions and relaxation are disabled.
+
+The [eQASM example](eqasm/README.md) assembles its programs through
+`run.py` and compares scalar and VLIW execution.
 
 ## Control-only run
 

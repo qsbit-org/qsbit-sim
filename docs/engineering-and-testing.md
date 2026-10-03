@@ -55,6 +55,7 @@ configured CTest suites.
 | Test family | Main assertions |
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
+| `cpu.vliw` | Dual-codeword operand modes, reserved encodings, blocked-operation progress and reset. |
 | `control.*` | Atomic enqueue, event-ID lists, queue bounds, deadlines, measurement registers and execution flags. |
 | `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and execution flag updates. |
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |

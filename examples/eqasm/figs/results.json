@@ -1,0 +1,599 @@
+{
+  "settings": {
+    "paper": "https://arxiv.org/abs/1808.02449v3",
+    "backend": "aer",
+    "backend_options": {},
+    "profile": {
+      "cpu": {
+        "period": 10,
+        "phase": 0
+      },
+      "tcu": {
+        "period": 20,
+        "phase": 0
+      },
+      "start": 1000,
+      "watchdog": 1000000,
+      "qubits": 3,
+      "memory_latency": 1,
+      "command_latency": 1,
+      "reply_latency": 1,
+      "timing_capacity": 32,
+      "event_capacity": 32,
+      "staging_capacity": 16,
+      "seed": 17,
+      "mappings": [
+        {
+          "port": 0,
+          "codeword": 1,
+          "actions": [
+            {
+              "port": 0,
+              "operation": "rx",
+              "targets": [
+                0
+              ],
+              "duration": 20,
+              "amplitude": 1.5707963267948966,
+              "resources": [
+                {
+                  "id": 0,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 2,
+          "codeword": 1,
+          "actions": [
+            {
+              "port": 2,
+              "operation": "rx",
+              "targets": [
+                2
+              ],
+              "duration": 20,
+              "amplitude": 1.5707963267948966,
+              "resources": [
+                {
+                  "id": 2,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 0,
+          "codeword": 2,
+          "actions": [
+            {
+              "port": 0,
+              "operation": "x",
+              "targets": [
+                0
+              ],
+              "duration": 20,
+              "resources": [
+                {
+                  "id": 0,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 2,
+          "codeword": 2,
+          "actions": [
+            {
+              "port": 2,
+              "operation": "x",
+              "targets": [
+                2
+              ],
+              "duration": 20,
+              "resources": [
+                {
+                  "id": 2,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 0,
+          "codeword": 3,
+          "actions": [
+            {
+              "port": 0,
+              "operation": "y",
+              "targets": [
+                0
+              ],
+              "duration": 20,
+              "resources": [
+                {
+                  "id": 0,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 2,
+          "codeword": 3,
+          "actions": [
+            {
+              "port": 2,
+              "operation": "y",
+              "targets": [
+                2
+              ],
+              "duration": 20,
+              "resources": [
+                {
+                  "id": 2,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 0,
+          "codeword": 4,
+          "actions": [
+            {
+              "port": 0,
+              "kind": "acquire",
+              "operation": "measure",
+              "targets": [
+                0
+              ],
+              "duration": 1000,
+              "resources": [
+                {
+                  "id": 0,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "port": 2,
+          "codeword": 4,
+          "actions": [
+            {
+              "port": 2,
+              "kind": "acquire",
+              "operation": "measure",
+              "targets": [
+                2
+              ],
+              "duration": 1000,
+              "resources": [
+                {
+                  "id": 2,
+                  "exclusive": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "points": 256,
+  "simulator_sha256": "1da08dc8a999c65ec15e7578392afa6a2bf402951c933ea564eaf1e885007c6e",
+  "figure3": {
+    "rv32": {
+      "operation_starts": [
+        [
+          201000,
+          [
+            0
+          ],
+          "y"
+        ],
+        [
+          201000,
+          [
+            2
+          ],
+          "y"
+        ],
+        [
+          201020,
+          [
+            0
+          ],
+          "rx"
+        ],
+        [
+          201020,
+          [
+            2
+          ],
+          "x"
+        ],
+        [
+          201040,
+          [
+            0
+          ],
+          "measure"
+        ],
+        [
+          201040,
+          [
+            2
+          ],
+          "measure"
+        ]
+      ],
+      "program_sha256": "c169aa8a9a24f6cc8a443a36b716361044390bf7c7fc0f9f9f0be826ab73a19d"
+    },
+    "vliw": {
+      "operation_starts": [
+        [
+          201000,
+          [
+            0
+          ],
+          "y"
+        ],
+        [
+          201000,
+          [
+            2
+          ],
+          "y"
+        ],
+        [
+          201020,
+          [
+            0
+          ],
+          "rx"
+        ],
+        [
+          201020,
+          [
+            2
+          ],
+          "x"
+        ],
+        [
+          201040,
+          [
+            0
+          ],
+          "measure"
+        ],
+        [
+          201040,
+          [
+            2
+          ],
+          "measure"
+        ]
+      ],
+      "program_sha256": "9c8978828ad71c5fbd08289c2b3805d1295c16e2b99294bc265b7a0042ec9f91"
+    }
+  },
+  "issue_rate": [
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 41,
+      "last_retirement_tick_ns": 1250,
+      "timing_points_submitted": 14,
+      "submission_span_ns": 1170,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 117.0,
+      "operations_started": 26,
+      "stop_tick": 1300,
+      "program_sha256": "240dfdc09d264ec02ef4870f826399fc9e7592c768d453798a4ff5d0390ccf9c",
+      "mode": "rv32",
+      "interval_ns": 20,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 56,
+      "last_retirement_tick_ns": 1700,
+      "timing_points_submitted": 19,
+      "submission_span_ns": 1620,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 162.0,
+      "operations_started": 36,
+      "stop_tick": 1740,
+      "program_sha256": "23d20f7922ed6160ea20cadf456e0fbd6701d8c47397dc8b2f18c0d7917ab132",
+      "mode": "rv32",
+      "interval_ns": 40,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 89,
+      "last_retirement_tick_ns": 2690,
+      "timing_points_submitted": 30,
+      "submission_span_ns": 2610,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 261.0,
+      "operations_started": 58,
+      "stop_tick": 2740,
+      "program_sha256": "2ca5da153409be41f1e8b8a2709059de75fc677ab8bd72b94770513d7e289649",
+      "mode": "rv32",
+      "interval_ns": 60,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 263,
+      "last_retirement_tick_ns": 7910,
+      "timing_points_submitted": 88,
+      "submission_span_ns": 7830,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 783.0,
+      "operations_started": 174,
+      "stop_tick": 7960,
+      "program_sha256": "151d45da05305a01459dde47122a8f7a644e0e7b9e6be8db9162b3f55d486e1c",
+      "mode": "rv32",
+      "interval_ns": 80,
+      "program_words": 771
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 771,
+      "last_retirement_tick_ns": 23430,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 23270,
+      "mean_submission_interval_ns": 90.8984375,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 2327.0,
+      "operations_started": 512,
+      "stop_tick": 26600,
+      "program_sha256": "8badeea642c67331876d67abd68177950e138f9b8be287c9607fc0a878fdb312",
+      "mode": "rv32",
+      "interval_ns": 100,
+      "program_words": 771
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 771,
+      "last_retirement_tick_ns": 27910,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 27730,
+      "mean_submission_interval_ns": 108.3203125,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 2773.0,
+      "operations_started": 512,
+      "stop_tick": 31720,
+      "program_sha256": "d3ea2ae3031df679474758d8bbf55b33f3fd1dad82a5192b6b5f7daee1612469",
+      "mode": "rv32",
+      "interval_ns": 120,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 41,
+      "last_retirement_tick_ns": 1250,
+      "timing_points_submitted": 14,
+      "submission_span_ns": 1170,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 117.0,
+      "operations_started": 26,
+      "stop_tick": 1300,
+      "program_sha256": "240dfdc09d264ec02ef4870f826399fc9e7592c768d453798a4ff5d0390ccf9c",
+      "mode": "vliw-scalar",
+      "interval_ns": 20,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 56,
+      "last_retirement_tick_ns": 1700,
+      "timing_points_submitted": 19,
+      "submission_span_ns": 1620,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 162.0,
+      "operations_started": 36,
+      "stop_tick": 1740,
+      "program_sha256": "23d20f7922ed6160ea20cadf456e0fbd6701d8c47397dc8b2f18c0d7917ab132",
+      "mode": "vliw-scalar",
+      "interval_ns": 40,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 89,
+      "last_retirement_tick_ns": 2690,
+      "timing_points_submitted": 30,
+      "submission_span_ns": 2610,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 261.0,
+      "operations_started": 58,
+      "stop_tick": 2740,
+      "program_sha256": "2ca5da153409be41f1e8b8a2709059de75fc677ab8bd72b94770513d7e289649",
+      "mode": "vliw-scalar",
+      "interval_ns": 60,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 263,
+      "last_retirement_tick_ns": 7910,
+      "timing_points_submitted": 88,
+      "submission_span_ns": 7830,
+      "mean_submission_interval_ns": 90.0,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 783.0,
+      "operations_started": 174,
+      "stop_tick": 7960,
+      "program_sha256": "151d45da05305a01459dde47122a8f7a644e0e7b9e6be8db9162b3f55d486e1c",
+      "mode": "vliw-scalar",
+      "interval_ns": 80,
+      "program_words": 771
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 771,
+      "last_retirement_tick_ns": 23430,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 23270,
+      "mean_submission_interval_ns": 90.8984375,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 2327.0,
+      "operations_started": 512,
+      "stop_tick": 26600,
+      "program_sha256": "8badeea642c67331876d67abd68177950e138f9b8be287c9607fc0a878fdb312",
+      "mode": "vliw-scalar",
+      "interval_ns": 100,
+      "program_words": 771
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 771,
+      "last_retirement_tick_ns": 27910,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 27730,
+      "mean_submission_interval_ns": 108.3203125,
+      "first_eight_mean_submission_interval_ns": 90.0,
+      "submission_span_cpu_cycles": 2773.0,
+      "operations_started": 512,
+      "stop_tick": 31720,
+      "program_sha256": "d3ea2ae3031df679474758d8bbf55b33f3fd1dad82a5192b6b5f7daee1612469",
+      "mode": "vliw-scalar",
+      "interval_ns": 120,
+      "program_words": 771
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 47,
+      "last_retirement_tick_ns": 1440,
+      "timing_points_submitted": 24,
+      "submission_span_ns": 1380,
+      "mean_submission_interval_ns": 60.0,
+      "first_eight_mean_submission_interval_ns": 60.0,
+      "submission_span_cpu_cycles": 138.0,
+      "operations_started": 46,
+      "stop_tick": 1480,
+      "program_sha256": "69375f91e9ea85ee894321f0aa27456cfc463c39f78bf2b1bea2283e8b97c1f0",
+      "mode": "vliw-bundle",
+      "interval_ns": 20,
+      "program_words": 515
+    },
+    {
+      "success": false,
+      "fault": "LateAdmission",
+      "instructions_retired": 91,
+      "last_retirement_tick_ns": 2760,
+      "timing_points_submitted": 46,
+      "submission_span_ns": 2700,
+      "mean_submission_interval_ns": 60.0,
+      "first_eight_mean_submission_interval_ns": 60.0,
+      "submission_span_cpu_cycles": 270.0,
+      "operations_started": 90,
+      "stop_tick": 2800,
+      "program_sha256": "ec07a93a1b143f0a3efd20e4c379a33e3640a9f21af42889e7143e85bfa3c82a",
+      "mode": "vliw-bundle",
+      "interval_ns": 40,
+      "program_words": 515
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 515,
+      "last_retirement_tick_ns": 15490,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 15390,
+      "mean_submission_interval_ns": 60.1171875,
+      "first_eight_mean_submission_interval_ns": 60.0,
+      "submission_span_cpu_cycles": 1539.0,
+      "operations_started": 512,
+      "stop_tick": 16360,
+      "program_sha256": "8f93d169355382fe1c861f48a25d532413ef3a290572c33585bfaf1d1e7ea1f4",
+      "mode": "vliw-bundle",
+      "interval_ns": 60,
+      "program_words": 515
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 515,
+      "last_retirement_tick_ns": 18950,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 18840,
+      "mean_submission_interval_ns": 73.59375,
+      "first_eight_mean_submission_interval_ns": 60.0,
+      "submission_span_cpu_cycles": 1884.0,
+      "operations_started": 512,
+      "stop_tick": 21480,
+      "program_sha256": "a70d8409f75c25c41fd6a0b6dc7ade15182005556c7ab5ced4be06d21e78b140",
+      "mode": "vliw-bundle",
+      "interval_ns": 80,
+      "program_words": 515
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 515,
+      "last_retirement_tick_ns": 23430,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 23300,
+      "mean_submission_interval_ns": 91.015625,
+      "first_eight_mean_submission_interval_ns": 60.0,
+      "submission_span_cpu_cycles": 2330.0,
+      "operations_started": 512,
+      "stop_tick": 26600,
+      "program_sha256": "8128a7f08fee21a8c3e07714207868371ade50229ecdfe100db297758b7daa1e",
+      "mode": "vliw-bundle",
+      "interval_ns": 100,
+      "program_words": 515
+    },
+    {
+      "success": true,
+      "fault": null,
+      "instructions_retired": 515,
+      "last_retirement_tick_ns": 27910,
+      "timing_points_submitted": 257,
+      "submission_span_ns": 27760,
+      "mean_submission_interval_ns": 108.4375,
+      "first_eight_mean_submission_interval_ns": 60.0,
+      "submission_span_cpu_cycles": 2776.0,
+      "operations_started": 512,
+      "stop_tick": 31720,
+      "program_sha256": "8f8aa45f5aeed8c3aa943fd57cd31d14159549a916f01294e054f5c4214cd2e4",
+      "mode": "vliw-bundle",
+      "interval_ns": 120,
+      "program_words": 515
+    }
+  ]
+}

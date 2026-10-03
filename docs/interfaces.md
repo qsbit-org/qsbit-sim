@@ -23,9 +23,23 @@ ends the program. Other ECALLs and EBREAK raise distinct traps. FENCE is
 supported; FENCE.I, privileged instructions and unselected extensions raise
 `IllegalInstruction`.
 
+### CPU selection
+
+`rv32` is the default CPU model. `vliw` accepts the same instructions and adds
+32-bit words containing two `cw` operations.
+
+```sh
+build-clang/qsbit-sim --program program.elf --cpu-model rv32
+build-clang/qsbit-sim --program program.elf --cpu-model vliw
+```
+
+In a run file, set `"cpu_model": "vliw"`. Assemble paired operations with
+`cw.bundle`; selecting the CPU model does not rewrite the program.
+`rv32` rejects bundle instructions with `IllegalInstruction`.
+
 ## Quantum instruction encoding
 
-The simulator uses opcode `0x0b` in the RISC-V custom-0 space.
+Scalar control instructions use opcode `0x0b` in the RISC-V custom-0 space.
 
 ```text
 31          25 24     20 19     15 14   12 11     7 6       0
@@ -46,6 +60,57 @@ The simulator uses opcode `0x0b` in the RISC-V custom-0 space.
 funct3 values 4, 5 and 7 are reserved. Invalid fixed fields raise
 `IllegalInstruction`. `sync` raises `UnsupportedSynchronization`.
 `send` and `recv` are unsupported.
+
+### Dual-codeword encoding
+
+`cw.bundle` uses opcode `0x2b` in the RISC-V custom-1 space and requires
+the `vliw` CPU model.
+
+| Word bits | Field |
+| --- | --- |
+| 31 | Zero; a set bit raises `IllegalInstruction`. |
+| 30–19 | Operation 1. |
+| 18–7 | Operation 0. |
+| 6–0 | Opcode `0x2b`. |
+
+Each operation occupies 12 bits:
+
+| Operation bits | Field |
+| --- | --- |
+| 11 | One for an immediate codeword; zero for a register operand. |
+| 10 | One for an immediate port; zero for a register operand. |
+| 9–5 | Codeword immediate or register index. |
+| 4–0 | Port immediate or register index. |
+
+The GNU assembler macro accepts four operands and two optional modes:
+
+```text
+cw.bundle port0, codeword0, port1, codeword1, mode0=3, mode1=3
+```
+
+Port and codeword arguments are integers from 0 to 31. Register operands use
+register numbers; their resolved values retain all 32 bits. Each mode defaults
+to 3:
+
+| Mode | Port operand | Codeword operand |
+| --- | --- | --- |
+| 0 | Register | Register |
+| 1 | Immediate | Register |
+| 2 | Register | Immediate |
+| 3 | Immediate | Immediate |
+
+```asm
+cw.bundle 0, 1, 1, 2
+li x5, 1
+li x6, 2
+wait.i 1
+cw.bundle 0, 1, 5, 6, 3, 0
+```
+
+Both bundles prepare codeword 1 on port 0 and codeword 2 on port 1.
+The two operations in each bundle use the current time point.
+`wait` advances that time point in a separate instruction. A bundle writes
+no GPR and retires once, advancing the PC by four bytes.
 
 ### Instruction effects
 
@@ -86,6 +151,7 @@ for the executable's option list.
 | --- | --- |
 | `--config FILE` | Read a schema-1 JSON run file. Paths inside it are relative to that file. |
 | `--program FILE` | Load an ELF program, or raw input when `--raw-base` is supplied. |
+| `--cpu-model MODEL` | Select `rv32` (default) or `vliw`. |
 | `--backend NAME` | Select a [backend](backends.md); default is mock. Accepts registered names and `module:Class`. |
 | `--list-backends` | List discovered backends and missing dependencies. |
 | `--help-backend` | Print the selected backend's descriptor and configuration schema. |
@@ -141,6 +207,7 @@ Output parent directories are created as needed.
 | --- | --- |
 | `schema` | Required integer `1`. |
 | `program` | Program path. |
+| `cpu_model` | `rv32` (default) or `vliw`. |
 | `backend` | Built-in name, registered adapter name or `module:Class`. |
 | `backend_options` | Backend-owned options; see [backend configuration](backends.md#discover-and-configure-backends). |
 | `simulation` | Optional [repeated-simulation strategy](repeated-simulations.md). |
@@ -273,8 +340,9 @@ on one target still applies. A consumer must reject unknown schema versions.
 
 ### Summary file
 
-The JSON summary contains success status, stop tick, backend, resolved backend options, complete profile,
-fingerprint, final CPU registers and PC, requested memory words, measurement
+The JSON summary contains success status, stop tick, `cpu_model`, backend,
+resolved backend options, complete profile, fingerprint, final CPU registers
+and PC, requested memory words, measurement
 registers and statevector entries as `[real, imaginary]` pairs.
 `measurement_registers` is indexed by qubit. Each entry contains `value`,
 `pending` and `valid`; `valid` is true when `pending` is zero.

@@ -6,7 +6,7 @@ digraph implementation {
     m0 [label="Platform and clocks", href="modules/platform-and-clock-adapter.html", id="module-platform-and-clock-adapter"];
     m1 [label="ELF Loader and Program\nImage", href="modules/elf-loader-and-program-image.html", id="module-elf-loader-and-program-image"];
   }
-  subgraph cluster_cpu { label="CPU domain: CpuCycleModel and TimingControl"; color="#bacdd2"; style="rounded";
+  subgraph cluster_cpu { label="CPU domain: ICpuCycleModel and TimingControl"; color="#bacdd2"; style="rounded";
     m2 [label="ISA Decoder and Semantics", href="modules/isa-decoder-and-semantics.html", id="module-isa-decoder-and-semantics"];
     m3 [label="CPU Cycle Model", href="modules/cpu-cycle-model.html", id="module-cpu-cycle-model"];
     m4 [label="Memory requests and responses", href="modules/memory-and-response-model.html", id="module-memory-and-response-model"];
