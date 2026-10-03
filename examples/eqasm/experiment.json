@@ -15,6 +15,7 @@
     "event_capacity": 32,
     "staging_capacity": 16,
     "seed": 17,
+    "two_qubit_gates": [],
     "mappings": [
       {"port": 0, "codeword": 1, "actions": [{"port": 0, "operation": "rx", "targets": [0], "duration": 20, "amplitude": 1.5707963267948966, "resources": [{"id": 0, "exclusive": true}]}]},
       {"port": 2, "codeword": 1, "actions": [{"port": 2, "operation": "rx", "targets": [2], "duration": 20, "amplitude": 1.5707963267948966, "resources": [{"id": 2, "exclusive": true}]}]},

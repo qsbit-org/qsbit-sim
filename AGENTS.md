@@ -33,6 +33,7 @@
 
 ## Repository hygiene
 
+- The project is in rapid iteration. Do not preserve backward compatibility or add compatibility shims; refactor interfaces when needed and update their consumers together.
 - Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for every commit message, such as `fix(simulator): evolve the final state to the stop tick`. The configured `commit-msg` hook and CI must pass.
 - Keep review notes, agent reports, audit findings, generated traces, local dependencies, and temporary visualizations out of tracked files. Use ignored local directories or an external workspace. Incorporate accepted findings into the relevant code, test, or `docs/` contract.
 - Put design decisions, timing contracts, instruction semantics, and feature scope in `docs/`, not in this file. Update those documents together with behavior changes.

@@ -120,7 +120,7 @@ def validate_mappings(program, profile):
             if key not in mappings:
                 raise ValueError(f"unmapped port and codeword: {key}")
             for action in mappings[key]:
-                if action["execution_flag"] != "always" or action["kind"] not in ("gate", "acquire") or action["separate_arm"]:
+                if action["execution_flag"] != "always" or action["kind"] not in ("gate", "gate_output", "acquire") or action["separate_arm"]:
                     raise ValueError("replay supports unconditional gates and unarmed acquisitions")
                 if action["kind"] == "acquire":
                     pending.update(action["targets"])

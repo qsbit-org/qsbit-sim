@@ -247,6 +247,7 @@ An overlay changes only the supplied fields.
 | `ports`, `qubits`, `firing_width` | Port count, qubit count (1–32) and maximum events per port per time point. |
 | `seed`, `fast_feedback` | Random seed and fast-path enable flag. |
 | `mappings` | Source port and codeword entries and their event lists. |
+| `two_qubit_gates` | Shared gate definitions with two required output endpoints. |
 
 The serialized profile uses `schema: 1`. Each mapping has `port`, `codeword` and
 a nonempty `actions` array.
@@ -263,8 +264,9 @@ require a single-qubit gate or pulse and enabled fast feedback. A resource has a
 `id` and an `exclusive` boolean. Two overlapping events sharing that resource
 conflict if either reservation is exclusive. The same physical output port
 cannot host overlapping events, even when their resource declarations differ.
-A two-qubit gate can reserve both target resources. Except for discriminator
-arms, events on the same target may overlap only when both are pulses.
+A two-qubit gate can reserve both target resources. Its two configured outputs
+share that reservation when their physical intervals coincide. Other events on
+the same target may overlap only when both are pulses or one is a discriminator arm.
 A measurement sample and an ideal gate starting on the same target at the
 same tick also conflict.
 
@@ -272,6 +274,53 @@ Periods and event durations are positive. Discriminator delay may be zero.
 Pulse amplitude uses radians/ns; a rotation gate uses radians.
 Backend support is checked when an event is requested, so a profile may contain
 entries unused by the chosen backend.
+
+### Two-port gate outputs
+
+The default CX requires codeword 6 on port 0 and codeword 10 on port 1 at the
+same physical start tick. Both instructions can come from one core. Distributed
+programs can place one output on each core.
+
+`two_qubit_gates` defines each gate's unique `name`, backend `operation`, ordered
+pair of `targets`, positive `duration` in ns, optional `resources` and exactly two
+`inputs`. Each input names `core`, local `port` and `codeword`. The two inputs must
+use distinct output ports; an input cannot belong to more than one gate definition.
+The single-program core ID is 0. All cores share the same gate definitions.
+
+Each input maps to one unconditional `gate_output` action whose `gate` names the
+definition. It uses the mapping's port and inherits the gate duration. `delay`
+sets its output latency in ns. Targets and resources come from the shared gate,
+not from the output action. An explicit duration must equal the gate duration.
+
+This profile fragment replaces the codeword and two-qubit gate tables:
+
+```json
+{
+  "two_qubit_gates": [{
+    "name": "cx01", "operation": "cx", "targets": [0, 1], "duration": 20,
+    "inputs": [
+      {"core": 0, "port": 0, "codeword": 6},
+      {"core": 0, "port": 1, "codeword": 10}
+    ],
+    "resources": [{"id": 0}, {"id": 1}]
+  }],
+  "mappings": [
+    {"port": 0, "codeword": 6, "actions": [{"kind": "gate_output", "gate": "cx01"}]},
+    {"port": 1, "codeword": 10, "actions": [{"kind": "gate_output", "gate": "cx01"}]}
+  ]
+}
+```
+
+The shared device collects all starts at `fire_tick + delay`, validates both
+outputs and applies the ideal gate once at that tick. Missing or misaligned
+inputs raise `GateInputMismatch` before the backend changes state at that
+boundary. Duplicate outputs on one port raise `ResourceConflict`. The device
+does not wait for a late input. Reset discards both active and pending outputs.
+
+Set `two_qubit_gates` to an empty array when replacing the default mappings with
+a profile that has no paired gate outputs. Explicit `kind: "gate"` mappings
+apply backend gates directly. Neither mode integrates a physical two-qubit pulse
+sequence or estimates fidelity loss from waveform misalignment.
 
 ## JSONL trace
 
@@ -302,6 +351,7 @@ according to `kind` rather than treating zero as a missing value.
 | `CodewordTriggered` | Event ID, label, resolved port, codeword, operation and targets. |
 | `OperationStart` | Event identity and duration in `value`. |
 | `OperationEnd` | Event ID, label, port, operation and targets. |
+| `GateApplied` | One paired gate application; `detail` is the gate name, `operation` and `targets` identify the backend gate, and `value` is its reserved duration. |
 | `MeasurementSampled` and `ResultReady` | Measurement ID, target and bit. |
 | `MeasurementRegisterUpdated` | Measurement ID, target and bit delivered before the CPU step; FMR can read it on this edge. |
 | `ExecutionFlagsUpdated` | Measurement ID, target and bit used to update execution flags after the triggering decision. |

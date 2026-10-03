@@ -71,8 +71,9 @@ wakeup cancels its previous notification whenever it selects a new deadline.
 ## From a command to device work
 
 A port and codeword select event specifications from the profile. Each
-specification names an output port, ordered qubit targets, resources,
-delay and duration. The instruction's port can differ from the output port.
+specification names an output port, delay and duration. Targets and resources
+are specified directly or supplied by a paired gate definition.
+The instruction's port can differ from the output port.
 
 `TimingControl` collects events for the current time point. It submits the
 time point and all its events together, keeping the request unchanged

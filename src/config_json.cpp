@@ -36,6 +36,8 @@ std::string kind_name(ActionKind kind) {
     return "acquire";
   case ActionKind::DiscriminatorArm:
     return "arm";
+  case ActionKind::GateOutput:
+    return "gate_output";
   }
   throw Fault(ErrorCode::InvalidProfile, "invalid action kind");
 }
@@ -48,6 +50,8 @@ ActionKind kind_value(const std::string &name) {
     return ActionKind::Acquire;
   if (name == "arm")
     return ActionKind::DiscriminatorArm;
+  if (name == "gate_output")
+    return ActionKind::GateOutput;
   throw Fault(ErrorCode::InvalidProfile, "unsupported action kind: " + name);
 }
 std::string flag_name(ExecutionFlag flag) {
@@ -91,7 +95,8 @@ void apply_profile(Profile &p, const Json &input) {
                "firing_width",
                "seed",
                "fast_feedback",
-               "mappings"});
+               "mappings",
+               "two_qubit_gates"});
   if (input.contains("schema"))
     require(input["schema"] == 1, ErrorCode::InvalidProfile, "unsupported profile schema");
   for (auto pair : {std::pair{"cpu", &p.cpu}, std::pair{"tcu", &p.tcu}})
@@ -120,6 +125,50 @@ void apply_profile(Profile &p, const Json &input) {
 #undef QS_FIELD
   if (input.contains("fast_feedback"))
     p.fast_feedback = input.at("fast_feedback").get<bool>();
+  if (input.contains("two_qubit_gates")) {
+    require(input["two_qubit_gates"].is_array(), ErrorCode::InvalidProfile,
+            "two_qubit_gates must be an array");
+    p.two_qubit_gates.clear();
+    for (const auto &spec : input["two_qubit_gates"]) {
+      keys(spec, {"name", "operation", "targets", "inputs", "resources", "duration"});
+      require(spec.contains("name") && spec.contains("operation") && spec.contains("targets") &&
+                  spec["targets"].is_array() && spec.contains("inputs") &&
+                  spec["inputs"].is_array() && spec.contains("duration"),
+              ErrorCode::InvalidProfile, "incomplete two-qubit gate definition");
+      TwoQubitGate gate;
+      gate.name = spec["name"].get<std::string>();
+      gate.operation = spec["operation"].get<std::string>();
+      integer(spec, "duration", gate.duration);
+      for (const auto &value : spec["targets"]) {
+        std::uint32_t target = 0;
+        integer(Json{{"target", value}}, "target", target);
+        gate.targets.push_back(target);
+      }
+      for (const auto &value : spec["inputs"]) {
+        keys(value, {"core", "port", "codeword"});
+        require(value.contains("core") && value.contains("port") && value.contains("codeword"),
+                ErrorCode::InvalidProfile, "incomplete gate input");
+        GateInput endpoint;
+        integer(value, "core", endpoint.core);
+        integer(value, "port", endpoint.port);
+        integer(value, "codeword", endpoint.codeword);
+        gate.inputs.push_back(endpoint);
+      }
+      if (spec.contains("resources")) {
+        require(spec["resources"].is_array(), ErrorCode::InvalidProfile,
+                "gate resources must be an array");
+        for (const auto &value : spec["resources"]) {
+          keys(value, {"id", "exclusive"});
+          require(value.contains("id"), ErrorCode::InvalidProfile, "resource ID missing");
+          ResourceUse resource;
+          integer(value, "id", resource.id);
+          resource.exclusive = value.value("exclusive", true);
+          gate.resources.push_back(resource);
+        }
+      }
+      p.two_qubit_gates.push_back(std::move(gate));
+    }
+  }
   if (input.contains("mappings")) {
     require(input["mappings"].is_array(), ErrorCode::InvalidProfile, "mappings must be an array");
     p.mappings.clear();
@@ -134,11 +183,16 @@ void apply_profile(Profile &p, const Json &input) {
       require(mapping["actions"].is_array(), ErrorCode::InvalidProfile, "actions must be an array");
       for (const auto &spec : mapping["actions"]) {
         keys(spec, {"kind", "port", "operation", "targets", "resources", "delay", "duration",
-                    "discriminator_delay", "amplitude", "axis", "separate_arm", "execution_flag"});
+                    "discriminator_delay", "amplitude", "axis", "separate_arm", "execution_flag",
+                    "gate"});
         EventSpec action;
         action.port = map.port;
         action.kind = kind_value(spec.value("kind", std::string("gate")));
-        action.operation = spec.value("operation", std::string("x"));
+        action.gate = spec.value("gate", std::string{});
+        action.operation = spec.value(
+            "operation", action.kind == ActionKind::GateOutput ? std::string{} : std::string("x"));
+        if (action.kind == ActionKind::GateOutput)
+          action.duration = p.gate(action.gate).duration;
         action.axis = spec.value("axis", std::string("x"));
         action.amplitude = spec.value("amplitude", 0.0);
         action.separate_arm = spec.value("separate_arm", false);
@@ -147,9 +201,10 @@ void apply_profile(Profile &p, const Json &input) {
         integer(spec, "delay", action.delay);
         integer(spec, "duration", action.duration);
         integer(spec, "discriminator_delay", action.discriminator_delay);
-        require(spec.contains("targets") && spec["targets"].is_array(), ErrorCode::InvalidProfile,
-                "action targets are required");
-        for (const auto &value : spec["targets"]) {
+        require((action.kind == ActionKind::GateOutput && !spec.contains("targets")) ||
+                    (spec.contains("targets") && spec["targets"].is_array()),
+                ErrorCode::InvalidProfile, "action targets are required");
+        for (const auto &value : spec.value("targets", Json::array())) {
           std::uint32_t target = 0;
           integer(Json{{"target", value}}, "target", target);
           action.targets.push_back(target);
@@ -196,6 +251,18 @@ Json profile_json(const Profile &p) {
   QS_FIELD(fast_feedback);
 #undef QS_FIELD
   j["mappings"] = Json::array();
+  j["two_qubit_gates"] = Json::array();
+  for (const auto &gate : p.two_qubit_gates) {
+    Json spec{{"name", gate.name},       {"operation", gate.operation},
+              {"targets", gate.targets}, {"duration", gate.duration},
+              {"inputs", Json::array()}, {"resources", Json::array()}};
+    for (const auto &input : gate.inputs)
+      spec["inputs"].push_back(
+          {{"core", input.core}, {"port", input.port}, {"codeword", input.codeword}});
+    for (const auto &r : gate.resources)
+      spec["resources"].push_back({{"id", r.id}, {"exclusive", r.exclusive}});
+    j["two_qubit_gates"].push_back(std::move(spec));
+  }
   for (const auto &mapping : p.mappings) {
     Json map{{"port", mapping.port}, {"codeword", mapping.codeword}, {"actions", Json::array()}};
     for (const auto &action : mapping.actions) {
@@ -211,6 +278,8 @@ Json profile_json(const Profile &p) {
                 {"separate_arm", action.separate_arm},
                 {"execution_flag", flag_name(action.execution_flag)},
                 {"resources", Json::array()}};
+      if (!action.gate.empty())
+        spec["gate"] = action.gate;
       for (const auto &r : action.resources)
         spec["resources"].push_back({{"id", r.id}, {"exclusive", r.exclusive}});
       map["actions"].push_back(std::move(spec));

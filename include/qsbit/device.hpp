@@ -24,6 +24,7 @@ private:
 class ControlElectronics {
 public:
   ControlElectronics(const Profile &profile, IQuantumBackend &backend, Trace &trace);
+  void validate(const EventSpec &action) const;
   void preflight(const TriggeredEvents &batch) const;
   void accept(const TriggeredEvents &batch);
   void process(Tick now, Epoch epoch, ControlLinks &links);
@@ -49,6 +50,7 @@ private:
     std::optional<std::uint32_t> core = {};
   };
   [[nodiscard]] std::vector<ScheduledEvent> resolve(const TriggeredEvents &batch) const;
+  [[nodiscard]] EventSpec gate_action(const std::string &name) const;
   const Profile &profile_;
   IQuantumBackend &backend_;
   Trace &trace_;

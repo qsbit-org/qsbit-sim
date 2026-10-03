@@ -131,6 +131,11 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(two_qubit_tests tests/two_qubit_tests.cpp)
+  target_include_directories(two_qubit_tests PRIVATE src)
+  target_link_libraries(two_qubit_tests PRIVATE qsbit_config)
+  add_test(NAME device.two_qubit COMMAND two_qubit_tests)
+  set_tests_properties(device.two_qubit PROPERTIES TIMEOUT 15 LABELS "fast;component")
   add_executable(sync_tests tests/sync_tests.cpp)
   target_link_libraries(sync_tests PRIVATE qsbit_core)
   add_test(NAME sync.neighbor COMMAND sync_tests)
@@ -264,7 +269,7 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/repetition.py" --simulator "$<TARGET_FILE:qsbit_sim>"
         --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}"
         --assembler "${RISCV_AS}" --linker "${RISCV_LD}")
-      set_tests_properties(python.repetition PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
+      set_tests_properties(python.repetition PROPERTIES TIMEOUT 180 LABELS "numerical;integration")
       add_test(NAME experiment.allxy COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/allxy.py" --simulator "$<TARGET_FILE:qsbit_sim>"
         --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")

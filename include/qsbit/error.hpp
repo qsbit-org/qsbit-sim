@@ -27,6 +27,7 @@ enum class ErrorCode {
   ManifestMismatch,
   Protocol,
   ResourceConflict,
+  GateInputMismatch,
   UnsupportedCapability,
   InvalidMeasurement,
   DuplicateResult,

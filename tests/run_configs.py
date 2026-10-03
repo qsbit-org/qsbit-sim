@@ -30,7 +30,7 @@ for name in args.scenarios:
     assert summary['backend'] == config['backend'], name
     assert summary['configuration']['start'] == 200, name
     starts = [e['tick'] for e in trace if e['kind'] == 'OperationStart']
-    expected = {'bell': [360, 400, 440, 440], 'feedback': [360, 440, 720],
+    expected = {'bell': [360, 400, 400, 440, 440], 'feedback': [360, 440, 720],
                 'mock': [360, 440, 720], 'pulse': [360, 440], 'overlap': [360, 360]}
     assert starts == expected[name], (name, starts)
     if name == 'mock':

@@ -30,6 +30,10 @@ digraph module {
 in the selected mapping. It assigns consecutive event IDs and preserves
 the instruction ID, source port and codeword.
 
+A `GateOutput` references a shared two-qubit gate definition. Decoding retains
+the output port and codeword; the device checks the required pair at their
+physical start tick before applying the gate.
+
 Acquisition and discriminator-arm events carry the measurement reference
 reserved by `MeasurementRegisters`. Timing control collects the events
 for the current time point. On submission, it assigns their timing label

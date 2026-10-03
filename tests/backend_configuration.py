@@ -290,7 +290,7 @@ class Integration(unittest.TestCase):
             if example == "bell":
                 trace = [json.loads(line) for line in (out / f"{index}.jsonl").read_text().splitlines()]
                 starts = [event["tick"] for event in trace if event["kind"] == "OperationStart"]
-                self.assertEqual(starts, [360, 400, 440, 440])
+                self.assertEqual(starts, [360, 400, 400, 440, 440])
 
 
 suite = unittest.TestSuite()

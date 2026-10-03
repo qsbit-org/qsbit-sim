@@ -31,10 +31,11 @@ int sc_main(int argc, char **argv) {
       if (e.kind == "OperationStart")
         operations.push_back(e);
     if (scenario == "bell") {
-      CHECK(operations.size() == 4);
+      CHECK(operations.size() == 5);
       CHECK(operations[0].operation == "h" && operations[0].tick == 360);
       CHECK(operations[1].operation == "cx" && operations[1].tick == 400);
-      CHECK(operations[2].tick == 440 && operations[3].tick == 440);
+      CHECK(operations[2].operation == "cx" && operations[2].tick == 400);
+      CHECK(operations[3].tick == 440 && operations[4].tick == 440);
       CHECK(sim.memory().read(0x1004, 4) == static_cast<std::uint32_t>(outcome));
     } else if (scenario == "feedback_one" || scenario == "feedback_zero") {
       CHECK(operations.size() == 3);

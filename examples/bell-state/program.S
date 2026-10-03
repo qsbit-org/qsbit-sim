@@ -9,8 +9,9 @@ _start:
   cw.r.r t1, t2
   li t0, 2
   wait.r t0
-  li t2, 6                      # CX on qubits 0 and 1
+  li t2, 6                      # First CX output
   cw.r.r t1, t2
+  cw.i.i 1, 10                  # Second CX output at the same time point
   wait.r t0
   li t2, 4                      # Acquire both qubits at one timing point
   cw.r.r t1, t2

@@ -4,6 +4,10 @@
 both at one time point. The program stores the measurement results at addresses
 4096 and 4100.
 
+CX requires two outputs: codeword 6 on port 0 and codeword 10 on port 1.
+The program issues both at the same time point. The device validates the pair
+and applies CX once; omitting either instruction fails the run.
+
 From the repository root, [build with the Aer backend](../../docs/backends.md)
 and run:
 

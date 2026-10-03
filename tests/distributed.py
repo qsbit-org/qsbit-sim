@@ -51,7 +51,7 @@ def run(name, config, fault=None, invalid=False):
 first = compile_program('first', 'wait.i 10\nsync 2\nwait.i 8\ncw.i.i 0, 1\nwait.i 20\nfmr a1, 0\nwait.i 100')
 second = compile_program('second', 'wait.i 40\nsync 1\nwait.i 6\ncw.i.i 0, 1\nwait.i 20\nfmr a1, 1')
 profile = {'cpu': {'period': 5, 'phase': 0}, 'tcu': {'period': 4, 'phase': 0},
-           'start': 1000, 'watchdog': 6000, 'qubits': 2, 'ports': 1, 'mappings': []}
+           'start': 1000, 'watchdog': 6000, 'qubits': 2, 'ports': 1, 'mappings': [], 'two_qubit_gates': []}
 
 
 def mapping(target):
@@ -133,3 +133,55 @@ if args.backend == 'mock':
     conflict = deepcopy(config)
     conflict['cores'][1]['profile']['mappings'] = mapping(0)
     run('shared-qubit-conflict', conflict, fault='ResourceConflict')
+
+# Shared gate inputs use controller addresses and local output ports.
+pair = deepcopy(config)
+pair['backend'] = args.backend
+pair.pop('outcomes', None)
+pair['profile']['two_qubit_gates'] = [{
+    'name': 'cx01', 'operation': 'cx', 'targets': [0, 1], 'duration': 8,
+    'inputs': [{'core': 1, 'port': 0, 'codeword': 6}, {'core': 2, 'port': 0, 'codeword': 10}],
+    'resources': [{'id': 0}, {'id': 1}]}]
+pair['cores'][0]['program'] = compile_program(
+    'bell-control', 'wait.i 5\ncw.i.i 0, 2\nwait.i 5\nsync 2\nwait.i 8\ncw.i.i 0, 6\nwait.i 20')
+pair['cores'][1]['program'] = compile_program(
+    'bell-target', 'wait.i 40\nsync 1\nwait.i 6\ncw.i.i 0, 10\nwait.i 20')
+pair['cores'][0]['profile']['mappings'] = [
+    {'port': 0, 'codeword': 2, 'actions': [{'operation': 'h', 'targets': [0], 'duration': 4}]},
+    {'port': 0, 'codeword': 6, 'actions': [{'kind': 'gate_output', 'gate': 'cx01'}]}]
+pair['cores'][1]['profile']['mappings'] = [
+    {'port': 0, 'codeword': 10, 'actions': [{'kind': 'gate_output', 'gate': 'cx01'}]}]
+for reset in (False, True):
+    observations = []
+    for reverse in (False, True):
+        settings = dict(pair, resets=[1076] if reset else [], reverse_registration=reverse)
+        summary, trace = run(f'gate-{reset}-{reverse}', settings)
+        applied = [e for e in trace if e['kind'] == 'GateApplied']
+        assert [(e['tick'], e['operation'], e['targets']) for e in applied] == [
+            (2260 if reset else 1184, 'cx', [0, 1])], applied
+        if args.backend != 'mock':
+            state = [complex(*amplitude) for amplitude in summary['statevector']]
+            bell = [1 / math.sqrt(2), 0, 0, 1 / math.sqrt(2)]
+            fidelity = abs(sum(a.conjugate() * b for a, b in zip(state, bell))) ** 2
+            assert abs(fidelity - 1) < 1e-10, state
+        observations.append((summary, applied))
+    assert observations[0] == observations[1]
+
+if args.backend == 'mock':
+    for failure in ('missing', 'skew', 'unknown-core', 'ambiguous-input'):
+        invalid = deepcopy(pair)
+        if failure == 'missing':
+            invalid['cores'][1]['program'] = compile_program(
+                'missing-gate-input', 'wait.i 40\nsync 1\nwait.i 6\nwait.i 20')
+        elif failure == 'skew':
+            invalid['cores'][1]['profile']['mappings'][0]['actions'][0]['delay'] = 4
+        elif failure == 'unknown-core':
+            invalid['profile']['two_qubit_gates'][0]['inputs'][1]['core'] = 99
+        else:
+            invalid['profile']['two_qubit_gates'][0]['inputs'][1] = \
+                deepcopy(invalid['profile']['two_qubit_gates'][0]['inputs'][0])
+        bad_config = failure in ('unknown-core', 'ambiguous-input')
+        _, trace = run('gate-' + failure, invalid,
+                       fault='InvalidProfile' if bad_config else 'GateInputMismatch', invalid=bad_config)
+        if trace is not None:
+            assert not any(e['kind'] == 'GateApplied' for e in trace)

@@ -199,7 +199,7 @@ for field in (['last_one', 'last_zero', 'equal'] if a.cpu_model == 'rv32' else [
     mapping = {'port': 0, 'codeword': 1, 'actions': [
         {'kind': 'acquire', 'operation': 'measure', 'targets': [0], 'execution_flag': field}]}
     config = a.output / f'invalid-{field}.json'
-    config.write_text(json.dumps({'mappings': [mapping]}))
+    config.write_text(json.dumps({'mappings': [mapping], 'two_qubit_gates': []}))
     result = subprocess.run([str(a.simulator), '--program', str(fast / 'program.elf'),
                              '--profile', str(config)], capture_output=True, text=True)
     assert result.returncode == 2 and 'InvalidProfile' in result.stderr

@@ -27,6 +27,7 @@ const char *name(ErrorCode code) noexcept {
     QS_CASE(ManifestMismatch);
     QS_CASE(Protocol);
     QS_CASE(ResourceConflict);
+    QS_CASE(GateInputMismatch);
     QS_CASE(UnsupportedCapability);
     QS_CASE(InvalidMeasurement);
     QS_CASE(DuplicateResult);

@@ -92,6 +92,7 @@ int sc_main(int argc, char **argv) {
       p.start = 200;
       if (scenario == "overlap") {
         p.mappings.clear();
+        p.two_qubit_gates.clear();
         for (std::uint32_t port : {0U, 1U}) {
           EventSpec drive;
           drive.kind = ActionKind::Pulse;
@@ -126,7 +127,7 @@ int sc_main(int argc, char **argv) {
         const auto first = sim.memory().read(0x1000, 4), second = sim.memory().read(0x1004, 4);
         CHECK(first <= 1 && first == second);
         CHECK(std::norm(state[first ? 3 : 0]) > 1 - 1e-12);
-        CHECK((starts == std::vector<Tick>{360, 400, 440, 440}));
+        CHECK((starts == std::vector<Tick>{360, 400, 400, 440, 440}));
       } else if (scenario == "feedback") {
         CHECK(sim.memory().read(0x1000, 4) == 1 && std::norm(state[3]) > 1 - 1e-12);
         CHECK((starts == std::vector<Tick>{360, 440, 720}));

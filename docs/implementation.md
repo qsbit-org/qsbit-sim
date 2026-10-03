@@ -104,9 +104,12 @@ shift subsequent points.
 
 ## Device events
 
-Mappings select `gate`, `pulse`, `acquire` or `arm` events.
+Mappings select `gate`, `gate_output`, `pulse`, `acquire` or `arm` events.
 Physical start is `fire_tick + delay`. All durations are positive, and resources
 are occupied over `[start, end)`.
+
+Two matching `gate_output` events must start together. The shared device checks
+both inputs before changing backend state, then applies the configured gate once.
 
 At each device event tick, `ControlElectronics` evolves the preceding interval
 under the active drives, samples ending acquisitions, removes ended events,

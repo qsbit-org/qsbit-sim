@@ -2,6 +2,8 @@
   "repetitions": 3,
   "backend": "mock",
   "profile": {
+    "two_qubit_gates": [],
+    "mappings": [],
     "cpu": {"period": 5, "phase": 0},
     "tcu": {"period": 4, "phase": 0},
     "start": 10000,

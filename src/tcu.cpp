@@ -39,7 +39,8 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       const auto it = gathered.find(id);
       require(it != gathered.end(), ErrorCode::ManifestMismatch, "manifested event is missing");
       const auto &event = it->second;
-      if (!execution_flags_.evaluate(event.action.targets.front(), event.action.execution_flag))
+      if (event.action.execution_flag != ExecutionFlag::Always &&
+          !execution_flags_.evaluate(event.action.targets.front(), event.action.execution_flag))
         cancelled.push_back(event);
       else
         batch.events.push_back(event);

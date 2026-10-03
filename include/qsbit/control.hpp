@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace qsbit {
-enum class ActionKind { IdealGate, Pulse, Acquire, DiscriminatorArm };
+enum class ActionKind { IdealGate, Pulse, Acquire, DiscriminatorArm, GateOutput };
 enum class ExecutionFlag { Always, LastOne, LastZero, Equal };
 struct ResourceUse {
   std::uint32_t id = 0;
@@ -25,11 +25,24 @@ struct EventSpec {
   std::string axis = "x";
   bool separate_arm = false;
   ExecutionFlag execution_flag = ExecutionFlag::Always;
+  std::string gate = {};
   bool operator==(const EventSpec &) const = default;
 };
 struct Mapping {
   std::uint32_t port = 0, codeword = 0;
   std::vector<EventSpec> actions;
+};
+struct GateInput {
+  std::uint32_t core = 0, port = 0, codeword = 0;
+  bool operator==(const GateInput &) const = default;
+};
+struct TwoQubitGate {
+  std::string name, operation;
+  std::vector<std::uint32_t> targets;
+  std::vector<GateInput> inputs;
+  std::vector<ResourceUse> resources;
+  Tick duration = 20;
+  bool operator==(const TwoQubitGate &) const = default;
 };
 struct Profile {
   Clock cpu{5, 0}, tcu{20, 0};
@@ -41,8 +54,10 @@ struct Profile {
   std::uint32_t firing_width = 1, seed = 1;
   bool fast_feedback = true;
   std::vector<Mapping> mappings;
+  std::vector<TwoQubitGate> two_qubit_gates;
   void validate() const;
   [[nodiscard]] const Mapping &mapping(std::uint32_t port, std::uint32_t codeword) const;
+  [[nodiscard]] const TwoQubitGate &gate(const std::string &name) const;
   [[nodiscard]] std::string fingerprint() const;
 };
 struct MeasurementReference {

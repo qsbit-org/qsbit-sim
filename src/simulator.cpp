@@ -16,9 +16,10 @@ Profile validated(const std::vector<CoreConfig> &cores, const std::vector<SyncCo
             "core addresses must be unique 17-bit integers");
     const auto &p = core.profile;
     require(p.tcu.period == first.tcu.period && p.tcu.phase == first.tcu.phase &&
-                p.qubits == first.qubits && p.seed == first.seed && p.watchdog == first.watchdog,
+                p.qubits == first.qubits && p.seed == first.seed && p.watchdog == first.watchdog &&
+                p.two_qubit_gates == first.two_qubit_gates,
             ErrorCode::InvalidProfile,
-            "cores must share the TCU clock, qubit count, seed and watchdog");
+            "cores must share the TCU clock, qubit count, seed, watchdog and two-qubit gates");
     ports = checked_add(ports, p.ports);
   }
   require(ports <= std::numeric_limits<std::uint32_t>::max(), ErrorCode::InvalidProfile,
@@ -26,6 +27,29 @@ Profile validated(const std::vector<CoreConfig> &cores, const std::vector<SyncCo
   for (const auto &link : links)
     require(ids.contains(link.first) && ids.contains(link.second), ErrorCode::InvalidProfile,
             "synchronization connection names an unknown core");
+  for (const auto &gate : first.two_qubit_gates)
+    for (const auto &input : gate.inputs) {
+      const auto core = std::find_if(cores.begin(), cores.end(),
+                                     [&](const auto &c) { return c.id == input.core; });
+      require(core != cores.end(), ErrorCode::InvalidProfile, "gate input names an unknown core");
+      const auto &mappings = core->profile.mappings;
+      const auto mapping = std::find_if(mappings.begin(), mappings.end(), [&](const auto &m) {
+        return m.port == input.port && m.codeword == input.codeword;
+      });
+      require(mapping != mappings.end() && mapping->actions.size() == 1 &&
+                  mapping->actions.front().kind == ActionKind::GateOutput &&
+                  mapping->actions.front().gate == gate.name,
+              ErrorCode::InvalidProfile, "gate input has no matching output mapping");
+    }
+  for (const auto &core : cores)
+    for (const auto &mapping : core.profile.mappings)
+      for (const auto &action : mapping.actions)
+        if (action.kind == ActionKind::GateOutput) {
+          const auto &inputs = first.gate(action.gate).inputs;
+          require(std::find(inputs.begin(), inputs.end(),
+                            GateInput{core.id, mapping.port, mapping.codeword}) != inputs.end(),
+                  ErrorCode::InvalidProfile, "output mapping is not a configured gate input");
+        }
   return first;
 }
 sc_core::sc_time time_at(Tick tick) { return sc_core::sc_time::from_value(tick); }
@@ -68,7 +92,7 @@ Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> confi
         [this, index](const EventSpec &event) {
           auto mapped = event;
           mapped.port += port_offsets_.at(index);
-          backend_->validate(mapped);
+          device_.validate(mapped);
         },
         std::move(config.cpu_factory), config.sync_capacity, configs.size() > 1));
     offset += config.profile.ports;
@@ -174,8 +198,12 @@ void Simulator::memory_edge() {
 }
 TriggeredEvents Simulator::device_events(const TriggeredEvents &batch, std::size_t index) const {
   auto mapped = batch;
-  if (cores_.size() == 1)
+  if (cores_.size() == 1) {
+    if (cores_.front()->id() != 0)
+      for (auto &event : mapped.events)
+        event.core = cores_.front()->id();
     return mapped;
+  }
   const auto global_id = [&](Id id) {
     require(id > 0, ErrorCode::Protocol, "zero event or measurement identity");
     return checked_add(checked_mul(id - 1, cores_.size()), index + 1);

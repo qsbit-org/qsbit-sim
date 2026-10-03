@@ -16,7 +16,9 @@ Paths are relative to the run file.
   "backend": "mock",
   "profile": {
     "tcu": {"period": 4, "phase": 0},
-    "start": 10000
+    "start": 10000,
+    "mappings": [],
+    "two_qubit_gates": []
   },
   "cores": [
     {"id": 1, "program": "control.elf", "profile_file": "control-profile.json"},
@@ -37,6 +39,7 @@ to 8. Profiles are validated after each overlay. Set `mappings` to an empty
 array when a common profile changes the port count without defining mappings.
 
 All cores share the TCU period and phase, qubit count, random seed and watchdog.
+They also share the `two_qubit_gates` definitions.
 CPU clocks and initial TCU start times may differ. A core configuration cannot
 be combined with a top-level program, raw binary input, memory inspection or
 memory dump. Use [the runnable example](../examples/distributed-hisq/README.md)
@@ -61,6 +64,12 @@ See [synchronization](modules/synchronization.md) for BISP timing.
 Qubit targets and resource IDs identify objects in the shared device. Output
 ports are local to each core; the simulator assigns disjoint device-port ranges
 in core-array order. Device trace records use these global output port numbers.
+
+A two-qubit gate can require one codeword from each core. Its `inputs` identify
+core IDs and local ports; the two `gate_output` actions must reach the same
+physical start tick after their output delays. The shared device applies the
+gate once. BISP aligns controller timing; it does not carry or assemble gate
+operations. See [two-port gate outputs](interfaces.md#two-port-gate-outputs).
 
 All cores submit operations before the device processes a physical boundary.
 The backend evolves once for each interval with the active drives from every
@@ -103,4 +112,5 @@ capacity and reset. The integration test checks result routing, shared resources
 global completion, unmatched requests and registration-order independence.
 The optional Aer test `numerical.distributed` prepares a qubit from one core and
 measures it from another.
-It also checks thermal relaxation during a TCU pause and through the global stop tick.
+It also checks a Bell state prepared by a two-port CX across cores, thermal
+relaxation during a TCU pause and evolution through the global stop tick.

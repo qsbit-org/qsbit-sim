@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <set>
 #include <sstream>
+#include <tuple>
 
 namespace qsbit {
 void Profile::validate() const {
@@ -17,6 +18,23 @@ void Profile::validate() const {
     require(n > 0, ErrorCode::InvalidProfile, "capacities and latencies must be positive");
   require(result_capacity <= 65535 && ports <= 65535 && qubits <= 32, ErrorCode::InvalidProfile,
           "profile exceeds index bounds");
+  std::set<std::string> gate_names;
+  std::set<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>> gate_inputs;
+  for (const auto &g : two_qubit_gates) {
+    require(!g.name.empty() && gate_names.insert(g.name).second && !g.operation.empty() &&
+                g.duration > 0 && g.targets.size() == 2 && g.targets[0] != g.targets[1] &&
+                g.targets[0] < qubits && g.targets[1] < qubits && g.inputs.size() == 2,
+            ErrorCode::InvalidProfile, "invalid two-qubit gate definition");
+    require(g.inputs[0].core != g.inputs[1].core || g.inputs[0].port != g.inputs[1].port,
+            ErrorCode::InvalidProfile, "two-qubit gate requires two distinct output ports");
+    for (const auto &input : g.inputs)
+      require(input.core <= 131071 &&
+                  gate_inputs.emplace(input.core, input.port, input.codeword).second,
+              ErrorCode::InvalidProfile, "invalid or ambiguous two-qubit gate input");
+    std::set<std::uint32_t> resources;
+    for (const auto &r : g.resources)
+      require(resources.insert(r.id).second, ErrorCode::InvalidProfile, "duplicate gate resource");
+  }
   std::set<std::pair<std::uint32_t, std::uint32_t>> keys;
   for (const auto &map : mappings) {
     require(map.port < ports && keys.insert({map.port, map.codeword}).second,
@@ -25,8 +43,19 @@ void Profile::validate() const {
     unsigned acquisitions = 0, arms = 0;
     bool separate = false;
     for (const auto &a : map.actions) {
-      require(a.port < ports && !a.targets.empty() && a.duration > 0 && std::isfinite(a.amplitude),
+      require(a.port < ports && (a.kind == ActionKind::GateOutput || !a.targets.empty()) &&
+                  a.duration > 0 && std::isfinite(a.amplitude),
               ErrorCode::InvalidProfile, "invalid action descriptor");
+      if (a.kind == ActionKind::GateOutput) {
+        require(map.actions.size() == 1 && a.port == map.port && a.targets.empty() &&
+                    a.resources.empty() && a.operation.empty() && !a.separate_arm &&
+                    a.amplitude == 0 && a.execution_flag == ExecutionFlag::Always,
+                ErrorCode::InvalidProfile, "gate output must be one unconditional port action");
+        require(a.duration == gate(a.gate).duration, ErrorCode::InvalidProfile,
+                "gate output duration differs from gate duration");
+      } else {
+        require(a.gate.empty(), ErrorCode::InvalidProfile, "gate reference on non-output action");
+      }
       require(a.execution_flag >= ExecutionFlag::Always && a.execution_flag <= ExecutionFlag::Equal,
               ErrorCode::InvalidProfile, "invalid execution flag");
       require(a.execution_flag == ExecutionFlag::Always ||
@@ -67,6 +96,13 @@ void Profile::validate() const {
     }
   }
 }
+const TwoQubitGate &Profile::gate(const std::string &gate_name) const {
+  const auto it = std::find_if(two_qubit_gates.begin(), two_qubit_gates.end(),
+                               [&](const auto &g) { return g.name == gate_name; });
+  require(it != two_qubit_gates.end(), ErrorCode::InvalidProfile,
+          "unknown two-qubit gate: " + gate_name);
+  return *it;
+}
 const Mapping &Profile::mapping(std::uint32_t port, std::uint32_t codeword) const {
   require(port < ports, ErrorCode::InvalidPort, "port is outside configured map");
   const auto it = std::find_if(mappings.begin(), mappings.end(), [&](const Mapping &m) {
@@ -90,12 +126,21 @@ std::string Profile::fingerprint() const {
       text << " a " << static_cast<int>(a.kind) << ' ' << a.port << ' ' << std::quoted(a.operation)
            << ' ' << a.delay << ' ' << a.duration << ' ' << a.discriminator_delay << ' '
            << a.amplitude << ' ' << std::quoted(a.axis) << ' ' << a.separate_arm << ' '
-           << static_cast<int>(a.execution_flag);
+           << static_cast<int>(a.execution_flag) << ' ' << std::quoted(a.gate);
       for (auto q : a.targets)
         text << " q " << q;
       for (auto r : a.resources)
         text << " r " << r.id << ' ' << r.exclusive;
     }
+  }
+  for (const auto &g : two_qubit_gates) {
+    text << " g " << std::quoted(g.name) << ' ' << std::quoted(g.operation) << ' ' << g.duration;
+    for (auto q : g.targets)
+      text << " q " << q;
+    for (const auto &input : g.inputs)
+      text << " i " << input.core << ' ' << input.port << ' ' << input.codeword;
+    for (auto r : g.resources)
+      text << " r " << r.id << ' ' << r.exclusive;
   }
   // FNV-1a configuration fingerprint.
   std::uint64_t hash = 14695981039346656037ULL;

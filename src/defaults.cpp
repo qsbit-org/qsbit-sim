@@ -29,12 +29,16 @@ Profile default_profile() {
       p.mappings.push_back({q, code, {a}});
     }
   }
-  EventSpec cx;
-  cx.port = 0;
-  cx.operation = "cx";
-  cx.targets = {0, 1};
-  cx.resources = {{0, true}, {1, true}};
-  p.mappings.push_back({0, 6, {cx}});
+  p.two_qubit_gates.push_back(
+      {"cx01", "cx", {0, 1}, {{0, 0, 6}, {0, 1, 10}}, {{0, true}, {1, true}}, 20});
+  for (auto [port, code] : {std::pair{0U, 6U}, std::pair{1U, 10U}}) {
+    EventSpec output;
+    output.kind = ActionKind::GateOutput;
+    output.port = port;
+    output.operation.clear();
+    output.gate = "cx01";
+    p.mappings.push_back({port, code, {output}});
+  }
   for (std::uint32_t q = 0; q < p.qubits; ++q) {
     for (auto flag : {ExecutionFlag::LastOne, ExecutionFlag::LastZero, ExecutionFlag::Equal}) {
       EventSpec action;

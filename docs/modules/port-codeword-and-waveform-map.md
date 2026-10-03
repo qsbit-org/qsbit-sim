@@ -27,11 +27,16 @@ digraph module {
 
 ## Event specifications
 
-Each `EventSpec` defines an ideal gate, constant pulse, acquisition or
-discriminator arm. It specifies the output port, targets, resources,
+Each `EventSpec` defines an ideal gate, constant pulse, acquisition,
+discriminator arm or one output of a paired gate. It specifies the output port,
 delay and duration. Pulses also have an axis and amplitude; acquisitions
 have discriminator timing. `execution_flag` selects the target qubit's flag
 for single-qubit gates and pulses.
+
+A paired output names a `TwoQubitGate` in `Profile::two_qubit_gates`. That
+definition supplies the backend operation, two targets, resources, duration and
+two required input endpoints. The default CX uses port 0 with codeword 6 and
+port 1 with codeword 10. See [two-port gate outputs](../interfaces.md#two-port-gate-outputs).
 
 The default map assigns codewords 7, 8 and 9 to X gates controlled by
 `last_one`, `last_zero` and `equal`, respectively, on each qubit's port.
@@ -49,7 +54,7 @@ Sampled waveforms and oscillator-register operations are unsupported.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `Mapping::port and codeword` | lookup key | Source control port and digital codeword. |
-| `Mapping::actions` | `vector<EventSpec>` | IdealGate, Pulse, Acquire or DiscriminatorArm descriptors. |
+| `Mapping::actions` | `vector<EventSpec>` | IdealGate, Pulse, Acquire, DiscriminatorArm or GateOutput descriptors. |
 | `EventSpec` | event specification | Physical port, targets, resources, timing, and readout and pulse parameters. |
 
 [C++ API](../api.md#controlhpp).

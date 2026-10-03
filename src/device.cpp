@@ -10,6 +10,9 @@ bool common_target(const EventSpec &a, const EventSpec &b) {
   });
 }
 bool is_arm(const EventSpec &a) { return a.kind == ActionKind::DiscriminatorArm; }
+bool is_gate(const EventSpec &a) {
+  return a.kind == ActionKind::IdealGate || a.kind == ActionKind::GateOutput;
+}
 } // namespace
 void ResourceReservations::pair(const ScheduledEvent &a, const ScheduledEvent &b) {
   const auto &x = a.event.action;
@@ -17,6 +20,11 @@ void ResourceReservations::pair(const ScheduledEvent &a, const ScheduledEvent &b
   const bool overlap = a.start < b.end && b.start < a.end;
   if (overlap) {
     require(x.port != y.port, ErrorCode::ResourceConflict, "output port intervals overlap");
+    if (x.kind == ActionKind::GateOutput && y.kind == ActionKind::GateOutput && x.gate == y.gate) {
+      require(a.start == b.start && a.end == b.end, ErrorCode::GateInputMismatch,
+              "two-qubit gate output intervals differ");
+      return;
+    }
     for (const auto &rx : x.resources)
       for (const auto &ry : y.resources)
         require(rx.id != ry.id || (!rx.exclusive && !ry.exclusive), ErrorCode::ResourceConflict,
@@ -27,8 +35,8 @@ void ResourceReservations::pair(const ScheduledEvent &a, const ScheduledEvent &b
   }
   if (common_target(x, y)) {
     const bool measurement_gate =
-        (x.kind == ActionKind::Acquire && y.kind == ActionKind::IdealGate && a.end == b.start) ||
-        (y.kind == ActionKind::Acquire && x.kind == ActionKind::IdealGate && b.end == a.start);
+        (x.kind == ActionKind::Acquire && is_gate(y) && a.end == b.start) ||
+        (y.kind == ActionKind::Acquire && is_gate(x) && b.end == a.start);
     require(!measurement_gate, ErrorCode::ResourceConflict,
             "measurement sample and ideal gate share a target and tick");
   }
@@ -58,14 +66,37 @@ ControlElectronics::ControlElectronics(const Profile &profile, IQuantumBackend &
     : profile_(profile), backend_(backend), trace_(trace) {
   backend_.reset(profile.qubits, profile.seed);
 }
+EventSpec ControlElectronics::gate_action(const std::string &name) const {
+  const auto &gate = profile_.gate(name);
+  EventSpec action;
+  action.operation = gate.operation;
+  action.targets = gate.targets;
+  action.resources = gate.resources;
+  action.duration = gate.duration;
+  return action;
+}
+void ControlElectronics::validate(const EventSpec &action) const {
+  backend_.validate(action.kind == ActionKind::GateOutput ? gate_action(action.gate) : action);
+}
 std::vector<ScheduledEvent> ControlElectronics::resolve(const TriggeredEvents &batch) const {
   std::vector<ScheduledEvent> actions;
   for (const auto &event : batch.events) {
     require(event.epoch == batch.epoch && event.label == batch.label, ErrorCode::Protocol,
             "launch event identity mismatch");
-    backend_.validate(event.action);
+    validate(event.action);
     const Tick start = checked_add(batch.fire_tick, event.action.delay);
-    actions.push_back({event, start, checked_add(start, event.action.duration)});
+    auto mapped = event;
+    if (event.action.kind == ActionKind::GateOutput) {
+      const auto &gate = profile_.gate(event.action.gate);
+      const GateInput input{event.core.value_or(0), event.source_port, event.codeword};
+      require(std::find(gate.inputs.begin(), gate.inputs.end(), input) != gate.inputs.end() &&
+                  event.action.duration == gate.duration,
+              ErrorCode::GateInputMismatch, "unexpected gate output endpoint or duration");
+      mapped.action.operation = gate.operation;
+      mapped.action.targets = gate.targets;
+      mapped.action.resources = gate.resources;
+    }
+    actions.push_back({std::move(mapped), start, checked_add(start, event.action.duration)});
   }
   return actions;
 }
@@ -153,6 +184,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
   const auto &boundary = it->second;
   std::vector<MeasurementReference> samples;
   std::vector<EventSpec> gates, drives;
+  std::map<std::string, std::vector<const ScheduledEvent *>> gate_outputs;
   for (const auto &[id, action] : active_) {
     (void)id;
     if (action.event.action.kind == ActionKind::Pulse)
@@ -171,13 +203,31 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
   for (const auto &action : boundary.starts) {
     require(action.event.epoch == epoch, ErrorCode::Protocol,
             "old epoch reached physical boundary");
-    backend_.validate(action.event.action);
-    if (action.event.action.kind == ActionKind::IdealGate) {
+    validate(action.event.action);
+    if (is_gate(action.event.action)) {
       for (auto target : action.event.action.targets)
         require(!sampled_targets.contains(target), ErrorCode::ResourceConflict,
                 "sample and gate collide at physical boundary");
-      gates.push_back(action.event.action);
+      if (action.event.action.kind == ActionKind::GateOutput)
+        gate_outputs[action.event.action.gate].push_back(&action);
+      else
+        gates.push_back(action.event.action);
     }
+  }
+  for (const auto &[name, outputs] : gate_outputs) {
+    const auto &gate = profile_.gate(name);
+    require(outputs.size() == gate.inputs.size(), ErrorCode::GateInputMismatch,
+            "two-qubit gate requires both outputs at the same physical start tick: " + name);
+    for (const auto &input : gate.inputs)
+      require(std::count_if(outputs.begin(), outputs.end(),
+                            [&](const auto *output) {
+                              const auto &event = output->event;
+                              return input == GateInput{event.core.value_or(0), event.source_port,
+                                                        event.codeword} &&
+                                     output->end == checked_add(now, gate.duration);
+                            }) == 1,
+              ErrorCode::GateInputMismatch, "missing or duplicate two-qubit gate input");
+    gates.push_back(gate_action(name));
   }
   // All capability, identity and ordering checks precede the first backend mutation.
   if (now > last_tick_)
@@ -204,6 +254,16 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
     active_.erase(id);
   }
   backend_.apply(gates);
+  for (const auto &[name, outputs] : gate_outputs) {
+    (void)outputs;
+    const auto &gate = profile_.gate(name);
+    TraceEvent record{now, epoch, "GateApplied"};
+    record.operation = gate.operation;
+    record.targets = gate.targets;
+    record.value = gate.duration;
+    record.detail = name;
+    trace_.emit(std::move(record));
+  }
   for (const auto &action : boundary.starts) {
     require(active_.emplace(action.event.id, action).second, ErrorCode::Protocol,
             "physical action started twice");

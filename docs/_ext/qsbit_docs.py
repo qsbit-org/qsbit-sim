@@ -32,7 +32,7 @@ def make_demo(root, build, output, name, program, outcomes):
     if any(a['tick'] > b['tick'] for a, b in zip(events, events[1:])):
         raise ExtensionError(f'{name}: decreasing trace time')
     starts = [e for e in events if e['kind'] == 'OperationStart']
-    expected = [('h', 360), ('cx', 400), ('measure', 440), ('measure', 440)] if program == 'bell' else [
+    expected = [('h', 360), ('cx', 400), ('cx', 400), ('measure', 440), ('measure', 440)] if program == 'bell' else [
         ('x', 360), ('measure', 440), ('x' if outcomes == '1' else 'z', 720)]
     observed = [(e['operation'], e['tick']) for e in starts]
     if observed != expected:

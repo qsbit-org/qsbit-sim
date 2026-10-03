@@ -2,6 +2,7 @@
   "start": 1040,
   "cpu_result_latency": 12,
   "qubits": 7,
+  "two_qubit_gates": [],
   "mappings": [
     {
       "port": 0,

@@ -23,6 +23,7 @@
     "qubits": 1, "ports": 1, "start": 1000, "watchdog": 216000000000,
     "seed": 20261002,
     "fast_feedback": false,
+    "two_qubit_gates": [],
     "mappings": [
       {"port": 0, "codeword": 1, "actions": [{"operation": "id", "targets": [0], "duration": 20}]},
       {"port": 0, "codeword": 2, "actions": [{"operation": "x", "targets": [0], "duration": 20}]},

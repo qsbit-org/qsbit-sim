@@ -34,7 +34,13 @@ Intervals use `[start, end)`, so adjacent operations can share an endpoint.
 Overlaps on one output port are forbidden. Intervals on different ports
 conflict when they share a resource and either use is exclusive. Except for
 discriminator arms, events sharing a target may overlap only when both
-are pulses.
+are pulses or are the two configured outputs of one gate with identical intervals.
+
+For a `GateOutput`, `resolve()` checks the source core, local port and codeword
+against the gate definition and reserves its targets and resources. At the start
+tick, `process()` requires both configured outputs before any backend mutation.
+It applies one ideal gate and emits one `GateApplied` record. Each output retains
+its own `OperationStart` and `OperationEnd` records.
 
 At each device event tick, the model validates the scheduled work, evolves
 the preceding interval, samples ending acquisitions, removes ended events,
@@ -71,7 +77,8 @@ reset tick.
 
 Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
 
-**CTest:** `protocol.resources`, `protocol.sample_collision`, `protocol.reset`.
+**CTest:** `protocol.resources`, `protocol.sample_collision`, `protocol.reset`, `device.two_qubit`.
 
 The tests check overlapping resource intervals, unsupported sampling collisions
-and cancellation of active device work during reset.
+and cancellation of active device work during reset. Paired-gate tests check
+single application, delay compensation, missing inputs, conflicts and reset.

@@ -65,8 +65,8 @@ load, loop suffix and exit instructions. The region accepts only `cw.i.i`,
 registers are rejected. This prevents measurement outcomes and loop-carried CPU
 data from changing the schedule.
 
-Mappings must select unconditional gates or acquisitions without separate
-discriminator arms. Read every acquired target before another codeword or wait,
+Mappings must select unconditional gates, paired gate outputs or acquisitions
+without separate discriminator arms. Read every acquired target before another codeword or wait,
 and finish the region with FMR. Disable `profile.fast_feedback`. All operations
 must finish within their round, and the round duration must preserve both clock
 phases. Raw images, session resets, memory dumps and a `trace` path override are unsupported.
