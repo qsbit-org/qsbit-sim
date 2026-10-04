@@ -5,7 +5,6 @@ from html.parser import HTMLParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-import re
 import threading
 from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
@@ -104,35 +103,47 @@ def check_browser(site):
             bundle = json.loads((site / '_static/trace-examples.json').read_text())
             for example_index, example in enumerate(bundle['examples']):
                 page.select_option('#trace-example', str(example_index))
-                expect(page.locator('#trace-owners a[data-owner="feedback"]')).to_have_attribute(
+                expect(page.locator('#trace-node-registers a')).to_have_attribute(
                     'href', 'modules/measurement-registers.html')
+                page.locator('.replay-records > summary').click()
                 page.click('#trace-next')
                 observed = json.loads(page.locator('#trace-event').inner_text())
                 assert observed == example['events'][1]
-                page.click('#trace-prev')
+                page.click('#trace-back')
                 assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][0]
                 page.click('#trace-tick')
-                assert json.loads(page.locator('#trace-event').inner_text())['tick'] > example['events'][0]['tick']
+                tick_event = json.loads(page.locator('#trace-event').inner_text())
+                assert tick_event['tick'] > example['events'][0]['tick']
+                tick_index = example['events'].index(tick_event)
+                assert example['events'][tick_index + 1]['tick'] > tick_event['tick']
                 accepted = next(i for i, e in enumerate(example['events']) if e['kind'] == 'CodewordQueued')
                 page.select_option('#trace-jump', str(accepted))
                 event = example['events'][accepted]
-                observed_values = [list(map(int, re.findall(r'\d+', value)))
-                                   for value in page.locator('#trace-observed dd').all_text_contents()]
-                assert [event['cycle'], event['tick']] in observed_values
+                expect(page.locator('#trace-state-reserve')).to_contain_text(f"p{event['port']} · cw {event['codeword']}")
+                enqueued = next(i for i, e in enumerate(example['events']) if e['kind'] == 'TimingPointEnqueued')
+                page.select_option('#trace-jump', str(enqueued))
+                expect(page.locator('#trace-state-timing .queue-entry').first).to_contain_text(f"t = {event['cycle']}")
+                sampled = next(i for i, e in enumerate(example['events']) if e['kind'] == 'MeasurementSampled')
+                page.select_option('#trace-jump', str(sampled))
+                expect(page.locator('#trace-state-registers')).to_contain_text('No result delivered')
                 # Both gates and CPU/fast visibility must match original records, including equal-tick events.
                 for kind in ['TimingPointTriggered', 'OperationStart', 'MeasurementRegisterUpdated', 'ExecutionFlagsUpdated']:
                     position = next(i for i, e in enumerate(example['events']) if e['kind'] == kind)
                     page.select_option('#trace-jump', str(position))
                     assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][position]
+                    if kind == 'TimingPointTriggered':
+                        assert page.locator('#trace-node-timing').evaluate("el => el.classList.contains('changed')")
                 event = example['events'][position]
-                usable = event['tick'] + example['configuration']['tcu']['period']
-                observed_values = [list(map(int, re.findall(r'\d+', value)))
-                                   for value in page.locator('#trace-observed dd').all_text_contents()]
-                assert [event['value'], event['tick'], usable] in observed_values
+                expect(page.locator('#trace-state-trigger')).to_contain_text(f"Flags committed at {event['tick']} ns")
+                expect(page.locator('#trace-delivery')).to_contain_text(f"{event['tick']} ns")
+                # Seeking backwards removes feedback that has not arrived yet.
+                page.select_option('#trace-jump', str(accepted))
+                expect(page.locator('#trace-state-registers')).to_contain_text('No result delivered')
                 last = len(example['events']) - 1
-                page.locator('#trace-position').evaluate('(el, value) => { el.value = value; el.dispatchEvent(new Event("input", {bubbles: true})); }', last)
+                page.locator('#trace-position').evaluate('(el, value) => { el.value = value; el.dispatchEvent(new Event("input", {bubbles: true})); }', example['events'][last]['tick'])
                 assert json.loads(page.locator('#trace-event').inner_text()) == example['events'][last]
                 assert page.locator('#trace-next').is_disabled()
+                page.locator('.replay-records > summary').click()
             page.select_option('#trace-example', '0')
             page.select_option('#trace-speed', '60')
             page.click('#trace-play')
@@ -141,11 +152,21 @@ def check_browser(site):
             paused_position = page.locator('#trace-position').input_value()
             page.wait_for_timeout(150)
             assert page.locator('#trace-position').input_value() == paused_position
+            page.get_by_role('button', name='CPU result', exact=True).click()
             page.screenshot(path=str(site.parent / 'execution-desktop.png'), full_page=True)
+            page.click('#trace-expand')
+            expect(page.locator('#trace-expand')).to_have_attribute('aria-pressed', 'true')
+            page.locator('#trace-player').screenshot(path=str(site.parent / 'execution-expanded.png'))
+            page.keyboard.press('Escape')
+            expect(page.locator('#trace-expand')).to_have_attribute('aria-pressed', 'false')
+            page.evaluate("document.body.dataset.theme = 'dark'")
+            page.screenshot(path=str(site.parent / 'execution-dark.png'), full_page=True)
             page.set_viewport_size({'width': 390, 'height': 844})
-            assert page.locator('#trace-next').is_visible()
+            assert page.locator('#trace-tick').is_visible()
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             page.screenshot(path=str(site.parent / 'execution-mobile.png'), full_page=True)
             assert not errors, '\n'.join(errors)
+            check_replay_state(page)
             # A missing bundle must leave controls disabled and show a usable error.
             page.route('**/trace-examples.json', lambda route: route.fulfill(status=404, body='missing'))
             page.reload()
@@ -156,6 +177,54 @@ def check_browser(site):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def check_replay_state(page):
+    """Exercise scope and seek boundaries with a small independent recording."""
+    result = page.evaluate('''() => {
+      const events = [
+        {kind: 'SessionStarted', tick: 0, epoch: 1},
+        {kind: 'CodewordQueued', tick: 1, epoch: 1, core: 1, port: 2, codeword: 7, cycle: 12},
+        {kind: 'TimingPointSubmitted', tick: 2, epoch: 1, core: 1, label: 1, cycle: 12},
+        {kind: 'TimingPointEnqueued', tick: 3, epoch: 1, core: 1, label: 1, cycle: 2, value: 1},
+        {kind: 'MeasurementRegisterUpdated', tick: 4, epoch: 1, core: 2, id: 1, targets: [0], value: 1},
+        {kind: 'OperationStart', tick: 5, epoch: 1, core: 1, id: 9, port: 0},
+        {kind: 'OperationStart', tick: 5, epoch: 1, core: 2, id: 9, port: 1},
+        {kind: 'TimingPointTriggered', tick: 6, epoch: 1, core: 1, label: 1, cycle: 12},
+        {kind: 'TimerPaused', tick: 7, epoch: 1, core: 1},
+        {kind: 'SessionReset', tick: 8, epoch: 2},
+      ];
+      const r = new QsbitTrace.Recording({events, cores: [{id: 1, configuration: {mappings: [
+        {port: 2, codeword: 7, actions: [{port: 0, operation: 'x'}, {port: 1, operation: 'y'}]}
+      ]}}]});
+      const repeats = new QsbitTrace.Recording({events: Array.from({length: 260}, (_, i) =>
+        ({kind: i === 0 ? 'SessionStarted' : 'CpuStalled', tick: i, epoch: 1, id: 1, detail: 'memory response'}))});
+      return {queued: r.at(3), feedback: r.at(4), concurrent: r.at(6), fired: r.at(7),
+        paused: r.at(8), reset: r.at(9), rewind: r.at(3), intervals: r.intervals,
+        next: r.nextTick(4), previous: r.previousTick(6), configuration: r.configuration(2),
+        mapped: [...r.queuedEvents(1, r.at(3).cores[1].queue)],
+        stalled: repeats.at(259).cores[0].stall.tick, earlier: repeats.at(129).cores[0].stall.tick,
+        changes: repeats.steps, seek: [r.indexAtTick(5), r.indexAtTick(100), r.indexAtTick(-1)]};
+    }''')
+    queued = result['queued']['cores']['1']['queue']
+    assert queued[0]['point'] == 12
+    assert queued[0]['codewords'][0]['codeword'] == 7
+    assert not result['feedback']['cores']['1']['registers']
+    assert result['feedback']['cores']['2']['registers']['0']['value'] == 1
+    assert len(result['concurrent']['active']) == 2
+    assert not result['fired']['cores']['1']['queue']
+    assert result['fired']['cores']['1']['occupancy']['value'] == 0
+    assert result['paused']['cores']['1']['paused']['tick'] == 7
+    assert not result['reset']['active']
+    assert '1' not in result['reset']['cores']
+    assert result['rewind'] == result['queued']
+    assert all(i['end'] == 8 and i['aborted'] for i in result['intervals'])
+    assert result['next'] == 6 and result['previous'] == 4
+    assert result.get('configuration') is None
+    assert result['mapped'] == [[0, [{'point': 12, 'operation': 'x'}]], [1, [{'point': 12, 'operation': 'y'}]]]
+    assert result['stalled'] == 259 and result['earlier'] == 129
+    assert result['changes'] == [0, 1]
+    assert result['seek'] == [6, 9, 0]
 
 
 def main():

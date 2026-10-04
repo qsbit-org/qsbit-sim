@@ -1,94 +1,55 @@
 # Follow a program through the controller
 
-Select **feedback-one** to follow a measurement through the controller and
-see how the CPU selects the next gate. [Quickstart](quickstart.md) runs the
-same program locally.
-
-Use **Next event** to advance one trace record or **Next tick** to move to
-the next timestamp. Speed changes playback, not simulation timing.
-
-To replay a local trace, run
-`python3 tools/replay_trace.py PATH/TO/TRACE.jsonl` from the repository root.
-The player uses the matching `.json` summary when available to derive clock
-values. Press Ctrl+C to stop the server.
+Watch instructions prepare time points, queues feed control outputs, and
+measurement results return to the CPU. Select **feedback-one** to follow a
+measurement-dependent branch. [Quickstart](quickstart.md) runs the same program locally.
 
 ```{raw} html
-<div id="trace-player" class="trace-player" aria-label="Simulation trace player">
-  <p id="trace-status" role="status">Loading recorded executions…</p>
-  <div class="player-controls">
-    <label>Program <select id="trace-example" aria-label="Program"></select></label>
-    <button id="trace-prev" type="button">Previous</button>
-    <button id="trace-play" type="button">Play</button>
-    <button id="trace-next" type="button">Next event</button>
-    <button id="trace-tick" type="button">Next tick</button>
-    <label>Speed <select id="trace-speed"><option value="600">1×</option><option value="200">3×</option><option value="60">10×</option></select></label>
-  </div>
-  <label class="scrubber">Recorded event <input id="trace-position" type="range" min="0" max="0" value="0"></label>
-  <div id="trace-clocks" class="clock-grid"></div>
-  <div id="trace-owners" class="owner-grid"></div>
-  <div class="timeline-scroll"><svg id="trace-timeline" role="img" aria-label="Events by owner and simulation tick"></svg></div>
-  <div class="player-columns">
-    <section><h2>Recorded event</h2><select id="trace-jump" aria-label="Jump to milestone"></select><pre id="trace-event"></pre></section>
-    <section><h2>Last observed state</h2><div id="trace-observed"></div></section>
-  </div>
-  <details><summary>Input assembly</summary><pre id="trace-program"></pre></details>
-  <details><summary>Run configuration</summary><pre id="trace-config"></pre></details>
-</div>
+<div id="trace-player" class="trace-player" aria-label="Simulation trace player"></div>
 <noscript>Enable JavaScript to use the execution player.</noscript>
 ```
 
-## Follow the feedback path
+## Explore an execution
 
-1. Select **feedback-one** and open **Input assembly**. The program prepares
-   qubit 0, measures it and branches on the result.
-2. Jump to `CodewordQueued`. Its `cycle` is the current time point: the TCU
-   cycle being prepared. Acceptance means the event is staged at the CPU.
-3. Find `TimingPointEnqueued` and then `TimingPointTriggered`. The first records queue insertion;
-   the second records the planned TCU triggering edge.
-4. Follow `MeasurementSampled`, `ResultReady` and `MeasurementRegisterUpdated`. These show
-   sampling, discriminator delay and delivery to the CPU.
-5. Continue to the last `OperationStart`. With outcome 1, the program selects X
-   on qubit 1. Select **feedback-zero** to see the same branch select Z.
+**Play** advances through state changes, skipping repeated stall records. **Next time** applies all records
+at the next timestamp. Drag the slider or select a milestone to seek; select an
+output interval to inspect its start. **Expand view** opens the full-width diagram.
 
-Click the component cards to read the relevant module behavior.
+Highlighted modules changed at the selected time. The CPU shows its last retired
+instruction and nonzero registers; the destination register remains visible when
+written to zero. Timing Queue entries follow enqueue and trigger records.
+Port queues show events resolved from their configured codeword mappings. Control outputs show
+active operations and their configured durations.
 
-## Read the displayed values
+The CPU edge index is derived from its configured clock. The TCU cycle is the
+last recorded value. CPU pipeline occupancy is not recorded. In multicore traces,
+**Core** selects the controller; control outputs include all cores.
 
-Global tick is simulation time in nanoseconds. CPU edge index and TCU logical
-cycle are derived from the tick and profile. Between edges, the display
-retains the last index. These examples have no reset, so TCU cycle zero
-occurs at `profile.start`.
+Open **Trace records and configuration** to step through individual records,
+including records at the same timestamp. Playback speed does not change simulation time.
 
-**Last observed state** shows recorded values with their observation ticks.
-Queue occupancy, for example, comes from the last enqueue record. The player
-does not update it between observations.
+## Follow measurement feedback
 
-Timeline lanes collect related records. **Result delivery** includes both
-CPU delivery and TCU result commits. Records with the same tick share a
-horizontal position.
+Select **feedback-one**, then **Measure**. Qubit 0 is sampled at 480 ns.
+The result becomes ready at 500 ns, reaches the CPU at 505 ns, and updates
+execution flags at 540 ns. These stages appear separately in **Measurement delivery**.
 
-## Example schedules
+Continue to 720 ns: the CPU-selected X operation starts on qubit 1.
+Select **feedback-zero** to see the same branch choose Z. In **bell**, two
+port outputs at 400 ns produce one joint CX gate.
 
-The examples use mock measurement bits and set TCU start to 200 ns.
-Other timing settings use their defaults. The first operation at cycle 8 starts
-at 360 ns, after the CPU has had time to prepare the queued time points.
+These recordings use mock measurement outcomes. Use the
+[Aer backend](backends.md#install-an-optional-backend) for quantum-state evolution.
 
-| Program | Physical starts (ns) | Outcome |
-| --- | --- | --- |
-| Bell | H: 360; CX: 400; both acquisitions: 440 | Both mock bits are 1. |
-| Feedback, outcome 1 | X: 360; acquisition: 440; branch-selected X: 720 | Memory word 4096 is 1. |
-| Feedback, outcome 0 | X: 360; acquisition: 440; branch-selected Z: 720 | Memory word 4096 is 0. |
+## Replay a local trace
 
-In each run, acquisition samples at 480 ns. The result is ready at 500 ns,
-CPU-visible at 505 ns and updates execution flags at 540 ns. With the 20 ns
-TCU period, the new flags become usable at 560 ns.
+From the repository root:
 
-In Bell, two measurement cw instructions join one time point before FMR submits it.
-In feedback, FMR completes before the classical branch chooses the final
-operation. Both branches reach enqueue at 700 ns and schedule the selected
-gate for cycle 26 (720 ns), one TCU cycle later. Neither
-waiting for a result nor an empty queue pauses the TCU timer.
+```sh
+python3 tools/replay_trace.py PATH/TO/TRACE.jsonl
+```
 
-The mock backend demonstrates control timing. Use the
-[Aer example](backends.md#install-an-optional-backend) to obtain bits from
-quantum-state evolution.
+The player loads clock settings and core configurations from the matching
+`.summary.json` or `.json` file. Use `--summary PATH/TO/SUMMARY.json` for a different
+filename. Without a summary, recorded events remain available; derived clock
+values are unavailable. Press Ctrl+C to stop the server.

@@ -32,6 +32,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert bundle['examples'][0]['configuration'] is None
     trace.with_suffix('.json').write_text(json.dumps({'configuration': {'cpu': {'period': 5, 'phase': 0}}}))
     assert load_trace(trace)['examples'][0]['configuration']['cpu']['period'] == 5
+    summary = trace.with_suffix('.summary.json')
+    summary.write_text(json.dumps({'cores': [{'id': 3, 'configuration': {'cpu': {'period': 7}}}]}))
+    assert load_trace(trace)['examples'][0]['cores'][0]['id'] == 3
+    assert load_trace(trace, trace.with_suffix('.json'))['examples'][0]['configuration']['cpu']['period'] == 5
     process = subprocess.Popen([sys.executable, str(ROOT / 'tools/replay_trace.py'),
                                 str(trace), '--no-browser'], stdout=subprocess.PIPE, text=True)
     startup = queue.Queue()
@@ -44,7 +48,7 @@ with tempfile.TemporaryDirectory() as directory:
             raise AssertionError('trace replay did not start within 10 seconds') from None
         assert line.startswith('Trace replay: '), f'trace replay startup failed: {line!r}'
         url = line.strip().split()[-1]
-        for endpoint in ('', 'trace-player.js', 'site.css'):
+        for endpoint in ('', 'trace-model.js', 'trace-player.js', 'site.css'):
             with urllib.request.urlopen(url + endpoint, timeout=5) as response:
                 assert response.status == 200
         with urllib.request.urlopen(url + 'trace.json', timeout=5) as response:

@@ -16,7 +16,7 @@ html_title = 'qsbit-sim'
 html_static_path = ['_static']
 templates_path = ['_templates']
 html_css_files = ['site.css']
-html_js_files = ['trace-player.js', 'architecture.js']
+html_js_files = ['trace-model.js', 'trace-player.js', 'architecture.js']
 html_theme_options = {
     'light_css_variables': {'color-brand-primary': '#126d77', 'color-brand-content': '#126d77'},
     'dark_css_variables': {'color-brand-primary': '#70c8ce', 'color-brand-content': '#70c8ce'},

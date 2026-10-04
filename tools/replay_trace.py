@@ -20,7 +20,7 @@ class ReplayHTTPServer(ThreadingHTTPServer):
         self.server_name, self.server_port = self.server_address
 
 
-def load_trace(path):
+def load_trace(path, summary_path=None):
     events = []
     with path.open(encoding='utf-8') as stream:
         for number, line in enumerate(stream, 1):
@@ -37,15 +37,23 @@ def load_trace(path):
             events.append(event)
     if not events:
         raise ValueError('trace contains no events')
-    summary = path.with_suffix('.json')
-    configuration = None
-    if summary.is_file():
+    candidates = [summary_path] if summary_path else [path.with_suffix('.summary.json'), path.with_suffix('.json')]
+    summary = {}
+    for candidate in candidates:
+        if not candidate.is_file():
+            if summary_path:
+                raise ValueError(f'summary does not exist: {candidate}')
+            continue
         try:
-            configuration = json.loads(summary.read_text(encoding='utf-8')).get('configuration')
-        except (ValueError, AttributeError):
-            pass
+            summary = json.loads(candidate.read_text(encoding='utf-8'))
+            if not isinstance(summary, dict):
+                raise ValueError('expected a JSON object')
+        except ValueError as exc:
+            raise ValueError(f'invalid summary {candidate}: {exc}') from exc
+        break
     return {'schema': 1, 'examples': [{'name': path.name, 'program': '',
-             'configuration': configuration, 'events': events}]}
+             'configuration': summary.get('configuration'), 'cores': summary.get('cores'),
+             'backend': summary.get('backend'), 'events': events}]}
 
 
 def serve(path, bundle, open_browser=True):
@@ -56,6 +64,7 @@ def serve(path, bundle, open_browser=True):
         '/': ('text/html; charset=utf-8', page),
         '/trace.json': ('application/json; charset=utf-8', json.dumps(bundle).encode()),
         '/trace-player.js': ('text/javascript; charset=utf-8', (ASSETS / 'trace-player.js').read_bytes()),
+        '/trace-model.js': ('text/javascript; charset=utf-8', (ASSETS / 'trace-model.js').read_bytes()),
         '/site.css': ('text/css; charset=utf-8', (ASSETS / 'site.css').read_bytes()),
     }
 
@@ -89,10 +98,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('trace', type=Path, help='JSONL trace to replay')
     parser.add_argument('--no-browser', action='store_true', help='print URL without opening a browser')
+    parser.add_argument('--summary', type=Path, help='JSON run summary containing core configurations')
     args = parser.parse_args()
     try:
         path = args.trace.expanduser().resolve(strict=True)
-        bundle = load_trace(path)
+        bundle = load_trace(path, args.summary)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     serve(path, bundle, not args.no_browser)

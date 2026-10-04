@@ -54,7 +54,7 @@ def make_demo(root, build, output, name, program, outcomes):
         if register != {'value': bool(int(outcomes.split(',')[target])), 'pending': 0, 'valid': True}:
             raise ExtensionError(f'{name}: unexpected measurement register {target}')
     return {'name': name, 'elf_sha256': hashlib.sha256((build / 'examples' / directory / 'program.elf').read_bytes()).hexdigest(), 'program': (root / 'examples' / directory / 'program.S').read_text(),
-            'configuration': state['configuration'], 'events': events,
+            'configuration': state['configuration'], 'backend': 'mock', 'events': events,
             'summary': {'stop_tick': state['stop_tick'], 'memory': state['memory']}}
 
 
