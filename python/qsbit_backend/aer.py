@@ -3,9 +3,9 @@
 import numpy as np
 from qiskit_aer.noise import thermal_relaxation_error
 
-from .registry import options as validate_options
-from .protocol import validate_batch
 from .circuit import CircuitExecutor, validate_gate
+from .protocol import validate_batch
+from .registry import options as validate_options
 
 
 class AerBackend:
@@ -37,7 +37,9 @@ class AerBackend:
             raise ValueError(f"{self._method} adapter supports 1 to {limit} qubits")
         for index, item in enumerate(self._noise.get("qubits", [])):
             if item["qubit"] >= qubits:
-                raise ValueError(f"backend_options.noise.qubits[{index}].qubit: outside configured register")
+                raise ValueError(
+                    f"backend_options.noise.qubits[{index}].qubit: outside configured register"
+                )
         self.executor.reset(qubits, seed)
 
     def _evolve(self, circuit, start, end, drives):
@@ -46,8 +48,9 @@ class AerBackend:
         if end == start or self._noise["model"] == "none":
             return
         for item in self._noise["qubits"]:
-            channel = thermal_relaxation_error(item["t1_ns"], item["t2_ns"], end - start,
-                                               item["excited_state_population"])
+            channel = thermal_relaxation_error(
+                item["t1_ns"], item["t2_ns"], end - start, item["excited_state_population"]
+            )
             circuit.append(channel.to_instruction(), [int(item["qubit"])])
 
     def execute(self, epoch, operations):
@@ -73,8 +76,11 @@ class AerBackend:
                 if operation["kind"] not in ("evolve", "apply"):
                     raise ValueError("transition segment accepts only evolution and gates")
             self.execute(1, operations)
-            probability = (self.executor.data[1, 1].real if self._method == "density_matrix"
-                           else abs(self.executor.data[1]) ** 2)
+            probability = (
+                self.executor.data[1, 1].real
+                if self._method == "density_matrix"
+                else abs(self.executor.data[1]) ** 2
+            )
             if not np.isfinite(probability) or not -1e-12 <= probability <= 1 + 1e-12:
                 raise ValueError("invalid transition probability")
             result.append(float(np.clip(probability, 0, 1)))

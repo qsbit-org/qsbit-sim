@@ -4,9 +4,23 @@ import numpy as np
 from qiskit import ClassicalRegister, QuantumCircuit
 from qiskit_aer import AerSimulator
 
-_ARITY = {"id": 1, "x": 1, "y": 1, "z": 1, "h": 1, "s": 1,
-          "sdg": 1, "t": 1, "tdg": 1, "rx": 1, "ry": 1, "rz": 1,
-          "cx": 2, "cz": 2, "swap": 2}
+_ARITY = {
+    "id": 1,
+    "x": 1,
+    "y": 1,
+    "z": 1,
+    "h": 1,
+    "s": 1,
+    "sdg": 1,
+    "t": 1,
+    "tdg": 1,
+    "rx": 1,
+    "ry": 1,
+    "rz": 1,
+    "cx": 2,
+    "cz": 2,
+    "swap": 2,
+}
 
 
 def validate_gate(action, qubits):
@@ -55,8 +69,12 @@ class CircuitExecutor:
         if len(circuit.data) == 1:
             return []
         getattr(circuit, "save_" + self.method)()
-        result = self.simulator.run(circuit, shots=1, memory=measured,
-            seed_simulator=(self.seed + self.measurements) & 0xFFFFFFFF).result()
+        result = self.simulator.run(
+            circuit,
+            shots=1,
+            memory=measured,
+            seed_simulator=(self.seed + self.measurements) & 0xFFFFFFFF,
+        ).result()
         if not result.success:
             raise RuntimeError(result.status)
         self.data = np.asarray(result.data(0)[self.method], dtype=complex)

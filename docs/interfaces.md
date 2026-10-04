@@ -343,6 +343,7 @@ according to `kind` rather than treating zero as a missing value.
 | --- | --- |
 | `SessionStarted` | `detail` identifies the profile fingerprint. |
 | `InstructionRetired` | Instruction ID, CPU cycle, PC, word, destination, next PC, result and all registers. |
+| `CpuPipelineUpdated` | CPU cycle and `pipeline` snapshot after a CPU edge; emitted when the snapshot changes. |
 | `CpuStalled` and `PipelineFlushed` | Held instruction and reason, or younger instructions discarded on a branch or exit, respectively. |
 | `CodewordQueued` | Instruction ID, planned time point in `cycle`, source port and codeword. |
 | `TimingPointSubmitted` | Label and planned time point. |
@@ -370,11 +371,28 @@ The `cycle` field is a dimensionless index, not nanoseconds:
 
 | Trace kind | `cycle` meaning | Selected other fields |
 | --- | --- | --- |
-| `InstructionRetired` | CPU edge index relative to CPU phase | `id`: instruction; `value`: instruction result |
+| `InstructionRetired`, `CpuPipelineUpdated` | CPU edge index relative to CPU phase | Retirement `id`: instruction; `value`: instruction result |
 | `CodewordQueued`, `TimingPointSubmitted` | Planned current time point | `CodewordQueued.port` and `codeword`: mapping key |
 | `TimingPointEnqueued`, `TimingPointTriggered` | Current logical TCU cycle in this epoch | `TimingPointEnqueued.value`: queue occupancy after enqueue |
 | `ConditionCancelled`, `ExecutionFlagsUpdated` | Current logical TCU cycle in this epoch | `id`: canceled event or delivered measurement, respectively |
 | Other kinds | Interpret only where explicitly defined; otherwise zero | `id` and `value` depend on `kind` |
+
+### CPU pipeline snapshots
+
+`CpuPipelineUpdated.pipeline` contains `fetch`, `fetched`, `decode`, `execute`
+and `halted`. The snapshot records state after the CPU has processed responses,
+retirement, pipeline movement and any new fetch request on that edge.
+
+Each occupied slot contains an instruction `id`, `pc`, `word` and `discarded`.
+An empty slot is `null`. `fetch` is the outstanding memory request, so its
+`word` is `null`; `fetched` holds a returned instruction waiting to enter decode.
+`discarded: true` marks a fetch whose response will be ignored after a branch
+or halt. Decode and execute slots contain instruction words.
+
+The snapshot is emitted on the first CPU edge after reset and whenever slot
+contents or `halted` change. Unchanged snapshots are omitted. `CpuStalled`
+identifies a blocked instruction in execute. Retirement commits within execute;
+it does not occupy a separate pipeline slot.
 
 ### Identity scopes
 

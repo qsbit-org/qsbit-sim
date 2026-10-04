@@ -56,6 +56,25 @@ void Trace::write_jsonl(std::ostream &out) const {
     out << ']';
     if (e.core)
       out << ",\"core\":" << *e.core;
+    if (e.pipeline) {
+      out << ",\"pipeline\":{\"halted\":" << (e.pipeline->halted ? "true" : "false");
+      const std::array names{"fetch", "fetched", "decode", "execute"};
+      for (std::size_t i = 0; i < names.size(); ++i) {
+        out << ',' << quoted(names[i]) << ':';
+        const auto &stage = e.pipeline->stages[i];
+        if (!stage) {
+          out << "null";
+          continue;
+        }
+        out << "{\"id\":" << stage->id << ",\"pc\":" << stage->pc << ",\"word\":";
+        if (stage->word)
+          out << *stage->word;
+        else
+          out << "null";
+        out << ",\"discarded\":" << (stage->discarded ? "true" : "false") << '}';
+      }
+      out << '}';
+    }
     out << "}\n";
   }
   require(bool(out), ErrorCode::Protocol, "trace output failed");

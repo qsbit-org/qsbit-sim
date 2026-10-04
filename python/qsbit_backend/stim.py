@@ -1,15 +1,26 @@
 """Persistent Clifford simulation with Stim."""
 
 import math
+
 import stim
 
-from .registry import options as validate_options
 from .protocol import validate_batch
+from .registry import options as validate_options
 
 
 class StimBackend:
-    _gates = {"id": "I", "x": "X", "y": "Y", "z": "Z", "h": "H",
-              "s": "S", "sdg": "S_DAG", "cx": "CX", "cz": "CZ", "swap": "SWAP"}
+    _gates = {
+        "id": "I",
+        "x": "X",
+        "y": "Y",
+        "z": "Z",
+        "h": "H",
+        "s": "S",
+        "sdg": "S_DAG",
+        "cx": "CX",
+        "cz": "CZ",
+        "swap": "SWAP",
+    }
     _rotations = {"rx": "SQRT_X", "ry": "SQRT_Y", "rz": "S"}
 
     def __init__(self, options=None):
@@ -39,8 +50,8 @@ class StimBackend:
         if operation in self._rotations:
             angle = action["amplitude"]
             if not math.isfinite(angle) or not math.isclose(
-                    angle, round(angle / (math.pi / 2)) * (math.pi / 2),
-                    rel_tol=0, abs_tol=1e-12):
+                angle, round(angle / (math.pi / 2)) * (math.pi / 2), rel_tol=0, abs_tol=1e-12
+            ):
                 raise ValueError("Stim rotations require integer multiples of pi/2")
 
     def execute(self, epoch, operations):

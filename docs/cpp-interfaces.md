@@ -232,6 +232,7 @@ struct TraceEvent {
   std::string operation, detail;
   std::uint64_t value = 0;
   std::optional<std::uint32_t> core;
+  std::optional<CpuPipelineState> pipeline;
 };
 ```
 <!-- /source -->

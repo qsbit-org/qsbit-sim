@@ -78,8 +78,14 @@ body[data-theme="dark"] .trace-player { --replay-accent: #6adbc9; --replay-wash:
 .state-chip { display: inline-block; border: 1px solid var(--replay-border); border-radius: 4px; padding: 4px 6px; margin: 2px; font-family: ui-monospace, monospace; font-size: 11px; }
 .state-chip.changed, .queue-entry { color: var(--replay-accent); border-color: var(--replay-accent); background: var(--replay-wash); }
 .cpu-stages { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-bottom: 16px; }
-.cpu-stages .state-chip { text-align: center; color: var(--replay-muted); border-style: dashed; }
-.cpu-stages .state-chip.changed { color: var(--replay-accent); border-style: solid; }
+.cpu-stage { min-width: 0; border: 1px dashed var(--replay-border); border-radius: 6px; padding: 8px; }
+.cpu-stage.occupied { border-style: solid; }
+.cpu-stage.changed, .retirement.changed { border-color: var(--replay-accent); background: var(--replay-wash); }
+.cpu-stage.discarded { border-color: #bd783a; }
+.stage-title { display: block; font-size: 11px; font-weight: 650; margin-bottom: 6px; }
+.cpu-stage code { display: block; font-size: 10px; overflow-wrap: anywhere; white-space: normal; background: none; }
+.stage-status { display: block; font-size: 10px; color: var(--replay-muted); margin-top: 4px; }
+.retirement { border: 1px solid var(--replay-border); border-radius: 5px; padding: 6px 8px; margin: 10px 0; }
 .retired-word { display: block; margin-top: 14px; font-size: 13px; white-space: normal; overflow-wrap: anywhere; }
 .register-grid { margin-top: 12px; }.register-grid .state-chip { font-size: 10px; }
 .port-queue { display: flex; flex-wrap: wrap; align-items: center; margin: 5px 0; }
@@ -124,7 +130,7 @@ body[data-theme="dark"] .trace-player { --replay-accent: #6adbc9; --replay-wash:
   .replay-map { grid-template-columns: 1fr; grid-template-areas: "cpu" "reserve" "timing" "events" "trigger" "output" "measurement" "registers"; }
   .replay-module { min-height: 120px; }.replay-heading { align-items: flex-start; }.replay-heading button { max-width: 110px; }
   .replay-tag { margin-left: 0; }.replay-transport label { order: 2; }.replay-transport { gap: 6px; }#trace-time { font-size: 22px; }
-  .cpu-stages { grid-template-columns: repeat(4, 1fr); }.cpu-stages .state-chip { font-size: 10px; padding: 4px 2px; }
+  .cpu-stages { grid-template-columns: repeat(2, 1fr); }
   .replay-panel { padding: 12px; }.instruction-row { grid-template-columns: 45px 72px 1fr; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .is-playing .replay-wire.active { animation: none; }.replay-module { transition: none; } }

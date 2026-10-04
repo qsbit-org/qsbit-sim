@@ -15,12 +15,20 @@ pulse = ["qsbit-sim-backends[aer]", "scipy>=1.11,<2"]
 stim = ["stim>=1.15,<2"]
 experiments = ["qsbit-sim-backends[aer]", "pyelftools==0.32", "matplotlib>=3.9,<4"]
 verification = ["unicorn==2.1.4", "pyelftools==0.32"]
-dev = ["clang-format==18.1.8", "pre-commit>=4,<5"]
+dev = ["clang-format==18.1.8", "pre-commit>=4,<5", "ruff==0.16.10"]
 docs = ["sphinx>=8.1,<9", "myst-parser>=4,<5", "breathe>=4.36,<5", "furo>=2024.8,<2026"]
 docs-test = ["playwright>=1.51,<2"]
 
 [tool.setuptools.packages.find]
 where = ["python"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = ["third_party"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
 
 [dependency-groups]
 build = ["conan==2.32.0"]

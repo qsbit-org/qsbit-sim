@@ -1,9 +1,9 @@
 """Discover adapters and validate backend-owned configuration."""
 
-from copy import deepcopy
-from importlib import import_module, metadata
 import json
 import math
+from copy import deepcopy
+from importlib import import_module, metadata
 from urllib.parse import quote
 
 from jsonschema import Draft202012Validator
@@ -31,8 +31,12 @@ def descriptions():
 
 def describe(name):
     if name == "mock":
-        return {"api_version": API_VERSION, "options_schema": obj({}), "requirements": [],
-                "capabilities": {"state_outputs": [], "measurement": "configured outcomes"}}
+        return {
+            "api_version": API_VERSION,
+            "options_schema": obj({}),
+            "requirements": [],
+            "capabilities": {"state_outputs": [], "measurement": "configured outcomes"},
+        }
     catalog = descriptions()
     if name in catalog:
         result = deepcopy(catalog[name])
@@ -112,7 +116,9 @@ def create(name, value):
     resolved = options(name, value)
     absent = missing(desc)
     if absent:
-        raise ValueError(f"{name}: missing {', '.join(absent)}; {desc.get('install', 'install adapter dependencies')}")
+        raise ValueError(
+            f"{name}: missing {', '.join(absent)}; {desc.get('install', 'install adapter dependencies')}"
+        )
     cls = _load(desc["factory"])
     backend = cls(resolved)
     return backend, resolved
@@ -120,27 +126,60 @@ def create(name, value):
 
 def inspect_backend(name, command):
     if command == "list":
-        return json.dumps([{ "name": key, "missing_dependencies": missing(describe(key)),
-                             "install": describe(key).get("install", "included")}
-                           for key in ["mock", *sorted(descriptions())]], indent=2)
+        return json.dumps(
+            [
+                {
+                    "name": key,
+                    "missing_dependencies": missing(describe(key)),
+                    "install": describe(key).get("install", "included"),
+                }
+                for key in ["mock", *sorted(descriptions())]
+            ],
+            indent=2,
+        )
     desc = describe(name)
     if command == "help":
         return json.dumps(dict(desc, name=name, missing_dependencies=missing(desc)), indent=2)
     if command == "schema":
         names = list(dict.fromkeys(["mock", *sorted(descriptions()), name]))
-        return json.dumps({"$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object", "properties": {"backend": {"enum": names},
-                "backend_execution": obj({"max_batch_operations": {
-                    "type": "integer", "minimum": 1, "maximum": 4294967295,
-                    "description": "Maximum operations in one simulator execution batch."}})},
-            "required": ["backend"], "allOf": [
-                {"if": {"properties": {"backend": {"const": key}}},
-                 "then": {"properties": {"backend_options": _embedded_schema(key)}}}
-                for key in names]}, indent=2)
+        return json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "backend": {"enum": names},
+                    "backend_execution": obj(
+                        {
+                            "max_batch_operations": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 4294967295,
+                                "description": "Maximum operations in one simulator execution batch.",
+                            }
+                        }
+                    ),
+                },
+                "required": ["backend"],
+                "allOf": [
+                    {
+                        "if": {"properties": {"backend": {"const": key}}},
+                        "then": {"properties": {"backend_options": _embedded_schema(key)}},
+                    }
+                    for key in names
+                ],
+            },
+            indent=2,
+        )
     if command == "generate":
-        return json.dumps({"schema": 1, "backend": name,
-                           "backend_options": template(desc["options_schema"]),
-                           "program": "program.elf"}, indent=2)
+        return json.dumps(
+            {
+                "schema": 1,
+                "backend": name,
+                "backend_options": template(desc["options_schema"]),
+                "program": "program.elf",
+            },
+            indent=2,
+        )
     raise ValueError(f"unknown backend command: {command}")
 
 
@@ -156,6 +195,9 @@ def template(schema):
     if "const" in schema:
         return deepcopy(schema["const"])
     if schema.get("type") == "object":
-        return {key: template(child) for key, child in schema.get("properties", {}).items()
-                if key in schema.get("required", []) or "default" in child}
+        return {
+            key: template(child)
+            for key, child in schema.get("properties", {}).items()
+            if key in schema.get("required", []) or "default" in child
+        }
     return None

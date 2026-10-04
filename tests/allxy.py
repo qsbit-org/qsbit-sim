@@ -2,9 +2,9 @@
 
 import argparse
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 parser = argparse.ArgumentParser()
 for option in ("simulator", "source", "build"):
@@ -19,6 +19,15 @@ config["simulation"]["repetitions"] = 4
 path = output / "run.json"
 path.write_text(json.dumps(config))
 subprocess.run([str(args.simulator), "--config", str(path)], check=True, timeout=120)
-subprocess.run([sys.executable, str(args.source / "examples/quma/plot.py"),
-                "--results", config["summary"], "--output", str(output / "figs")],
-               check=True, timeout=30)
+subprocess.run(
+    [
+        sys.executable,
+        str(args.source / "examples/quma/plot.py"),
+        "--results",
+        config["summary"],
+        "--output",
+        str(output / "figs"),
+    ],
+    check=True,
+    timeout=30,
+)

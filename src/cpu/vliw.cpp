@@ -19,10 +19,11 @@ std::array<ControlOperation, 2> decode_cw_bundle(std::uint32_t word, Id instruct
   return operations;
 }
 VliwCpuCycleModel::VliwCpuCycleModel(Clock clock, std::uint32_t entry, Trace &trace)
-    : clock_(clock), trace_(trace) {
+    : clock_(clock), trace_(trace), pipeline_trace_(trace) {
   reset(entry);
 }
 void VliwCpuCycleModel::reset(std::uint32_t entry) {
+  pipeline_trace_.reset();
   registers_.fill(0);
   pc_ = fetch_pc_ = entry;
   fetch_request_.reset();
@@ -67,8 +68,11 @@ void VliwCpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
       fetch_request_.reset();
     }
   }
-  if (halted_)
+  if (halted_) {
+    pipeline_trace_.sample(now, epoch, clock_, fetch_request_, fetched_, decode_, execute_,
+                           generation_, halted_);
     return;
+  }
   bool flush = false;
   if (execute_) {
     auto &frame = *execute_;
@@ -143,8 +147,11 @@ void VliwCpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
     fetch_pc_ = pc_;
     trace_.emit({now, epoch, "PipelineFlushed"});
   }
-  if (halted_)
+  if (halted_) {
+    pipeline_trace_.sample(now, epoch, clock_, fetch_request_, fetched_, decode_, execute_,
+                           generation_, halted_);
     return;
+  }
   if (!execute_ && decode_) {
     Frame frame = std::move(*decode_);
     decode_.reset();
@@ -177,5 +184,7 @@ void VliwCpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
     fetch_request_ = Fetch{id, fetch_pc_, generation_};
     fetch_pc_ += 4;
   }
+  pipeline_trace_.sample(now, epoch, clock_, fetch_request_, fetched_, decode_, execute_,
+                         generation_, halted_);
 }
 } // namespace qsbit

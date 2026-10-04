@@ -3,9 +3,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import subprocess
-
+from pathlib import Path
 
 ALIASES = {"x180": "x", "z180": "z", "measz": "measure"}
 
@@ -24,7 +23,9 @@ def normalize(events, reference, probes):
             output.append(["tcu", event["tick"], event["label"]])
         elif kind == ("DeviceCommand" if reference else "OperationStart"):
             operation = event["operation"].lower()
-            output.append(["operation", event["tick"], ALIASES.get(operation, operation), event["targets"]])
+            output.append(
+                ["operation", event["tick"], ALIASES.get(operation, operation), event["targets"]]
+            )
         elif kind in ("ResultReady", "CpuResultVisible") and kind in probes:
             target = event["target"] if reference else event["targets"][0]
             output.append([kind, event["tick"], target, int(event["value"])])
@@ -34,22 +35,24 @@ def normalize(events, reference, probes):
 def compare(expected, actual, case):
     for index, (left, right) in enumerate(zip(expected, actual)):
         if left != right:
-            raise AssertionError(f"{case}: first divergent event {index}: expected {left}, got {right}")
+            raise AssertionError(
+                f"{case}: first divergent event {index}: expected {left}, got {right}"
+            )
     if len(expected) != len(actual):
-        raise AssertionError(f"{case}: event count {len(expected)} != {len(actual)}; "
-                             f"first extra event: {(expected if len(expected) > len(actual) else actual)[min(len(expected), len(actual))]}")
+        raise AssertionError(
+            f"{case}: event count {len(expected)} != {len(actual)}; "
+            f"first extra event: {(expected if len(expected) > len(actual) else actual)[min(len(expected), len(actual))]}"
+        )
 
 
 def run(command, log):
     with log.open("w") as stream:
-        subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT,
-                       check=True, timeout=120)
+        subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=120)
 
 
 def check_comparator():
     sample = [["tcu", 100, 1], ["operation", 140, "x", [0]]]
-    mutations = [sample[:-1], sample + [sample[-1]],
-                 [["tcu", 101, 1], sample[1]]]
+    mutations = [sample[:-1], sample + [sample[-1]], [["tcu", 101, 1], sample[1]]]
     for mutation in mutations:
         try:
             compare(sample, mutation, "comparator check")
@@ -80,12 +83,34 @@ def main():
             work.mkdir(exist_ok=True)
             assembly = fixture / "workloads" / name / "program.S"
             obj, image = work / "program.o", work / "program.elf"
-            run([str(args.assembler), "-march=rv32i", "-mabi=ilp32", "-mno-relax",
-                 "-I", str(args.source / "examples/common"), "-o", str(obj), str(assembly)],
-                work / "assemble.log")
-            run([str(args.linker), "-m", "elf32lriscv", "--no-relax", "-T",
-                 str(args.source / "examples/common/link.ld"), "-o", str(image), str(obj)],
-                work / "link.log")
+            run(
+                [
+                    str(args.assembler),
+                    "-march=rv32i",
+                    "-mabi=ilp32",
+                    "-mno-relax",
+                    "-I",
+                    str(args.source / "examples/common"),
+                    "-o",
+                    str(obj),
+                    str(assembly),
+                ],
+                work / "assemble.log",
+            )
+            run(
+                [
+                    str(args.linker),
+                    "-m",
+                    "elf32lriscv",
+                    "--no-relax",
+                    "-T",
+                    str(args.source / "examples/common/link.ld"),
+                    "-o",
+                    str(image),
+                    str(obj),
+                ],
+                work / "link.log",
+            )
             images[name] = image
         case_name = f"{name}-{case['mode']}"
         probes = set(case["probes"])
@@ -105,9 +130,22 @@ def main():
             native_output = output / name / case["profile"]
             native_output.mkdir(exist_ok=True)
             summary, trace = native_output / "summary.json", native_output / "native.jsonl"
-            run([str(args.simulator), "--program", str(images[name]), "--profile", str(profile),
-                 "--backend", "aer", "--trace", str(trace), "--summary", str(summary)],
-                native_output / "native.log")
+            run(
+                [
+                    str(args.simulator),
+                    "--program",
+                    str(images[name]),
+                    "--profile",
+                    str(profile),
+                    "--backend",
+                    "aer",
+                    "--trace",
+                    str(trace),
+                    "--summary",
+                    str(summary),
+                ],
+                native_output / "native.log",
+            )
             if not json.loads(summary.read_text())["success"]:
                 raise AssertionError(f"{case_name}: native simulation failed")
             native_traces[key] = read_jsonl(trace)

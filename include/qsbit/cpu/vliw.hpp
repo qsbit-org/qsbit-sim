@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qsbit/cpu.hpp"
+#include "qsbit/cpu/trace.hpp"
 #include "qsbit/isa.hpp"
 #include "qsbit/trace.hpp"
 
@@ -42,6 +43,7 @@ private:
               Epoch epoch);
   Clock clock_;
   Trace &trace_;
+  CpuPipelineTrace pipeline_trace_;
   std::array<std::uint32_t, 32> registers_{};
   std::uint32_t pc_ = 0, fetch_pc_ = 0;
   std::optional<Fetch> fetch_request_;

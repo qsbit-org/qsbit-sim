@@ -62,8 +62,9 @@ The player reads a trace bundle produced during the website build. Display
 recorded values directly. Label calculated clock values as derived and show
 the observation tick beside a last-recorded value.
 
-Retirement records do not reveal private pipeline latches or current queue
-contents. Showing those would require an observation interface in the simulator.
+Use `CpuPipelineUpdated` for end-of-edge CPU slot occupancy and
+`InstructionRetired` for commitment. Queue entries follow enqueue and trigger
+records; codeword mappings supply their per-port events.
 
 Source links on the rendered site use the checkout's Git revision. Links in
 the Markdown files continue to open local source files.

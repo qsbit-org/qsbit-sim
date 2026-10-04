@@ -1,15 +1,20 @@
 """Dependency-free external backend for adapter contract tests."""
 
-from qsbit_backend.protocol import API_VERSION
 import json
 from pathlib import Path
+
+from qsbit_backend.protocol import API_VERSION
+
 
 class Backend:
     @staticmethod
     def describe():
-        return {"api_version": API_VERSION, "options_schema": {
-            "type": "object", "additionalProperties": False}, "requirements": [],
-            "capabilities": {"state_outputs": []}}
+        return {
+            "api_version": API_VERSION,
+            "options_schema": {"type": "object", "additionalProperties": False},
+            "requirements": [],
+            "capabilities": {"state_outputs": []},
+        }
 
     def __init__(self, options):
         self.outcome = True
@@ -47,11 +52,21 @@ class Incomplete:
 class Configured(Backend):
     @staticmethod
     def describe():
-        return {"api_version": API_VERSION, "options_schema": {
-            "type": "object", "$defs": {"bit": {"type": "boolean"}},
-            "properties": {"outcome": {"$ref": "#/$defs/bit"}, "audit_path": {"type": "string"}},
-            "required": ["outcome"], "additionalProperties": False}, "requirements": [],
-            "capabilities": {"state_outputs": []}}
+        return {
+            "api_version": API_VERSION,
+            "options_schema": {
+                "type": "object",
+                "$defs": {"bit": {"type": "boolean"}},
+                "properties": {
+                    "outcome": {"$ref": "#/$defs/bit"},
+                    "audit_path": {"type": "string"},
+                },
+                "required": ["outcome"],
+                "additionalProperties": False,
+            },
+            "requirements": [],
+            "capabilities": {"state_outputs": []},
+        }
 
     def __init__(self, options):
         self.outcome = options["outcome"]

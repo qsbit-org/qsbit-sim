@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qsbit/time.hpp"
+#include <array>
 #include <iosfwd>
 #include <optional>
 #include <string>
@@ -8,6 +9,18 @@
 #include <vector>
 
 namespace qsbit {
+struct CpuPipelineInstruction {
+  Id id = 0;
+  std::uint32_t pc = 0;
+  std::optional<std::uint32_t> word;
+  bool discarded = false;
+  bool operator==(const CpuPipelineInstruction &) const = default;
+};
+struct CpuPipelineState {
+  std::array<std::optional<CpuPipelineInstruction>, 4> stages;
+  bool halted = false;
+  bool operator==(const CpuPipelineState &) const = default;
+};
 struct TraceEvent {
   TraceEvent(Tick at, Epoch session, std::string type, Id identity = 0, Id timing_label = 0,
              Tick local_cycle = 0)
@@ -25,6 +38,7 @@ struct TraceEvent {
   std::string operation, detail;
   std::uint64_t value = 0;
   std::optional<std::uint32_t> core;
+  std::optional<CpuPipelineState> pipeline;
 };
 class Trace {
 public:

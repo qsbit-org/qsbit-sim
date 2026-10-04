@@ -17,6 +17,12 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [--strict, --verbose]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: f12be1ebaa5351c1fc76472de98db2c3446c8253 # v0.16.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
   - repo: local
     hooks:
       - id: clang-format-check

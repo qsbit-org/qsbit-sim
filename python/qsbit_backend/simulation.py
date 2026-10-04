@@ -1,39 +1,42 @@
 """Execute or replay a fixed, symbol-delimited quantum program."""
 
-from copy import deepcopy
-from itertools import groupby
-from bisect import bisect_left
 import hashlib
 import io
 import json
 import math
-from importlib import metadata
 import platform
-from pathlib import Path
 import shutil
 import struct
 import subprocess
 import sys
 import tempfile
 import time
+from bisect import bisect_left
+from copy import deepcopy
+from importlib import metadata
+from itertools import groupby
+from pathlib import Path
 
 from elftools.elf.elffile import ELFFile
 from jsonschema import Draft202012Validator
 
 from .registry import create, describe
 
-
 SCHEMA = {
-    "type": "object", "additionalProperties": False,
+    "type": "object",
+    "additionalProperties": False,
     "required": ["execution", "region", "repetition_count_symbol", "repetitions"],
     "properties": {
         "execution": {"enum": ["full", "replay"]},
         "quantum_execution": {"enum": ["direct", "transition_probabilities"]},
         "repetitions": {"type": "integer", "minimum": 1, "maximum": 4294967295},
         "repetition_count_symbol": {"type": "string", "minLength": 1},
-        "region": {"type": "object", "additionalProperties": False,
-                   "required": ["begin", "end"], "properties": {
-                       "begin": {"type": "string"}, "end": {"type": "string"}}},
+        "region": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["begin", "end"],
+            "properties": {"begin": {"type": "string"}, "end": {"type": "string"}},
+        },
     },
 }
 
@@ -62,33 +65,55 @@ def inspect_program(data, strategy):
     if not section["sh_flags"] & 1 or section["sh_type"] == "SHT_NOBITS":
         raise ValueError("repetition count must be a file-backed writable word")
     offset = section["sh_offset"] + counter["st_value"] - section["sh_addr"]
-    if counter["st_value"] % 4 or not section["sh_offset"] <= offset <= section["sh_offset"] + section["sh_size"] - 4:
+    if (
+        counter["st_value"] % 4
+        or not section["sh_offset"] <= offset <= section["sh_offset"] + section["sh_size"] - 4
+    ):
         raise ValueError("invalid repetition count address")
     text = elf.get_section_by_name(".text")
     base = text["sh_addr"]
     code = text.data()
-    if elf["e_entry"] != base or begin != base + 12 or end <= begin or end % 4 or end + 20 != base + len(code):
+    if (
+        elf["e_entry"] != base
+        or begin != base + 12
+        or end <= begin
+        or end % 4
+        or end + 20 != base + len(code)
+    ):
         raise ValueError("program must use the documented fixed-repeat loop layout")
     words = struct.unpack("<" + "I" * (len(code) // 4), code)
     upper, lower, load = words[:3]
-    if upper & 0xfff != 0x297 or lower & 0xfffff != 0x28293 or load != 0x2a403:
+    if upper & 0xFFF != 0x297 or lower & 0xFFFFF != 0x28293 or load != 0x2A403:
         raise ValueError("loop prefix must load repetitions through t0 into s0")
-    address = (base + (upper & 0xfffff000) + signed(lower >> 20, 12)) & 0xffffffff
+    address = (base + (upper & 0xFFFFF000) + signed(lower >> 20, 12)) & 0xFFFFFFFF
     if address != counter["st_value"]:
         raise ValueError("loop does not load the configured repetition count symbol")
-    tail = words[(end - base) // 4:]
+    tail = words[(end - base) // 4 :]
     branch = tail[1]
-    displacement = signed(((branch >> 31) << 12) | (((branch >> 7) & 1) << 11)
-                          | (((branch >> 25) & 63) << 5) | (((branch >> 8) & 15) << 1), 13)
-    if (tail[0] != 0xfff40413 or branch & 0x1fff07f != 0x41063
-            or end + 4 + displacement != begin
-            or list(tail[2:]) != [0x513, 0x5d00893, 0x73]):
+    displacement = signed(
+        ((branch >> 31) << 12)
+        | (((branch >> 7) & 1) << 11)
+        | (((branch >> 25) & 63) << 5)
+        | (((branch >> 8) & 15) << 1),
+        13,
+    )
+    if (
+        tail[0] != 0xFFF40413
+        or branch & 0x1FFF07F != 0x41063
+        or end + 4 + displacement != begin
+        or list(tail[2:]) != [0x513, 0x5D00893, 0x73]
+    ):
         raise ValueError("loop suffix must decrement s0, branch to begin and exit")
-    body = words[3:(end - base) // 4]
+    body = words[3 : (end - base) // 4]
     for word in body:
         f3, f7, rd = (word >> 12) & 7, word >> 25, (word >> 7) & 31
-        valid = word & 127 == 11 and rd == 0 and (
-            (f3 == 0 and f7 == 3) or f3 == 2 or (f3 == 3 and f7 == 0 and (word >> 20) & 31 == 0))
+        valid = (
+            word & 127 == 11
+            and rd == 0
+            and (
+                (f3 == 0 and f7 == 3) or f3 == 2 or (f3 == 3 and f7 == 0 and (word >> 20) & 31 == 0)
+            )
+        )
         if not valid:
             raise ValueError("repeat region accepts only cw.i.i, wait.i and fmr zero")
     if (body[-1] >> 12) & 7 != 3:
@@ -122,9 +147,11 @@ def validate_mappings(program, profile):
                 raise ValueError(f"unmapped port and codeword: {key}")
             for action in mappings[key]:
                 kind = action["kind"]
-                if (kind not in ("gate", "gate_output", "acquire")
-                        or (kind == "gate" and action["execution_flag"] != "always")
-                        or (kind == "acquire" and action["separate_arm"])):
+                if (
+                    kind not in ("gate", "gate_output", "acquire")
+                    or (kind == "gate" and action["execution_flag"] != "always")
+                    or (kind == "acquire" and action["separate_arm"])
+                ):
                     raise ValueError("replay supports unconditional gates and unarmed acquisitions")
                 if action["kind"] == "acquire":
                     pending.update(action["targets"])
@@ -151,7 +178,9 @@ def normalized(calls, shift=0):
 
 
 def partition(calls, trace, program, rounds):
-    ends = [e["tick"] for e in trace if e["kind"] == "InstructionRetired" and e["pc"] == program["end"]]
+    ends = [
+        e["tick"] for e in trace if e["kind"] == "InstructionRetired" and e["pc"] == program["end"]
+    ]
     if len(ends) != rounds:
         raise ValueError("executed repetition count differs from configuration")
     groups = [[] for _ in ends]
@@ -159,9 +188,13 @@ def partition(calls, trace, program, rounds):
     for call in calls:
         index = bisect_left(ends, call["tick"])
         if index == len(ends):
-            if (call is not calls[-1] or call["kind"] != "evolve" or call["drives"]
-                    or trace[-1]["kind"] != "SimulationCompleted"
-                    or call["tick"] != trace[-1]["tick"]):
+            if (
+                call is not calls[-1]
+                or call["kind"] != "evolve"
+                or call["drives"]
+                or trace[-1]["kind"] != "SimulationCompleted"
+                or call["tick"] != trace[-1]["tick"]
+            ):
                 raise ValueError("device work remains after repeat-region end")
             final_idle = call
             continue
@@ -188,8 +221,15 @@ def run_config(path, executable, check_only=False):
         raise ValueError("repeated simulation requires a Python backend")
     if strategy["execution"] == "full" and strategy["quantum_execution"] != "direct":
         raise ValueError("full execution requires direct quantum execution")
-    if config.get("resets") or "raw_base" in config or config.get("memory_dump") or "trace" in config:
-        raise ValueError("simulation strategies do not support resets, raw images, memory dumps or a trace override")
+    if (
+        config.get("resets")
+        or "raw_base" in config
+        or config.get("memory_dump")
+        or "trace" in config
+    ):
+        raise ValueError(
+            "simulation strategies do not support resets, raw images, memory dumps or a trace override"
+        )
     for key in ("program", "profile_file", "python_path", "summary", "trace"):
         if key in config:
             config[key] = str((path.parent / config[key]).resolve())
@@ -212,21 +252,33 @@ def _execute(config, strategy, executable, check_only, started):
         check_path = Path(directory) / "run.json"
         profile_path = Path(directory) / "profile.json"
         check_path.write_text(json.dumps(config))
-        process = subprocess.run([executable, "--config", str(check_path), "--dump-default-profile", str(profile_path)],
-                                 capture_output=True, text=True)
+        process = subprocess.run(
+            [executable, "--config", str(check_path), "--dump-default-profile", str(profile_path)],
+            capture_output=True,
+            text=True,
+        )
         if process.returncode:
             raise ValueError(process.stderr)
         resolved_profile = json.loads(profile_path.read_text())
         minimum_period, _ = validate_mappings(program, resolved_profile)
-        if resolved_profile["start"] + minimum_period * strategy["repetitions"] >= resolved_profile["watchdog"]:
+        if (
+            resolved_profile["start"] + minimum_period * strategy["repetitions"]
+            >= resolved_profile["watchdog"]
+        ):
             raise ValueError("repeated time points reach the configured watchdog")
         if strategy["quantum_execution"] == "transition_probabilities" and (
-                resolved_profile["qubits"] != 1 or not describe(config["backend"]).get(
-                    "capabilities", {}).get("transition_probabilities")):
+            resolved_profile["qubits"] != 1
+            or not describe(config["backend"])
+            .get("capabilities", {})
+            .get("transition_probabilities")
+        ):
             raise ValueError("transition_probabilities requires a supporting single-qubit backend")
         if check_only:
-            process = subprocess.run([executable, "--config", str(check_path), "--check-config"],
-                                     capture_output=True, text=True)
+            process = subprocess.run(
+                [executable, "--config", str(check_path), "--check-config"],
+                capture_output=True,
+                text=True,
+            )
             if process.returncode:
                 raise ValueError(process.stderr)
             print("Configuration valid", flush=True)
@@ -244,14 +296,24 @@ def _execute(config, strategy, executable, check_only, started):
         elf_path = work / (label + ".elf")
         elf_path.write_bytes(image)
         child = deepcopy(config)
-        child.update(program=str(elf_path), backend="qsbit_backend.recording:RecordingBackend",
-                     backend_options={"backend": name, "options": options,
-                                      "output": str(work / (label + "-calls.json")), "outcome": outcome},
-                     trace_stalls=False, trace=str(work / (label + ".jsonl")),
-                     summary=str(work / (label + "-summary.json")))
+        child.update(
+            program=str(elf_path),
+            backend="qsbit_backend.recording:RecordingBackend",
+            backend_options={
+                "backend": name,
+                "options": options,
+                "output": str(work / (label + "-calls.json")),
+                "outcome": outcome,
+            },
+            trace_stalls=False,
+            trace=str(work / (label + ".jsonl")),
+            summary=str(work / (label + "-summary.json")),
+        )
         child_path = work / (label + ".json")
         child_path.write_text(json.dumps(child, indent=2) + "\n")
-        result = subprocess.run([executable, "--config", str(child_path)], capture_output=True, text=True)
+        result = subprocess.run(
+            [executable, "--config", str(child_path)], capture_output=True, text=True
+        )
         if result.returncode:
             raise ValueError(f"control simulation failed: {result.stderr}\n{result.stdout}")
         summary = json.loads(Path(child["summary"]).read_text())
@@ -279,45 +341,89 @@ def _execute(config, strategy, executable, check_only, started):
                 raise ValueError("measurement count differs from program")
             counts = [a + b for a, b in zip(counts, bits)]
             digest.update(bytes(bits))
-        quantum = {"counts": counts, "probabilities": [c / rounds for c in counts],
-                   "measurement_sha256": digest.hexdigest()}
+        quantum = {
+            "counts": counts,
+            "probabilities": [c / rounds for c in counts],
+            "measurement_sha256": digest.hexdigest(),
+        }
     else:
         if normalized(groups[1], period) != normalized(groups[2], 2 * period):
             raise ValueError("quantum operation sequence is not periodic")
         one_summary, one_calls, one_trace = control_run("one", True)
-        if normalized(calls) != normalized(one_calls) or summary["stop_tick"] != one_summary["stop_tick"]:
+        if (
+            normalized(calls) != normalized(one_calls)
+            or summary["stop_tick"] != one_summary["stop_tick"]
+        ):
             raise ValueError("measurement outcomes change control timing")
+
         def control_signature(events):
-            return [{k: v for k, v in e.items() if k not in ("value", "registers")}
-                    for e in events if e["kind"] in ("InstructionRetired", "TimingPointEnqueued", "OperationStart")]
+            return [
+                {k: v for k, v in e.items() if k not in ("value", "registers")}
+                for e in events
+                if e["kind"] in ("InstructionRetired", "TimingPointEnqueued", "OperationStart")
+            ]
+
         if control_signature(trace) != control_signature(one_trace):
             raise ValueError("measurement outcomes change instruction or queue execution")
         if strategy["quantum_execution"] == "transition_probabilities":
             quantum = sample_transitions(name, options, profile, groups, strategy["repetitions"])
         else:
-            quantum = replay_direct(name, options, profile, groups, period, strategy["repetitions"], final_idle)
+            quantum = replay_direct(
+                name, options, profile, groups, period, strategy["repetitions"], final_idle
+            )
     repetitions = strategy["repetitions"]
-    acquisitions = {a["operation"] for m in profile["mappings"] for a in m["actions"] if a["kind"] == "acquire"}
-    last_trigger = max(e["tick"] for e in trace if e["kind"] == "OperationStart" and e["operation"] in acquisitions)
-    timing = {"period_ns": period, "period_tcu_cycles": period // profile["tcu"]["period"],
-              "time_point_cycles": period // profile["tcu"]["period"] * repetitions,
-              "time_point_ns": period * repetitions, "control_stop_tick_observed": summary["stop_tick"],
-              "control_stop_tick": summary["stop_tick"] + (repetitions - rounds) * period,
-              "control_stop_tick_source": "observed" if full else "extrapolated"}
+    acquisitions = {
+        a["operation"] for m in profile["mappings"] for a in m["actions"] if a["kind"] == "acquire"
+    }
+    last_trigger = max(
+        e["tick"] for e in trace if e["kind"] == "OperationStart" and e["operation"] in acquisitions
+    )
+    timing = {
+        "period_ns": period,
+        "period_tcu_cycles": period // profile["tcu"]["period"],
+        "time_point_cycles": period // profile["tcu"]["period"] * repetitions,
+        "time_point_ns": period * repetitions,
+        "control_stop_tick_observed": summary["stop_tick"],
+        "control_stop_tick": summary["stop_tick"] + (repetitions - rounds) * period,
+        "control_stop_tick_source": "observed" if full else "extrapolated",
+    }
     timing["last_measurement_trigger_ns"] = last_trigger + (repetitions - rounds) * period
-    timing["last_measurement_sample_ns"] = max(c["tick"] for c in calls if c["kind"] == "measure") + (repetitions - rounds) * period
-    result = {"schema": 1, "success": True, "simulation": strategy, "backend": name,
-              "backend_execution": summary["backend_execution"],
-              "backend_options": options, "profile": profile, "timing": timing,
-              "control_repetitions_executed": rounds if full else 2 * rounds,
-              "control_repetitions_per_validation_run": rounds,
-              "measurement_count": measurements * repetitions,
-              "program_sha256": hashlib.sha256(source).hexdigest(),
-              "versions": {"python": platform.python_version(), **{
-                  package: metadata.version(package) for package in dict.fromkeys([
-                      "qsbit-sim-backends", *describe(name).get("requirements", []),
-                      *(["numpy"] if strategy["quantum_execution"] == "transition_probabilities" else [])])}},
-              "host_seconds": time.perf_counter() - started, **quantum}
+    timing["last_measurement_sample_ns"] = (
+        max(c["tick"] for c in calls if c["kind"] == "measure") + (repetitions - rounds) * period
+    )
+    result = {
+        "schema": 1,
+        "success": True,
+        "simulation": strategy,
+        "backend": name,
+        "backend_execution": summary["backend_execution"],
+        "backend_options": options,
+        "profile": profile,
+        "timing": timing,
+        "control_repetitions_executed": rounds if full else 2 * rounds,
+        "control_repetitions_per_validation_run": rounds,
+        "measurement_count": measurements * repetitions,
+        "program_sha256": hashlib.sha256(source).hexdigest(),
+        "versions": {
+            "python": platform.python_version(),
+            **{
+                package: metadata.version(package)
+                for package in dict.fromkeys(
+                    [
+                        "qsbit-sim-backends",
+                        *describe(name).get("requirements", []),
+                        *(
+                            ["numpy"]
+                            if strategy["quantum_execution"] == "transition_probabilities"
+                            else []
+                        ),
+                    ]
+                )
+            },
+        },
+        "host_seconds": time.perf_counter() - started,
+        **quantum,
+    }
     output.write_text(json.dumps(result, indent=2) + "\n")
     print(f"Completed {repetitions} repetitions; results: {output}", flush=True)
 
@@ -355,9 +461,14 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
     if final_idle is not None:
         start, end, drives = final_idle["start"], final_idle["tick"], final_idle["drives"]
         shift = (repetitions - len(groups)) * period
-        backend.execute(1, [{"kind": "evolve", "start": start + shift, "tick": end + shift, "drives": drives}])
-    return {"counts": counts, "probabilities": [c / repetitions for c in counts],
-            "measurement_sha256": digest.hexdigest()}
+        backend.execute(
+            1, [{"kind": "evolve", "start": start + shift, "tick": end + shift, "drives": drives}]
+        )
+    return {
+        "counts": counts,
+        "probabilities": [c / repetitions for c in counts],
+        "measurement_sha256": digest.hexdigest(),
+    }
 
 
 def sample_transitions(name, options, profile, groups, repetitions):
@@ -374,7 +485,9 @@ def sample_transitions(name, options, profile, groups, repetitions):
         for call in group:
             if call["kind"] == "measure":
                 if len(call["references"]) != 1 or call["references"][0]["target"] != 0:
-                    raise ValueError("transition_probabilities requires single-qubit Z measurements")
+                    raise ValueError(
+                        "transition_probabilities requires single-qubit Z measurements"
+                    )
                 key = json.dumps(pending, sort_keys=True)
                 if key not in cache:
                     cache[key] = backend.transition_probabilities(pending)
@@ -384,10 +497,17 @@ def sample_transitions(name, options, profile, groups, repetitions):
                 from_tick, to_tick, drives = call["start"], call["tick"], call["drives"]
                 start = pending[-1]["tick"] if pending else 0
                 duration = to_tick - from_tick
-                pending.append({"kind": "evolve", "start": start, "tick": start + duration, "drives": drives})
+                pending.append(
+                    {"kind": "evolve", "start": start, "tick": start + duration, "drives": drives}
+                )
             else:
-                pending.append({"tick": pending[-1]["tick"] if pending else 0,
-                                "kind": "apply", "gates": call["gates"]})
+                pending.append(
+                    {
+                        "tick": pending[-1]["tick"] if pending else 0,
+                        "kind": "apply",
+                        "gates": call["gates"],
+                    }
+                )
         tables.append(table)
     rng = np.random.default_rng(profile["seed"])
     counts = [0] * len(tables[0])
@@ -401,7 +521,11 @@ def sample_transitions(name, options, profile, groups, repetitions):
             counts[index] += state
             probability = p0 + (p1 - p0) * probability
             expected[index] += probability
-    return {"counts": counts, "probabilities": [c / repetitions for c in counts],
-            "expected_probabilities": [p / repetitions for p in expected],
-            "transition_probabilities": {"first": tables[0], "steady": tables[1]},
-            "transition_calculations": len(cache), "last_measurement": state}
+    return {
+        "counts": counts,
+        "probabilities": [c / repetitions for c in counts],
+        "expected_probabilities": [p / repetitions for p in expected],
+        "transition_probabilities": {"first": tables[0], "steady": tables[1]},
+        "transition_calculations": len(cache),
+        "last_measurement": state,
+    }

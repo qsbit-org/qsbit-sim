@@ -56,6 +56,12 @@ generation to reject their pending replies. exit ECALL also discards younger
 work and halts the CPU after publishing closure. The simulation continues
 until queued work and result deliveries finish.
 
+`CpuPipelineUpdated` records the outstanding fetch, fetch buffer, decode slot,
+execute slot and halt state at the end of an edge when they change. The
+[snapshot fields](../interfaces.md#cpu-pipeline-snapshots) identify each occupied
+slot by instruction ID and PC. `InstructionRetired` records commitment from
+execute on the same edge.
+
 ## Dual-codeword execution
 
 `VliwCpuCycleModel` captures both operations' operands when the bundle enters
@@ -100,10 +106,12 @@ Implementations: [rv32.cpp](../../src/cpu/rv32.cpp) and
 [rv32.hpp](../../include/qsbit/cpu/rv32.hpp) and
 [vliw.hpp](../../include/qsbit/cpu/vliw.hpp).
 
-**CTest:** `cpu.vliw`, `systemc.vliw`, `systemc.use_cases`, `systemc.vliw_use_cases`, `adapter.normal`, `adapter.reset`.
+**CTest:** `cpu.trace`, `cpu.vliw`, `systemc.vliw`, `systemc.use_cases`, `systemc.vliw_use_cases`, `adapter.normal`, `adapter.reset`.
 
 The scalar use cases exercise data hazards, branch flushes, feedback and
 reset on both implementations. Bundle tests check operand modes, reserved
 bits, partial acceptance, resource conflicts and event timing across clock
 phases and process registration orders. Adapter tests check construction
 and reset of a replacement CPU.
+Pipeline trace tests cover occupied slots, held instructions, branch flushes,
+halt, reset and core identity for both built-in CPU models.

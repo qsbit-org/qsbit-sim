@@ -39,6 +39,11 @@ Three-stage RV32I CPU with scalar HISQ control instructions. [Open header](../in
 
 Three-stage CPU with scalar instructions and dual-codeword bundles. [Open header](../include/qsbit/cpu/vliw.hpp).
 
+(cpu_2trace_8hpp)=
+## cpu/trace.hpp
+
+End-of-edge CPU pipeline snapshots. [Open header](../include/qsbit/cpu/trace.hpp).
+
 (defaults_8hpp)=
 ## defaults.hpp
 

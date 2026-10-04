@@ -36,7 +36,8 @@ pre-commit run --all-files
 ```
 
 The installation enables both `pre-commit` and `commit-msg` hooks. They check
-commit messages, formatting, whitespace, merge markers, and YAML, JSON and
+commit messages, C++ formatting, Python lint and formatting with Ruff,
+whitespace, merge markers, and YAML, JSON and
 TOML syntax. If a hook changes a file, review and stage the edit, then rerun
 the checks. With pip, install `.[dev]` into `.venv` instead of using uv.
 

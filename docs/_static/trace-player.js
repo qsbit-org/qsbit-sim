@@ -32,7 +32,7 @@
     <div id="trace-clocks" class="replay-metrics"></div>
     <div class="replay-map" id="trace-map"><svg id="trace-wires" aria-hidden="true"></svg></div>
     <div class="replay-legend"><span><i class="legend-active"></i>Changed at this time</span>
-    <span><i class="legend-held"></i>Last observed</span><span>CPU stage occupancy is not recorded.</span></div>
+    <span><i class="legend-held"></i>Last observed</span><span>CPU slots show end-of-edge occupancy.</span></div>
     <section class="replay-panel"><div class="replay-section-heading"><h3>Control outputs</h3>
     <span>Device ports · duration in ns</span></div><div class="timeline-scroll"><svg id="trace-timeline" role="group" aria-label="Control output intervals"></svg></div></section>
     <div class="replay-detail-grid"><section class="replay-panel"><h3>Retired instructions</h3>
@@ -58,7 +58,7 @@
     ['measurement', 'trigger', 'flags', ['ExecutionFlagsUpdated']],
   ];
   const owner = kind => {
-    if (['InstructionRetired', 'CpuStalled', 'PipelineFlushed'].includes(kind)) return 'cpu';
+    if (['CpuPipelineUpdated', 'InstructionRetired', 'CpuStalled', 'PipelineFlushed'].includes(kind)) return 'cpu';
     if (['CodewordQueued', 'TimingPointSubmitted', 'EnqueueAcknowledged'].includes(kind)) return 'reserve';
     if (kind === 'TimingPointEnqueued') return 'timing';
     if (['TimingPointTriggered', 'ConditionCancelled', 'ExecutionFlagsUpdated', 'TimerPaused', 'TimerResumed', 'SyncBooked', 'SyncReceived', 'SyncCompleted'].includes(kind)) return 'trigger';
@@ -159,9 +159,28 @@
     row($('clocks'), 'TCU cycle · recorded', c?.cycle ? `${c.cycle.cycle} at ${c.cycle.tick} ns` : '—');
     row($('clocks'), 'Records', `${index + 1} of ${demo.events.length}`);
     const cpu = $('state-cpu'), pipeline = element('div', undefined, cpu, 'cpu-stages');
-    ['Fetch', 'Decode', 'Execute', 'Retire'].forEach(s => chip(pipeline, s, s === 'Retire' && activeKinds.has('InstructionRetired') ? 'changed' : ''));
-    row(cpu, c?.stall ? 'Waiting' : 'Last retirement', c?.stall ? stamp(c.stall) : stamp(c?.retired));
-    if (c?.stall) hint(cpu, c.stall.detail);
+    const snapshot = c?.pipeline?.pipeline;
+    const previous = recording.at(Math.max(0, start - 1)).cores[selectedCore]?.pipeline?.pipeline;
+    for (const [key, title] of [['fetch', 'Fetch request'], ['fetched', 'Fetch buffer'], ['decode', 'Decode'], ['execute', 'Execute']]) {
+      const slot = snapshot?.[key];
+      const changed = activeKinds.has('CpuPipelineUpdated') && JSON.stringify(slot) !== JSON.stringify(previous?.[key]);
+      const stage = element('div', undefined, pipeline, `cpu-stage${slot ? ' occupied' : ''}${changed ? ' changed' : ''}${slot?.discarded ? ' discarded' : ''}`);
+      stage.dataset.stage = key;
+      element('span', title, stage, 'stage-title');
+      if (slot) {
+        element('code', `#${slot.id} · ${hex(slot.pc)}`, stage);
+        element('code', slot.word === null ? 'Waiting for instruction' : instruction(slot), stage);
+        if (slot.discarded) element('span', 'Discard on return', stage, 'stage-status');
+        else if (key === 'execute' && c?.stall?.id === slot.id) element('span', 'Blocked', stage, 'stage-status');
+      } else element('span', snapshot ? 'Empty' : 'Not recorded', stage, 'stage-status');
+    }
+    if (c?.pipeline) hint(cpu, `${snapshot.halted ? 'Halted' : 'Pipeline updated'} at ${c.pipeline.tick} ns`);
+    const retirement = element('div', undefined, cpu, `retirement${activeKinds.has('InstructionRetired') ? ' changed' : ''}`);
+    row(retirement, 'Retired', c?.retired ? `#${c.retired.id} · ${stamp(c.retired)}` : 'Not recorded');
+    if (c?.stall) {
+      row(cpu, 'Waiting', stamp(c.stall));
+      hint(cpu, c.stall.detail);
+    }
     if (c?.retired) {
       element('code', instruction(c.retired), cpu, 'retired-word'); hint(cpu, `${hex(c.retired.pc)} → ${hex(c.retired.next_pc)}`);
       const regs = element('div', undefined, cpu, 'register-grid');

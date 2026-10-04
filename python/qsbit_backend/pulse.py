@@ -2,13 +2,13 @@
 
 import numpy as np
 from scipy.linalg import expm
+
 from .circuit import CircuitExecutor, validate_gate
 from .protocol import validate_batch
 from .registry import options as validate_options
 
 
 class PulseBackend:
-
     def __init__(self, options=None):
         self.options = validate_options("pulse", {} if options is None else options)
         self.executor = CircuitExecutor("statevector", int(self.options["max_parallel_threads"]))
@@ -23,9 +23,12 @@ class PulseBackend:
             validate_gate(action, self.executor.qubits)
         elif action["kind"] == "pulse":
             targets = action["targets"]
-            if (len(targets) != 1 or action["axis"] not in ("x", "y", "z")
-                    or not np.isfinite(action["amplitude"])
-                    or not 0 <= targets[0] < self.executor.qubits):
+            if (
+                len(targets) != 1
+                or action["axis"] not in ("x", "y", "z")
+                or not np.isfinite(action["amplitude"])
+                or not 0 <= targets[0] < self.executor.qubits
+            ):
                 raise ValueError("unsupported pulse operator")
         elif action["kind"] not in ("acquire", "arm"):
             raise ValueError("unsupported action kind")
@@ -47,7 +50,9 @@ class PulseBackend:
             "y": np.array([[0, -1j], [1j, 0]], dtype=complex),
             "z": np.array([[1, 0], [0, -1]], dtype=complex),
         }
-        hamiltonian = np.zeros((1 << self.executor.qubits, 1 << self.executor.qubits), dtype=complex)
+        hamiltonian = np.zeros(
+            (1 << self.executor.qubits, 1 << self.executor.qubits), dtype=complex
+        )
         for drive in sorted(drives, key=lambda a: (a["port"], a["targets"], a["axis"])):
             operator = np.array([[1]], dtype=complex)
             for qubit in reversed(range(self.executor.qubits)):

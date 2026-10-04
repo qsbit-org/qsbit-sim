@@ -10,6 +10,7 @@ def evolve(backend, start, end, drives):
 
 
 def measure(backend, references):
-    references = [dict(reference, epoch=1, measurement=index)
-                  for index, reference in enumerate(references)]
+    references = [
+        dict(reference, epoch=1, measurement=index) for index, reference in enumerate(references)
+    ]
     return backend.execute(1, [{"tick": 0, "kind": "measure", "references": references}])

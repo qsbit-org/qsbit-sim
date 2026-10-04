@@ -3,17 +3,27 @@
 import json
 from pathlib import Path
 
-from .registry import create
 from .protocol import API_VERSION
+from .registry import create
 
 
 class RecordingBackend:
     @staticmethod
     def describe():
-        return {"api_version": API_VERSION, "options_schema": {"type": "object", "properties": {
-            "backend": {"type": "string"}, "options": {"type": "object"},
-            "output": {"type": "string"}, "outcome": {"type": ["boolean", "null"]}},
-            "required": ["backend", "options", "output", "outcome"], "additionalProperties": False}}
+        return {
+            "api_version": API_VERSION,
+            "options_schema": {
+                "type": "object",
+                "properties": {
+                    "backend": {"type": "string"},
+                    "options": {"type": "object"},
+                    "output": {"type": "string"},
+                    "outcome": {"type": ["boolean", "null"]},
+                },
+                "required": ["backend", "options", "output", "outcome"],
+                "additionalProperties": False,
+            },
+        }
 
     def __init__(self, options):
         if options["backend"] == "qsbit_backend.recording:RecordingBackend":
@@ -34,8 +44,11 @@ class RecordingBackend:
 
     def execute(self, epoch, operations):
         references = operations[-1]["references"] if operations[-1]["kind"] == "measure" else []
-        bits = (self.backend.execute(epoch, operations) if self.outcome is None
-                else [self.outcome] * len(references))
+        bits = (
+            self.backend.execute(epoch, operations)
+            if self.outcome is None
+            else [self.outcome] * len(references)
+        )
         for operation in operations:
             record = dict(operation, batch=self.batches)
             if operation["kind"] == "measure":

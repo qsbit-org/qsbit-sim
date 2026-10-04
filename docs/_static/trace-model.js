@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const coreId = e => e.core ?? 0;
-  const freshCore = () => ({retired: null, stall: null, point: null, staged: [], submitted: {},
+  const freshCore = () => ({retired: null, pipeline: null, stall: null, point: null, staged: [], submitted: {},
     queue: [], occupancy: null, cycle: null, triggered: null, registers: {}, flags: {},
     measurements: {}, read: null, sync: null, paused: null});
   const fresh = () => ({epoch: null, cores: {}, active: {}, lastOutput: {}, gate: null, terminal: null});
@@ -15,6 +15,7 @@
     if (e.epoch !== undefined) state.epoch = e.epoch;
     const c = state.cores[coreId(e)] ??= freshCore();
     switch (e.kind) {
+    case 'CpuPipelineUpdated': c.pipeline = e; break;
     case 'InstructionRetired': c.retired = e; c.stall = null; break;
     case 'CpuStalled': c.stall = e; break;
     case 'PipelineFlushed': c.stall = null; break;
@@ -169,6 +170,9 @@
     }
     if (op === 19 && f3 === 0) return `addi x${rd}, x${rs1}, ${w >> 20}`;
     if (op === 55) return `lui x${rd}, ${hex(w >>> 12)}`;
+    if (op === 23) return `auipc x${rd}, ${hex(w >>> 12)}`;
+    if (w === 0x73) return 'ecall';
+    if (w === 0x100073) return 'ebreak';
     if (op === 99) return `${['beq', 'bne', null, null, 'blt', 'bge', 'bltu', 'bgeu'][f3] ?? 'branch'} x${rs1}, x${rs2}`;
     if (op === 3) return `${['lb', 'lh', 'lw', null, 'lbu', 'lhu'][f3] ?? 'load'} x${rd}, ${w >> 20}(x${rs1})`;
     if (op === 35) return `${['sb', 'sh', 'sw'][f3] ?? 'store'} x${rs2}, ${((w >> 25) << 5) | rd}(x${rs1})`;

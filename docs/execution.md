@@ -15,14 +15,20 @@ measurement-dependent branch. [Quickstart](quickstart.md) runs the same program 
 at the next timestamp. Drag the slider or select a milestone to seek; select an
 output interval to inspect its start. **Expand view** opens the full-width diagram.
 
-Highlighted modules changed at the selected time. The CPU shows its last retired
-instruction and nonzero registers; the destination register remains visible when
+Highlighted modules changed at the selected time. The CPU shows the outstanding
+fetch request, fetch buffer, decode slot and execute slot. Each occupied slot
+shows its instruction ID and PC. Changed slots are highlighted; blocked execute
+instructions and discarded fetches are marked. Retirement appears beneath the
+slots with its timestamp.
+
+The register display shows nonzero registers; the destination remains visible when
 written to zero. Timing Queue entries follow enqueue and trigger records.
 Port queues show events resolved from their configured codeword mappings. Control outputs show
 active operations and their configured durations.
 
 The CPU edge index is derived from its configured clock. The TCU cycle is the
-last recorded value. CPU pipeline occupancy is not recorded. In multicore traces,
+last recorded value. CPU slots show end-of-edge occupancy from `CpuPipelineUpdated`.
+In multicore traces,
 **Core** selects the controller; control outputs include all cores.
 
 Open **Trace records and configuration** to step through individual records,
