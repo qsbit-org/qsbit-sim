@@ -169,7 +169,7 @@
       element('span', title, stage, 'stage-title');
       if (slot) {
         element('code', `#${slot.id} · ${hex(slot.pc)}`, stage);
-        element('code', slot.word === null ? 'Waiting for instruction' : instruction(slot), stage);
+        if (slot.word !== null) element('code', instruction(slot), stage);
         if (slot.discarded) element('span', 'Discard on return', stage, 'stage-status');
         else if (key === 'execute' && c?.stall?.id === slot.id) element('span', 'Blocked', stage, 'stage-status');
       } else element('span', snapshot ? 'Empty' : 'Not recorded', stage, 'stage-status');
