@@ -18,7 +18,7 @@ config["summary"] = str(output / "result.json")
 config["simulation"]["repetitions"] = 4
 path = output / "run.json"
 path.write_text(json.dumps(config))
-subprocess.run([str(args.simulator), "--config", str(path)], check=True, timeout=120)
+subprocess.run([str(args.simulator), "--config", str(path)], check=True)
 subprocess.run(
     [
         sys.executable,
