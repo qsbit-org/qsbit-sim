@@ -133,7 +133,7 @@ if(QSBIT_ISA_REFERENCES)
     set_tests_properties(reference.rv32_architecture PROPERTIES TIMEOUT 600 LABELS "reference;architecture")
   endif()
 endif()
-foreach(scenario bell feedback_one feedback_zero pulse)
+foreach(scenario bell feedback_one feedback_zero)
   string(REGEX REPLACE "_.*" "" example "${scenario}")
   foreach(order normal reverse)
     add_test(NAME systemc.${scenario}.${order} COMMAND system_tests "${scenario}"
@@ -143,6 +143,12 @@ foreach(scenario bell feedback_one feedback_zero pulse)
   endforeach()
 endforeach()
 if(QSBIT_PYTHON_BACKENDS)
+  if(QSBIT_TEST_QUTIP)
+    add_test(NAME python.qutip COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/qutip_backend.py"
+      --simulator "$<TARGET_FILE:qsbit_sim>" --assembler "${RISCV_AS}" --linker "${RISCV_LD}")
+    set_tests_properties(python.qutip PROPERTIES TIMEOUT 120 LABELS "numerical;backend;integration")
+  endif()
   if(QSBIT_TEST_EXPERIMENTS)
     add_test(NAME python.repetition COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/repetition.py" --simulator "$<TARGET_FILE:qsbit_sim>"
@@ -161,11 +167,8 @@ if(QSBIT_PYTHON_BACKENDS)
   if(QSBIT_TEST_STIM)
     list(APPEND BACKEND_TEST_OPTIONS --stim)
   endif()
-  if(QSBIT_TEST_AER OR QSBIT_TEST_PULSE OR QSBIT_TEST_STIM)
+  if(QSBIT_TEST_AER OR QSBIT_TEST_STIM)
     set(SEMANTICS_OPTIONS ${BACKEND_TEST_OPTIONS})
-    if(QSBIT_TEST_PULSE)
-      list(APPEND SEMANTICS_OPTIONS --pulse)
-    endif()
     add_test(NAME python.backend_semantics COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/backend_semantics.py" ${SEMANTICS_OPTIONS})
     set_tests_properties(python.backend_semantics PROPERTIES TIMEOUT 60 LABELS "numerical;backend")
@@ -180,28 +183,19 @@ if(QSBIT_PYTHON_BACKENDS)
     --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")
   set_tests_properties(python.plugin PROPERTIES TIMEOUT 30 LABELS "fast;integration")
 endif()
-if(QSBIT_TEST_AER OR QSBIT_TEST_PULSE)
-  set(NUMERICAL_SCENARIOS "")
-  set(CLI_SCENARIOS "")
-  if(QSBIT_TEST_AER)
-    list(APPEND NUMERICAL_SCENARIOS bell feedback capability final_state)
-    list(APPEND CLI_SCENARIOS bell feedback)
-    add_test(NAME reference.cactus_golden COMMAND "${Python3_EXECUTABLE}"
-      "${CMAKE_CURRENT_SOURCE_DIR}/tests/cactus_golden.py"
-      --simulator "$<TARGET_FILE:qsbit_sim>"
-      --assembler "${RISCV_AS}" --linker "${RISCV_LD}"
-      --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")
-    set_tests_properties(reference.cactus_golden PROPERTIES TIMEOUT 600
-      LABELS "reference;integration;numerical")
-  endif()
-  if(QSBIT_TEST_PULSE)
-    list(APPEND NUMERICAL_SCENARIOS pulse overlap joint)
-    list(APPEND CLI_SCENARIOS pulse overlap)
-  endif()
+if(QSBIT_TEST_AER)
+  set(NUMERICAL_SCENARIOS bell feedback capability final_state)
+  add_test(NAME reference.cactus_golden COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/cactus_golden.py"
+    --simulator "$<TARGET_FILE:qsbit_sim>"
+    --assembler "${RISCV_AS}" --linker "${RISCV_LD}"
+    --source "${CMAKE_CURRENT_SOURCE_DIR}" --build "${CMAKE_CURRENT_BINARY_DIR}")
+  set_tests_properties(reference.cactus_golden PROPERTIES TIMEOUT 600
+    LABELS "reference;integration;numerical")
   add_test(NAME cli.examples COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_configs.py" --simulator "$<TARGET_FILE:qsbit_sim>"
     --build "${CMAKE_CURRENT_BINARY_DIR}"
-    --scenarios ${CLI_SCENARIOS})
+    --scenarios bell feedback)
   set_tests_properties(cli.examples PROPERTIES TIMEOUT 120 LABELS "numerical;integration")
   add_executable(numerical_tests tests/numerical_tests.cpp)
   target_link_libraries(numerical_tests PRIVATE qsbit_systemc qsbit_python)

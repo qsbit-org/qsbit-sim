@@ -8,7 +8,7 @@ readout delays.
 | --- | --- | --- |
 | `mock` | Return configured measurement bits; omitted measurement IDs return zero. No quantum state. | Included in the C++ build. |
 | `aer` | Apply ideal gates, optional thermal relaxation and measurements with collapse. | Python bridge and `aer` extra. |
-| `pulse` | Evolve constant Hamiltonian drives jointly, with Aer gates and measurements. | Python bridge and `pulse` extra. |
+| `qutip` | Evolve driven oscillator models with couplings, dissipation and measurement. | Python bridge and `qutip` extra. |
 | `stim` | Apply Clifford gates, optional gate depolarization and measurements with collapse. | Python bridge and `stim` extra. |
 | Registered name | Load an installed adapter through its package entry point. | Python bridge and that adapter's dependencies. |
 | `package.module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |
@@ -33,7 +33,7 @@ uv sync --frozen --group build --extra aer
 source .venv/bin/activate
 ```
 
-Use the `pulse` or `stim` extra for those adapters. To install only the
+Use the `qutip` or `stim` extra for those adapters. To install only the
 bridge package, omit the extra: `python -m pip install -e .` or
 `uv sync --frozen --group build`.
 Dependencies and compatibility ranges are defined in
@@ -109,7 +109,8 @@ each. Waiting causes no noise. Stim does not support thermal relaxation, arbitra
 rotations or pulse drives. Its `rx`, `ry` and `rz` gates accept multiples of pi/2
 within an absolute tolerance of 1e-12 radians.
 
-The pulse adapter accepts no noise configuration.
+QuTiP configures oscillator levels, Hamiltonian parameters, waveforms, relaxation,
+dephasing and readout under `backend_options`. See [QuTiP pulse models](qutip.md).
 
 ## Backend execution
 
@@ -132,8 +133,8 @@ the resolved setting. Reset discards pending operations and initializes the
 backend for the new epoch.
 
 Each backend executes the complete batch before returning. Aer builds one circuit
-per batch, preserving gate, noise and measurement order. The pulse adapter adds
-joint drive evolution to that circuit. Stim updates its persistent tableau.
+per batch, preserving gate, noise and measurement order. QuTiP integrates each
+evolution interval with its active drives. Stim updates its persistent tableau.
 
 Aer measurement batch n uses `(seed + n) mod 2^32`, starting at n = 0 after reset.
 Changing the batch limit or inspecting state does not advance the measurement
@@ -175,10 +176,10 @@ in the run configuration:
 
 The loader imports `Backend` from `my_adapter` and constructs it with validated
 `backend_options`.
-`python_path` is optional for an installed package. All configured paths resolve
-relative to the run file.
+`python_path` is optional for an installed package. Program, profile, trace,
+summary and `python_path` paths resolve relative to the run file.
 
-Only the selected adapter is imported. The bridge alone requires no Aer or pulse
+Only the selected adapter is imported. The bridge alone requires no numerical
 packages. Missing dependencies and malformed adapters fail at construction;
 unsupported requested operations fail validation.
 
@@ -195,7 +196,7 @@ The function returns a descriptor with these fields:
 
 | Field | Meaning |
 | --- | --- |
-| `api_version` | Integer `3`. |
+| `api_version` | Integer `4`. |
 | `factory` | Implementation class as `module:Class`. |
 | `options_schema` | JSON Schema Draft 2020-12 for `backend_options`. |
 | `requirements` | Python distribution names used to report missing dependencies. |
@@ -233,7 +234,7 @@ Each record has `kind`, `tick` and fields specific to its kind:
 
 | Kind | Fields | Behavior |
 | --- | --- | --- |
-| `evolve` | `start`, `drives` | Evolve jointly under the active drives from `start` through `tick`. |
+| `evolve` | `start`, `drives`, `acquisitions` | Evolve jointly under the active drives from `start` through `tick`, with the active acquisition intervals. |
 | `apply` | `gates` | Apply gates at `tick` in input order. |
 | `measure` | `references` | Measure targets jointly at `tick` and retain the collapsed state. |
 
@@ -243,11 +244,17 @@ epoch and name distinct targets. The simulator owns batch formation and bounds
 each batch by `backend_execution.max_batch_operations`.
 
 Gate dictionaries contain `kind`, `operation`, `targets` and `amplitude`.
-Drives also contain `port` and `axis`. Measurement references contain
+Drives also contain `port`, `axis`, event `id`, and the complete pulse `start` and
+`end`. Acquisition dictionaries contain `kind`, `operation`, `targets`, `port`,
+event `id`, complete acquisition `start` and `end`, and `measurement` ID.
+These intervals remain unchanged when another event splits an evolution interval.
+Measurement references contain
 `epoch`, `measurement` and `target`.
 Qubit 0 is the least significant statevector bit: basis index 1 represents
 qubit 0 set to one and all other qubits set to zero.
-Density matrices use the same basis order. Missing inspection methods produce no
+Density matrices use the same basis order. QuTiP extends it to configured
+oscillator levels using [mixed-radix indices](qutip.md#state-output-and-reproducibility).
+Missing inspection methods produce no
 state output. Stim does not export a dense quantum state. The summary retains an
 empty `statevector` array when unavailable and adds `density_matrix` when supplied;
 each complex value is encoded as `[real, imaginary]`.

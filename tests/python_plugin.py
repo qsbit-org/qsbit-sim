@@ -17,7 +17,7 @@ assert all(
     name not in sys.modules
     for name in (
         "qsbit_backend.aer",
-        "qsbit_backend.pulse",
+        "qsbit_backend.qutip",
         "qiskit",
         "qiskit_aer",
         "scipy",

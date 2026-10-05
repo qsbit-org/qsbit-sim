@@ -188,12 +188,15 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
     return;
   const auto &boundary = it->second;
   std::vector<MeasurementReference> samples;
-  std::vector<EventSpec> gates, drives;
+  std::vector<EventSpec> gates;
+  std::vector<BackendActivity> drives, acquisitions;
   std::map<std::string, std::vector<const ScheduledEvent *>> gate_outputs;
   for (const auto &[id, action] : active_) {
-    (void)id;
     if (action.event.action.kind() == ActionKind::Pulse)
-      drives.push_back(action.event.action);
+      drives.push_back({id, action.start, action.end, action.event.action, {}});
+    if (action.event.action.kind() == ActionKind::Acquire)
+      acquisitions.push_back(
+          {id, action.start, action.end, action.event.action, action.event.reference});
   }
   for (auto id : boundary.ends) {
     const auto action = active_.find(id);
@@ -236,7 +239,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
   }
   // All capability, identity and ordering checks precede the first backend mutation.
   if (now > last_tick_)
-    backend_.evolve(last_tick_, now, drives);
+    backend_.evolve(last_tick_, now, drives, acquisitions);
   const auto outcomes = backend_.measure(now, samples);
   for (std::size_t i = 0; i < samples.size(); ++i) {
     readouts_.at(samples[i].measurement).sample = outcomes[i];

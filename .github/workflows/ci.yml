@@ -60,7 +60,7 @@ jobs:
             python: '3.12'
             bridge: 'OFF'
             aer: 'OFF'
-            pulse: 'OFF'
+            qutip: 'OFF'
             extras: ''
             sanitizers: 'ON'
           - name: bridge-only
@@ -71,7 +71,7 @@ jobs:
             python: '3.10'
             bridge: 'ON'
             aer: 'OFF'
-            pulse: 'OFF'
+            qutip: 'OFF'
             extras: ''
             sanitizers: 'OFF'
           - name: aer
@@ -82,19 +82,19 @@ jobs:
             python: '3.12'
             bridge: 'ON'
             aer: 'ON'
-            pulse: 'OFF'
+            qutip: 'OFF'
             extras: '--extra experiments'
             sanitizers: 'OFF'
-          - name: pulse
+          - name: qutip
             preset: gcc-ninja-release
             compiler: gcc
             build_dir: build-gcc-release
             build_type: Release
             python: '3.13'
             bridge: 'ON'
-            aer: 'ON'
-            pulse: 'ON'
-            extras: '--extra pulse'
+            aer: 'OFF'
+            qutip: 'ON'
+            extras: '--extra qutip'
             sanitizers: 'OFF'
           - name: stim
             preset: clang-ninja
@@ -104,7 +104,7 @@ jobs:
             python: '3.12'
             bridge: 'ON'
             aer: 'OFF'
-            pulse: 'OFF'
+            qutip: 'OFF'
             extras: '--extra stim'
             sanitizers: 'OFF'
     name: ${{ matrix.name }}
@@ -136,7 +136,7 @@ jobs:
       - name: Check optional dependency isolation
         if: matrix.extras == ''
         run: |
-          python -c "import importlib.util; import qsbit_backend; assert all(importlib.util.find_spec(x) is None for x in ('qiskit', 'qiskit_aer', 'numpy', 'scipy'))"
+          python -c "import importlib.util; import qsbit_backend; assert all(importlib.util.find_spec(x) is None for x in ('qiskit', 'qiskit_aer', 'qutip', 'numpy', 'scipy'))"
       - name: Configure
         run: |
           cmake --preset ${{ matrix.preset }} \
@@ -144,7 +144,7 @@ jobs:
             -DQSBIT_SANITIZERS=${{ matrix.sanitizers }} \
             -DQSBIT_PYTHON_BACKENDS=${{ matrix.bridge }} \
             -DQSBIT_TEST_AER=${{ matrix.aer }} \
-            -DQSBIT_TEST_PULSE=${{ matrix.pulse }} \
+            -DQSBIT_TEST_QUTIP=${{ matrix.qutip }} \
             -DQSBIT_TEST_STIM=${{ matrix.name == 'stim' && 'ON' || 'OFF' }} \
             -DQSBIT_TEST_EXPERIMENTS=${{ matrix.name == 'aer' && 'ON' || 'OFF' }} \
             -DQSBIT_ISA_REFERENCES=ON \
@@ -152,6 +152,9 @@ jobs:
       - name: Check Stim dependency isolation
         if: matrix.name == 'stim'
         run: python -c "import importlib.util; import stim; assert importlib.util.find_spec('qiskit_aer') is None"
+      - name: Check QuTiP dependency isolation
+        if: matrix.name == 'qutip'
+        run: python -c "import importlib.util; import qutip; assert importlib.util.find_spec('qiskit_aer') is None"
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel 2
       - name: Run mock example

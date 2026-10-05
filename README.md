@@ -60,7 +60,7 @@ build-clang/qsbit-sim --config build-clang/examples/bell-state/run.json
 
 The Python bridge requires [matching development files](docs/prerequisites.md#optional-python-backends).
 The Bell measurements at addresses 4096 and 4100 should agree.
-See [backend setup](docs/backends.md) for pip installation, constant pulses
+See [backend setup](docs/backends.md) for pip installation, QuTiP pulse models
 and custom adapters, and [examples](examples/README.md) for complete programs.
 
 ## Test

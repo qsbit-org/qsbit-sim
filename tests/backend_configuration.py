@@ -42,7 +42,7 @@ class Configuration(unittest.TestCase):
         for name, value in [
             ("aer", {"typo": 1}),
             ("stim", THERMAL),
-            ("pulse", {"noise": {"model": "none"}}),
+            ("qutip", {"noise": {"model": "none"}}),
             ("stim", {"noise": {"model": "depolarizing", "after_gate_probability": 2}}),
             ("aer", {"noise": {"model": "thermal_relaxation", "qubits": []}}),
             ("aer", {"max_parallel_threads": True}),
@@ -60,7 +60,7 @@ class Configuration(unittest.TestCase):
     def test_defaults_and_editor_schema(self):
         schema = json.loads(registry.inspect_backend("aer", "schema"))
         validator = Draft202012Validator(schema)
-        for name in ("aer", "pulse", "stim", "mock"):
+        for name in ("aer", "stim", "mock"):
             config = json.loads(registry.inspect_backend(name, "generate"))
             validator.validate(config)
         validator.validate({"backend": "aer", "backend_options": THERMAL})

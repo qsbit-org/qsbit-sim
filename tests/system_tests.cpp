@@ -41,9 +41,6 @@ int sc_main(int argc, char **argv) {
       CHECK(operations.size() == 3);
       CHECK(operations[0].tick == 360 && operations[1].tick == 440);
       CHECK(operations[2].tick == 720 && operations[2].operation == (outcome ? "x" : "z"));
-    } else if (scenario == "pulse") {
-      CHECK(operations.size() == 2 && operations[0].operation == "drive_x" &&
-            operations[0].tick == 360);
     } else
       throw std::runtime_error("unknown system test");
     CHECK(sim.trace().events().back().kind == "SimulationCompleted");

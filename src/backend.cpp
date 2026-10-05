@@ -21,11 +21,13 @@ void BackendExecution::commit(BackendOperation operation) {
   if (pending_.size() == config_.max_batch_operations)
     flush();
 }
-void BackendExecution::evolve(Tick from, Tick to, std::span<const EventSpec> drives) {
+void BackendExecution::evolve(Tick from, Tick to, std::span<const BackendActivity> drives,
+                              std::span<const BackendActivity> acquisitions) {
   require(from == committed_tick_ && to >= from, ErrorCode::Protocol,
           "backend evolution must cover the next time interval");
   if (to > from)
-    commit(BackendEvolution{from, to, {drives.begin(), drives.end()}});
+    commit(BackendEvolution{
+        from, to, {drives.begin(), drives.end()}, {acquisitions.begin(), acquisitions.end()}});
 }
 void BackendExecution::apply(Tick now, std::span<const EventSpec> gates) {
   for (const auto &gate : gates)

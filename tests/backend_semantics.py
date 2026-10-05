@@ -15,12 +15,11 @@ from backend_test_utils import evolve, measure
 from qsbit_backend import registry
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--pulse", action="store_true")
 parser.add_argument("--aer", action="store_true")
 parser.add_argument("--stim", action="store_true")
 args = parser.parse_args()
 
-if args.aer or args.pulse:
+if args.aer:
     import numpy as np
     from qiskit import QuantumCircuit
     from qiskit.quantum_info import Statevector
@@ -56,7 +55,7 @@ def measurement(targets, tick=0):
     }
 
 
-@unittest.skipUnless(args.aer or args.pulse, "Aer not enabled")
+@unittest.skipUnless(args.aer, "Aer not enabled")
 class Aer(unittest.TestCase):
     def test_gates_match_independent_statevector(self):
         gates = [
@@ -136,9 +135,9 @@ class Aer(unittest.TestCase):
         }
         operations = [
             apply([gate("x"), gate("x", (1,))]),
-            {"tick": 100, "kind": "evolve", "start": 0, "drives": []},
+            {"tick": 100, "kind": "evolve", "start": 0, "drives": [], "acquisitions": []},
             apply([gate("x")], 100),
-            {"tick": 200, "kind": "evolve", "start": 100, "drives": []},
+            {"tick": 200, "kind": "evolve", "start": 100, "drives": [], "acquisitions": []},
         ]
         for split in (False, True):
             backend = AerBackend(options)
@@ -153,7 +152,7 @@ class Aer(unittest.TestCase):
                 1,
                 [
                     apply([gate("h")], 200),
-                    {"tick": 300, "kind": "evolve", "start": 200, "drives": []},
+                    {"tick": 300, "kind": "evolve", "start": 200, "drives": [], "acquisitions": []},
                     measurement([0, 1], 300),
                 ],
             )
@@ -194,38 +193,6 @@ class Aer(unittest.TestCase):
     def test_transition_probabilities(self):
         backend = AerBackend()
         self.assertEqual(backend.transition_probabilities([apply([gate("x")])]), [1, 0])
-
-
-@unittest.skipUnless(args.pulse, "pulse backend not enabled")
-class Pulse(unittest.TestCase):
-    def test_gates_and_drive_in_one_execution(self):
-        from qsbit_backend.pulse import PulseBackend
-
-        backend = PulseBackend()
-        backend.reset(1, 5)
-        backend.execute(
-            1,
-            [
-                apply([gate("x")]),
-                {
-                    "tick": 10,
-                    "kind": "evolve",
-                    "start": 0,
-                    "drives": [
-                        {
-                            "kind": "pulse",
-                            "operation": "ry",
-                            "port": 0,
-                            "targets": [0],
-                            "axis": "y",
-                            "amplitude": math.pi / 20,
-                        }
-                    ],
-                },
-                apply([gate("z")], 10),
-            ],
-        )
-        np.testing.assert_allclose(backend.state(), [-1 / math.sqrt(2)] * 2, atol=1e-12)
 
 
 @unittest.skipUnless(args.stim, "Stim not enabled")

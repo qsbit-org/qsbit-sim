@@ -69,6 +69,8 @@ def descriptor(factory, extra, requirements, schema, capabilities):
 
 
 def builtins():
+    from .qutip_config import schema as qutip_schema
+
     aer = obj(
         {
             "method": {
@@ -84,7 +86,6 @@ def builtins():
             },
         }
     )
-    pulse = obj({"max_parallel_threads": aer["properties"]["max_parallel_threads"]})
     stim = obj({"noise": {"oneOf": [NONE, DEPOLARIZING], "default": {"model": "none"}}})
     return {
         "aer": descriptor(
@@ -100,12 +101,18 @@ def builtins():
                 "transition_probabilities": "Single-qubit computational-basis projective measurements.",
             },
         ),
-        "pulse": descriptor(
-            "qsbit_backend.pulse:PulseBackend",
-            "pulse",
-            ["qiskit", "qiskit-aer", "numpy", "scipy"],
-            pulse,
-            {"gates": GATES, "pulse": True, "state_outputs": ["statevector"], "max_qubits": 8},
+        "qutip": descriptor(
+            "qsbit_backend.qutip:QutipBackend",
+            "qutip",
+            ["qutip", "numpy", "scipy"],
+            qutip_schema(),
+            {
+                "gates": [],
+                "pulse": True,
+                "state_outputs": ["density_matrix"],
+                "measurement": "Projective level measurement with optional classical IQ assignment.",
+                "basis_order": "Subsystem 0 is the least significant mixed-radix digit.",
+            },
         ),
         "stim": descriptor(
             "qsbit_backend.stim:StimBackend",

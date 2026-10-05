@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix="qsbit-dependencies-") as directory:
         timeout=30,
     )
     assert examples.returncode == 0, examples.stdout + examples.stderr
-    for name in ("bell-state", "measurement-feedback", "single-qubit-pulse", "overlapping-pulses"):
+    for name in ("bell-state", "measurement-feedback"):
         assert (root / "configured" / "examples" / name / "program.elf").read_bytes()[
             :4
         ] == b"\x7fELF"

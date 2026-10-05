@@ -17,7 +17,7 @@ links each component to its source and tests.
 | You want to… | Read |
 | --- | --- |
 | Install tools or change build options | [Prerequisites](prerequisites.md) and [building](building.md) |
-| Configure Aer, Stim, pulses or a custom backend | [Quantum backends](backends.md) |
+| Configure Aer, Stim, QuTiP or a custom backend | [Quantum backends](backends.md) |
 | Write a run configuration or interpret a trace | [Program and file formats](interfaces.md) |
 | Check a timing or ordering rule | [Simulation timing contract](module-architecture.md) |
 | Run multiple controllers with BISP | [Distributed simulation](distributed-simulation.md) |
@@ -39,6 +39,7 @@ execution
 prerequisites
 building
 backends
+qutip
 repeated-simulations
 distributed-simulation
 engineering-and-testing

@@ -110,11 +110,9 @@ in [building](building.md#cmake-options).
 `python.backend_configuration` checks discovery, configuration validation and
 precheck. `QSBIT_TEST_AER` adds thermal relaxation and density-matrix checks;
 `QSBIT_TEST_STIM` adds Clifford gates, depolarization and full-program execution.
-`numerical.*` checks numerical Aer Bell correlations and feedback, pulse inversion,
-simultaneous drives, and unsupported operations.
-
-The pulse tests compare simultaneous noncommuting drives against their
-analytic joint evolution.
+`numerical.*` checks Aer Bell correlations, feedback and unsupported operations.
+`QSBIT_TEST_QUTIP` registers `python.qutip`, covering analytic joint evolution,
+waveform continuity, dissipation, collapse and native acquisition metadata.
 
 ## Independent ISA checks
 
@@ -147,7 +145,7 @@ Bell-state amplitudes and measurement correlations.
 ## CI, sanitizers and coverage
 
 The [CI workflow](../.github/workflows/ci.yml) runs a core sanitizer build, a
-bridge-only build, Aer tests, Stim tests, pulse tests and documentation checks. It checks
+bridge-only build, Aer tests, Stim tests, QuTiP tests and documentation checks. It checks
 formatting and optional-dependency isolation and preserves diagnostic artifacts.
 Compiler warnings are errors.
 

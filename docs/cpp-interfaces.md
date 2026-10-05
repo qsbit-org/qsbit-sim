@@ -174,11 +174,18 @@ See [backend execution](backends.md#backend-execution) for batch limits and rese
 
 Source: [include/qsbit/backend.hpp](../include/qsbit/backend.hpp).
 
-<!-- source: {"path": "include/qsbit/backend.hpp", "start": "struct BackendEvolution {", "end": "class BackendExecution {"} -->
+<!-- source: {"path": "include/qsbit/backend.hpp", "start": "struct BackendActivity {", "end": "class BackendExecution {"} -->
 ```cpp
+struct BackendActivity {
+  Id id;
+  Tick start, end;
+  EventSpec action;
+  std::optional<MeasurementReference> reference;
+};
 struct BackendEvolution {
   Tick start, tick;
-  std::vector<EventSpec> drives;
+  std::vector<BackendActivity> drives;
+  std::vector<BackendActivity> acquisitions;
 };
 struct BackendGates {
   Tick tick;

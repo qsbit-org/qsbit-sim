@@ -6,9 +6,16 @@
 #include <vector>
 
 namespace qsbit {
+struct BackendActivity {
+  Id id;
+  Tick start, end;
+  EventSpec action;
+  std::optional<MeasurementReference> reference;
+};
 struct BackendEvolution {
   Tick start, tick;
-  std::vector<EventSpec> drives;
+  std::vector<BackendActivity> drives;
+  std::vector<BackendActivity> acquisitions;
 };
 struct BackendGates {
   Tick tick;
@@ -38,7 +45,8 @@ public:
   explicit BackendExecution(IQuantumBackend &backend, BackendExecutionConfig config = {});
   void validate(const EventSpec &action) const { backend_.validate(action); }
   void reset(std::uint32_t qubits, std::uint32_t seed, Epoch epoch, Tick now = 0);
-  void evolve(Tick from, Tick to, std::span<const EventSpec> active_drives);
+  void evolve(Tick from, Tick to, std::span<const BackendActivity> active_drives,
+              std::span<const BackendActivity> acquisitions = {});
   void apply(Tick now, std::span<const EventSpec> gates);
   std::vector<bool> measure(Tick now, std::span<const MeasurementReference> references);
   void flush();

@@ -53,7 +53,7 @@ RISC-V binutils, but no numerical quantum packages. See the
 | `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge using Python development files and pybind11. |
 | `BUILD_TESTING` | OFF | Build core tests and examples. |
 | `QSBIT_TEST_AER` | OFF | Register numerical tests for the `aer` extra. |
-| `QSBIT_TEST_PULSE` | OFF | Register numerical tests for the `pulse` extra. |
+| `QSBIT_TEST_QUTIP` | OFF | Register numerical tests for the `qutip` extra. |
 | `QSBIT_TEST_STIM` | OFF | Register numerical tests for the `stim` extra. |
 | `QSBIT_TEST_EXPERIMENTS` | OFF | Register full execution and replay checks for the `experiments` extra. |
 | `QSBIT_TEST_WEBSITE` | OFF | Register strict website and browser tests; requires testing and the [website tools](website.md). |
@@ -95,20 +95,20 @@ configuration. Select an existing interpreter with
 `-DPython3_EXECUTABLE=/path/to/python` when needed. Its development library must
 match that interpreter.
 
-For a locked development environment with both numerical backends and ISA tests:
+For a locked development environment with Aer, QuTiP and ISA tests:
 
 ```sh
-uv sync --frozen --extra pulse --extra verification --extra dev
+uv sync --frozen --extra aer --extra qutip --extra verification --extra dev
 source .venv/bin/activate
 cmake --preset clang-ninja -B build-python \
   -DBUILD_TESTING=ON -DQSBIT_PYTHON_BACKENDS=ON \
-  -DQSBIT_TEST_AER=ON -DQSBIT_TEST_PULSE=ON -DQSBIT_ISA_REFERENCES=ON
+  -DQSBIT_TEST_AER=ON -DQSBIT_TEST_QUTIP=ON -DQSBIT_ISA_REFERENCES=ON
 cmake --build build-python --parallel
 ctest --test-dir build-python --output-on-failure
 ```
 
 For pip, create and activate `.venv`, then run
-`python -m pip install -e '.[pulse,verification,dev]'`. pip resolves the ranges
+`python -m pip install -e '.[aer,qutip,verification,dev]'`. pip resolves the ranges
 in [pyproject.toml](../pyproject.toml); uv uses [uv.lock](../uv.lock).
 Select only the extras your workflow needs.
 

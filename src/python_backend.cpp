@@ -36,6 +36,20 @@ py::list descriptors(std::span<const EventSpec> actions) {
     out.append(descriptor(action));
   return out;
 }
+py::list activities(std::span<const BackendActivity> active) {
+  py::list out;
+  for (const auto &activity : active) {
+    auto item = descriptor(activity.action);
+    item["id"] = activity.id;
+    item["start"] = activity.start;
+    item["end"] = activity.end;
+    item["port"] = activity.action.port;
+    if (activity.reference)
+      item["measurement"] = activity.reference->measurement;
+    out.append(std::move(item));
+  }
+  return out;
+}
 } // namespace
 struct PythonSession::Impl {
   std::unique_ptr<py::scoped_interpreter> interpreter;
@@ -121,7 +135,8 @@ std::vector<bool> PythonBackend::execute(Epoch epoch,
             if constexpr (std::is_same_v<std::decay_t<decltype(value)>, BackendEvolution>) {
               item["kind"] = "evolve";
               item["start"] = value.start;
-              item["drives"] = descriptors(value.drives);
+              item["drives"] = activities(value.drives);
+              item["acquisitions"] = activities(value.acquisitions);
             } else if constexpr (std::is_same_v<std::decay_t<decltype(value)>, BackendGates>) {
               item["kind"] = "apply";
               item["gates"] = descriptors(value.gates);

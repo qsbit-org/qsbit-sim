@@ -2,7 +2,7 @@
 
 from typing import Literal, TypedDict, Union
 
-API_VERSION = 3
+API_VERSION = 4
 
 
 class Gate(TypedDict):
@@ -19,6 +19,20 @@ class Drive(TypedDict):
     port: int
     amplitude: float
     axis: Literal["x", "y", "z"]
+    id: int
+    start: int
+    end: int
+
+
+class Acquisition(TypedDict):
+    kind: Literal["acquire"]
+    operation: str
+    targets: list[int]
+    port: int
+    id: int
+    start: int
+    end: int
+    measurement: int
 
 
 class Reference(TypedDict):
@@ -32,6 +46,7 @@ class Evolution(TypedDict):
     start: int
     tick: int
     drives: list[Drive]
+    acquisitions: list[Acquisition]
 
 
 class GateApplication(TypedDict):
@@ -63,6 +78,13 @@ def validate_batch(epoch: int, operations: list[Operation], qubits: int, validat
                 if drive["kind"] != "pulse":
                     raise ValueError("evolution requires pulse drives")
                 validate(drive)
+            for activity in [*operation["drives"], *operation["acquisitions"]]:
+                if not activity["start"] <= start < tick <= activity["end"]:
+                    raise ValueError("evolution lies outside activity interval")
+            for acquisition in operation["acquisitions"]:
+                if acquisition["kind"] != "acquire":
+                    raise ValueError("acquisition interval requires acquire event")
+                validate(acquisition)
         elif kind == "apply":
             for gate in operation["gates"]:
                 if gate["kind"] != "gate":

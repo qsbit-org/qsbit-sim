@@ -172,6 +172,11 @@ def normalized(calls, shift=0):
         call["tick"] -= shift
         if call["kind"] == "evolve":
             call["start"] -= shift
+            for activity in [*call["drives"], *call["acquisitions"]]:
+                activity["start"] -= shift
+                activity["end"] -= shift
+                activity.pop("id")
+                activity.pop("measurement", None)
         elif call["kind"] == "measure":
             call["references"] = [{"target": r["target"]} for r in call["references"]]
     return result
@@ -437,6 +442,12 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
     for iteration in range(repetitions):
         group = groups[0] if iteration == 0 else groups[1]
         shift = 0 if iteration == 0 else (iteration - 1) * period
+        identities = {}
+        for call in group:
+            if call["kind"] == "measure":
+                for reference in call["references"]:
+                    identity += 1
+                    identities[reference["measurement"]] = identity
         bits = []
         for _, recorded in groupby(group, key=lambda call: call["batch"]):
             operations = deepcopy(list(recorded))
@@ -447,11 +458,15 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
                 operation["tick"] += shift
                 if operation["kind"] == "evolve":
                     operation["start"] += shift
+                    for activity in [*operation["drives"], *operation["acquisitions"]]:
+                        activity["start"] += shift
+                        activity["end"] += shift
+                        if activity["kind"] == "acquire":
+                            activity["measurement"] = identities[activity["measurement"]]
                 if operation["kind"] == "measure":
                     expected_results = len(operation["references"])
                     for reference in operation["references"]:
-                        identity += 1
-                        reference.update(epoch=1, measurement=identity)
+                        reference.update(epoch=1, measurement=identities[reference["measurement"]])
             value = backend.execute(1, operations)
             if len(value) != expected_results:
                 raise ValueError("backend returned the wrong measurement count")
@@ -462,7 +477,16 @@ def replay_direct(name, options, profile, groups, period, repetitions, final_idl
         start, end, drives = final_idle["start"], final_idle["tick"], final_idle["drives"]
         shift = (repetitions - len(groups)) * period
         backend.execute(
-            1, [{"kind": "evolve", "start": start + shift, "tick": end + shift, "drives": drives}]
+            1,
+            [
+                {
+                    "kind": "evolve",
+                    "start": start + shift,
+                    "tick": end + shift,
+                    "drives": drives,
+                    "acquisitions": [],
+                }
+            ],
         )
     return {
         "counts": counts,
@@ -498,7 +522,13 @@ def sample_transitions(name, options, profile, groups, repetitions):
                 start = pending[-1]["tick"] if pending else 0
                 duration = to_tick - from_tick
                 pending.append(
-                    {"kind": "evolve", "start": start, "tick": start + duration, "drives": drives}
+                    {
+                        "kind": "evolve",
+                        "start": start,
+                        "tick": start + duration,
+                        "drives": drives,
+                        "acquisitions": [],
+                    }
                 )
             else:
                 pending.append(

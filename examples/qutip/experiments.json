@@ -1,0 +1,44 @@
+{
+  "seed": 731,
+  "controller_start_ns": 1000,
+  "tcu_period_ns": 2,
+  "acquisition_ns": 40,
+  "discriminator_delay_ns": 20,
+  "pulse_ns": 20,
+  "pi_amplitude_rad_ns": 0.15707963267948966,
+  "rabi_duration_ns": [0, 80, 41],
+  "ramsey_delay_ns": [0, 2000, 41],
+  "ramsey_detuning_rad_ns": 0.012566370614359173,
+  "t1_delay_ns": [0, 5000, 26],
+  "t1_ns": 1000,
+  "echo_delay_ns": [0, 4000, 21],
+  "tphi_ns": 2000,
+  "allxy_amplitude_scales": [1, 1.1],
+  "allxy_pairs": ["II", "XX", "YY", "XY", "YX", "xI", "yI", "xy", "yx", "xY", "yX", "Xy", "Yx", "xX", "Xx", "yY", "Yy", "XI", "YI", "xx", "yy"],
+  "reset_shots": 64,
+  "feedback_budget_ns": 500,
+  "readout_shots_per_state": 48,
+  "readout_duration_ns": 400,
+  "readout": {
+    "target": 0,
+    "means": [[-1, -0.3], [1, 0.3]],
+    "ringup_ns": 60,
+    "noise_std_sqrt_ns": 7,
+    "sample_interval_ns": 10,
+    "rotation_rad": 0,
+    "threshold": 0
+  },
+  "coupler_duration_ns": [0, 600, 31],
+  "coupler_subsystems": [
+    {"levels": 3, "detuning_rad_ns": 0, "anharmonicity_rad_ns": -1.2, "t1_ns": null, "tphi_ns": null, "thermal_occupation": 0, "initial_populations": [1, 0, 0]},
+    {"levels": 3, "detuning_rad_ns": 0, "anharmonicity_rad_ns": -1.2, "t1_ns": null, "tphi_ns": null, "thermal_occupation": 0, "initial_populations": [1, 0, 0]},
+    {"levels": 3, "detuning_rad_ns": 1.8, "anharmonicity_rad_ns": -1.5, "t1_ns": null, "tphi_ns": null, "thermal_occupation": 0, "initial_populations": [1, 0, 0]}
+  ],
+  "couplings": [
+    {"targets": [0, 2], "strength_rad_ns": 0.05},
+    {"targets": [1, 2], "strength_rad_ns": 0.05}
+  ],
+  "coupler_frequency_shift_rad_ns": -1.2,
+  "coupler_ramp_ns": 20,
+  "validation": {"probability_tolerance": 0.00001, "fit_relative_tolerance": 0.03}
+}

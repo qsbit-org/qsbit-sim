@@ -59,7 +59,13 @@ def main():
         for tick in range(begin, end):
             segment.extend(
                 [
-                    {"tick": tick + 1, "kind": "evolve", "start": tick, "drives": []},
+                    {
+                        "tick": tick + 1,
+                        "kind": "evolve",
+                        "start": tick,
+                        "drives": [],
+                        "acquisitions": [],
+                    },
                     {"tick": tick + 1, "kind": "apply", "gates": [operations[tick]]},
                 ]
             )

@@ -1,4 +1,4 @@
-"""Aer circuit execution shared by circuit and pulse adapters."""
+"""Aer circuit execution for the Aer adapter."""
 
 import numpy as np
 from qiskit import ClassicalRegister, QuantumCircuit

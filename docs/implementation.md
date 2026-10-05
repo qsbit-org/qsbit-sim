@@ -128,11 +128,11 @@ feedback still crosses to a strictly later receiver edge.
 | --- | --- | --- |
 | Mock | Fixed measurement bits indexed by measurement ID. | No quantum state. |
 | Aer | Persistent statevector or density matrix, ideal gates, optional thermal relaxation and measurement collapse. | 1–20 qubits in statevector mode; 1–10 in density-matrix mode; no pulse integration. |
-| Pulse | Aer gates and measurement, plus joint constant X, Y and Z Hamiltonian evolution with SciPy `expm`. | 1–8 qubits; no sampled waveforms or dissipative solver. |
+| QuTiP | Time-dependent oscillator Hamiltonians, exchange couplings, Lindblad dissipation and projective measurement with optional IQ assignment. | Configured Hilbert-space dimension limit; no ideal gates or continuous quantum readout model. |
 | Stim | Clifford gates, optional gate depolarization and measurement collapse. | No thermal relaxation, non-Clifford gates, pulse integration or dense state output. |
 
-Pulse amplitude is angular frequency in radians/ns with
-`H = sum(amplitude * Pauli / 2)` and hbar = 1.
+Pulse amplitude is angular frequency in radians/ns. [QuTiP pulse models](qutip.md)
+defines the drive operators and waveform parameters with hbar = 1.
 Rotation-gate amplitude is an angle in radians.
 Qubit 0 is the least significant statevector bit.
 

@@ -7,8 +7,7 @@ to create `build-clang/qsbit-sim` and assemble the basic examples.
 | --- | --- | --- |
 | [bell-state](bell-state/README.md) | Prepare and measure a Bell pair. | Aer |
 | [measurement-feedback](measurement-feedback/README.md) | Select a gate using a measurement result. | Mock or Aer |
-| [single-qubit-pulse](single-qubit-pulse/README.md) | Drive a qubit with a constant X pulse. | Pulse |
-| [overlapping-pulses](overlapping-pulses/README.md) | Apply X and Z drives simultaneously. | Pulse |
+| [qutip](qutip/README.md) | Run pulse calibration, relaxation, feedback, readout and tunable-coupler experiments. | QuTiP |
 | [quma](quma/README.md) | Reproduce the QuMA AllXY sequence and measurement probabilities. | Aer |
 | [eqasm](eqasm/README.md) | Run the eQASM Figure 3 gate sequence and compare scalar and VLIW issue rates. | Aer, Stim or mock |
 | [distributed-hisq](distributed-hisq/README.md) | Reproduce neighbor synchronization and scan BISP booking overhead. | Mock |

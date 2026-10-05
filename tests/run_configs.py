@@ -15,8 +15,6 @@ directories = {
     "bell": "bell-state",
     "feedback": "measurement-feedback",
     "mock": "measurement-feedback",
-    "pulse": "single-qubit-pulse",
-    "overlap": "overlapping-pulses",
 }
 for name in args.scenarios:
     config_path = (
@@ -45,7 +43,7 @@ for name in args.scenarios:
         assert summary["memory"]["4096"] == 1, summary
     elif name == "bell":
         assert summary["memory"]["4096"] == summary["memory"]["4100"], summary
-    elif name in ("feedback", "pulse"):
+    elif name == "feedback":
         assert summary["memory"]["4096"] == 1, summary
 
 print(f"PASS {len(args.scenarios)} JSON-configured examples")

@@ -1,0 +1,21 @@
+{
+  "subsystems": [
+    {
+      "levels": 2,
+      "detuning_rad_ns": 0,
+      "anharmonicity_rad_ns": 0,
+      "t1_ns": null,
+      "tphi_ns": null,
+      "thermal_occupation": 0,
+      "initial_populations": [1, 0]
+    }
+  ],
+  "couplings": [],
+  "waveforms": [
+    {"operation": "drive", "shape": "square", "phase_rad": 0, "frequency_rad_ns": 0},
+    {"operation": "flux", "shape": "square", "phase_rad": 0, "frequency_rad_ns": 0}
+  ],
+  "readout": [],
+  "solver": {"rtol": 1e-9, "atol": 1e-11, "max_step_ns": 2, "max_steps": 100000},
+  "max_dimension": 64
+}

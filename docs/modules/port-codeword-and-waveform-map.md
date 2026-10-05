@@ -27,7 +27,7 @@ digraph module {
 
 ## Event specifications
 
-Each `EventSpec` defines an ideal gate, constant pulse, acquisition,
+Each `EventSpec` defines an ideal gate, pulse drive, acquisition,
 discriminator arm or one output of a paired gate. It specifies the output port,
 delay and duration. Pulses also have an axis and amplitude; acquisitions
 have discriminator timing. `execution_flag` selects the target qubit's flag

@@ -6,7 +6,9 @@ def apply(backend, gates):
 
 
 def evolve(backend, start, end, drives):
-    return backend.execute(1, [{"tick": end, "kind": "evolve", "start": start, "drives": drives}])
+    return backend.execute(
+        1, [{"tick": end, "kind": "evolve", "start": start, "drives": drives, "acquisitions": []}]
+    )
 
 
 def measure(backend, references):

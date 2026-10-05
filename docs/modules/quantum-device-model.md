@@ -31,7 +31,7 @@ gates. All ports share one backend state.
 
 The mock backend supplies configured bits without quantum evolution.
 Aer applies ideal gates, optional thermal relaxation and measurements with state
-collapse. The pulse backend integrates constant X, Y and Z drives. Stim applies
+collapse. QuTiP integrates time-dependent oscillator Hamiltonians and dissipation. Stim applies
 Clifford gates and optional gate depolarization. See
 [backend setup](../backends.md) for installation and adapter methods.
 
@@ -72,15 +72,17 @@ creating the initial state for the new epoch.
 
 Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../../include/qsbit/backend.hpp).
 
-**CTest:** `backend.execution`, `systemc.bell.normal`, `systemc.pulse.normal`.
+**CTest:** `backend.execution`, `systemc.bell.normal`.
 
 `backend.execution` checks batch capacity, operation order, measurement boundaries,
 inspection, reset and failures without SystemC. The SystemC tests run complete
 device sequences with the mock backend. Optional
-`numerical.*` tests check numerical Aer and pulse evolution; `python.plugin` checks
+`numerical.*` tests check numerical Aer evolution; `python.plugin` checks
 loading and unchanged event timing across batch limits with an external adapter.
 Optional `numerical.final_state` checks thermal relaxation through the stop tick
 after the last device event.
+Optional `python.qutip` checks analytic drive evolution, dissipation, measurement
+collapse, and pulse and acquisition intervals passed through the native bridge.
 Optional `python.backend_configuration` checks discovery, schema validation and
 CLI precheck and backend selection in full-program execution.
 Optional `python.backend_semantics` checks numerical evolution, noise,
