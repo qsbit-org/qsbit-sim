@@ -1,7 +1,7 @@
 # Measurement result registers
 
 `MeasurementRegisters` stores one result bit and a pending measurement
-count per qubit. `FMR` reads the bit when the count is zero.
+count per qubit. `fmr` reads the bit when the count is zero.
 
 ## Connections
 
@@ -27,7 +27,7 @@ Accepting a measurement increments the target register's pending count.
 Delivery updates the bit and decrements the count. Results for one qubit
 must arrive in measurement order; different qubits can complete independently.
 
-`FMR` enqueues pending events and waits until the selected register has no
+`fmr` enqueues pending events and waits until the selected register has no
 pending measurements. Reading leaves its value unchanged. If two measurements
 of a qubit are pending, the read waits for both and returns the second result.
 

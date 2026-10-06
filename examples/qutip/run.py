@@ -1,4 +1,4 @@
-"""Assemble HISQ pulse experiments, run qsbit-sim and plot QuTiP results."""
+"""Assemble qsbit pulse-control experiments, run qsbit-sim and plot QuTiP results."""
 
 import argparse
 import hashlib

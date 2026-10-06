@@ -1,15 +1,15 @@
-# Port and codeword map
+# Port and codeword mapping
 
-The port and codeword map defines what a control instruction means for the
+The port and codeword mapping defines what a control instruction means for the
 configured device. For example, the default map uses codeword 1 on port 0 for an
 X gate on qubit 0, and codeword 4 for acquisition on that qubit.
 
 The mapping belongs to the simulation profile. Programs select entries by source port
-and codeword; the selected events can address different physical output ports.
+and codeword; the selected events can address different core-local output ports.
 
 ## Connections
 
-- **Input:** source port and codeword from a cw operation.
+- **Input:** source port and codeword from a `cw` operation.
 - **Output:** a `Mapping` containing one or more `EventSpec` values for codeword decoding.
 - **Owner:** the immutable `Profile`; lookup has no runtime state.
 
@@ -47,7 +47,9 @@ changes quantum state at the start of that interval.
 
 Backend support is checked when a program requests the mapping. A profile
 can therefore contain unused pulse entries when running the Aer backend.
-Sampled waveforms and oscillator-register operations are unsupported.
+Waveforms belong to backend configuration. A pulse mapping selects a waveform
+by `operation`; QuTiP supports `square`, `gaussian`, `drag` and `samples` shapes.
+See [waveform configuration](../qutip.md#waveforms).
 
 ## Objects and state
 

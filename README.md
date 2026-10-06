@@ -8,7 +8,7 @@
 qsbit-sim is a C++20 and SystemC simulator for RV32I programs with
 quantum-control instructions. It models CPU cycles, timed control output,
 measurement and feedback. Use the built-in mock backend to test control
-behavior, or a numerical backend to simulate quantum state.
+behavior, or a numerical backend for quantum-state evolution.
 
 ## Build
 
@@ -58,9 +58,10 @@ cmake --build --preset clang-ninja --parallel
 build-clang/qsbit-sim --config build-clang/examples/bell-state/run.json
 ```
 
-The Python bridge requires [matching development files](docs/prerequisites.md#optional-python-backends).
+The Python bridge requires the [Python development headers and libraries](docs/prerequisites.md#optional-python-backends)
+for the interpreter used to build it.
 The Bell measurements at addresses 4096 and 4100 should agree.
-See [backend setup](docs/backends.md) for pip installation, QuTiP pulse models
+See [backend setup](docs/backends.md) for installation and configuration, QuTiP pulse models
 and custom adapters, and [examples](examples/README.md) for complete programs.
 
 ## Test

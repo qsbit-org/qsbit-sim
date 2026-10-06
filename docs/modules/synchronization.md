@@ -1,8 +1,9 @@
 # Synchronization
 
-The synchronization unit implements neighbor BISP. A `sync target` instruction
-adds a synchronization event at the current time point. The target must name
-a directly connected controller.
+The synchronization unit implements neighbor synchronization using BISP, the
+booking-based synchronization protocol from Distributed-HISQ. A `sync target`
+instruction adds a synchronization event at the current time point. The target
+must name a directly connected controller.
 
 ## Booking and completion
 

@@ -13,7 +13,7 @@ operands into a `ControlOperation` for the CPU-side timing control.
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Authorized decoded operation"];
+  input [label="Decoded quantum instruction and operands"];
   owner [label="adapt_quantum"];
   state [label="rv32::Decoded\nControlOperation"];
   output [label="ControlOperation"];
@@ -25,7 +25,7 @@ digraph module {
 
 The `funct3` field selects a `ControlKind`. The `cw` mode selects immediate
 or register operands for the port and codeword. `wait` supplies a cycle
-interval; `FMR` supplies a qubit index.
+interval; `fmr` supplies a qubit index.
 
 The CPU passes the resulting operation to timing control. An absent
 optional result keeps the instruction blocked; a returned value lets

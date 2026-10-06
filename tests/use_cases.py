@@ -1,4 +1,4 @@
-"""Fresh-process pipeline, reset, crossing, and CLI contract regressions."""
+"""Fresh-process pipeline, reset, mailbox timing, and CLI contract regressions."""
 
 import argparse
 import json

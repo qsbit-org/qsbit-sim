@@ -22,7 +22,7 @@ python examples/quma/plot.py
 
 [allxy.S](allxy.S) uses `cw.i.i`, `wait.i` and `fmr`. FMR waits for each result
 without using its value to select later operations. The runner counts the backend's
-measurements. No reset instruction is inserted between trials.
+measurements. The backend's quantum state is not reset between trials.
 
 [run.json](run.json) selects the backend, physical parameters, clock periods and
 execution strategy. Results and control traces are written under
@@ -91,7 +91,8 @@ cmake --build --preset clang-ninja --parallel
 ctest --test-dir build-clang -R experiment.allxy --output-on-failure
 ```
 
-The test runs four rounds through the simulator and plotting command. The plot
+The test requests four experiment repetitions, validates replay behavior, and
+runs the plotting checks. The plot
 checks gate order, trigger timestamps and probabilities from the recorded output.
 Transition probabilities must match independent Bloch-vector calculations within
 2e-12. Shot frequencies must lie within six sampling standard errors plus one

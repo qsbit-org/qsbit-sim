@@ -7,7 +7,7 @@ GNU RISC-V binutils for examples. Tests also require a Python interpreter.
 | --- | --- |
 | Build the simulator | CMake 3.24 or newer, Ninja, a C++20 Clang or GCC toolchain, GNU RISC-V assembler and linker, and dependencies prepared with Conan 2. Preparation requires Python and uv. |
 | Run core tests | Build tools, RISC-V objdump and Python. |
-| Use Python backends | Build tools, Python, matching development files, and a local `.venv` with the selected adapter. |
+| Use Python backends | Build tools, Python development headers and libraries for the selected interpreter, and a local `.venv` with the selected adapter. |
 | Build the website | Build tools, Python documentation dependencies, Doxygen and Graphviz. See [website setup](website.md). |
 
 A default C++ build does not require Python quantum packages.
@@ -88,13 +88,19 @@ in [conan.lock](../conan.lock), and the Conan version in [uv.lock](../uv.lock).
 
 ## Optional Python backends
 
-On Ubuntu, install the matching Python development files:
+Install the development headers and libraries for the Python interpreter used
+to build the bridge. For Ubuntu or Debian's system Python:
 
 ```sh
 sudo apt-get install -y python3-dev
 ```
 
-Homebrew's Python includes its development files on macOS. Then follow
+`python3-dev` supplies these files for the distribution's Python. If CMake uses
+another Python, its headers and library must come from the same Python
+installation as `Python3_EXECUTABLE`.
+
+Homebrew's Python includes the headers and libraries required to embed Python.
+Then follow
 [backend installation](backends.md#install-an-optional-backend).
 Python package constraints are in [pyproject.toml](../pyproject.toml);
 [uv.lock](../uv.lock) records reproducible resolutions.

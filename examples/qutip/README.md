@@ -1,6 +1,6 @@
 # Pulse experiments with QuTiP
 
-Run HISQ programs that trigger configured waveforms and measure their effects.
+Run qsbit control programs that trigger configured waveforms and measure their effects.
 The CPU and TCU schedule the events; QuTiP integrates the driven quantum system.
 
 ## Run
@@ -43,7 +43,7 @@ levels for each of two transmons and their coupler.
 One TCU cycle is 2 ns. A profile mapping selects a waveform by `operation` and
 sets its amplitude, duration, axis and target. `cw` triggers that mapping;
 `wait` advances the scheduled time point. The generated program reads
-measurement results with `FMR`. Active reset branches on the returned bit and
+measurement results with `fmr`. Active reset branches on the returned bit and
 conditionally issues the correction pulse.
 
 The examples use synthetic model parameters. Waveform equations,
@@ -99,7 +99,7 @@ and finite-shot statistics.
 
 ## Active reset
 
-Prepare an equal superposition and measure it. `FMR` blocks until the result
+Prepare an equal superposition and measure it. `fmr` blocks until the result
 arrives. A measured one selects an X pulse; a measured zero skips it.
 Both paths schedule the verification acquisition after the same feedback budget.
 The ideal model must return zero in all 64 verification measurements.

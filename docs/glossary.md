@@ -16,6 +16,14 @@ Release of queued events at their scheduled time points. See
 The timing control unit: timing queue, per-port event queues and timing
 controller. See [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677).
 
+### BISP
+
+The booking-based synchronization protocol from
+[Distributed-HISQ, Section 4.1](https://arxiv.org/html/2509.04798v1#S4.SS1).
+A controller sends a signal to its neighbor and starts a countdown equal to
+its configured outgoing link delay. Synchronization completes when both the
+countdown has expired and the neighbor's signal has arrived.
+
 ### Time point
 
 A scheduled TCU cycle for zero or more events. The CPU prepares the current
@@ -53,8 +61,17 @@ A measurement interval. The backend samples at its end.
 
 ### Discrimination
 
-Conversion of a readout signal to a bit. qsbit-sim models the delay and
-takes the bit from the backend.
+Conversion of a readout signal to a bit. The controller models discriminator
+timing; the selected backend supplies the bit and may model readout assignment
+internally.
+
+### Discriminator arm
+
+An event that enables discrimination for a specific acquisition. With
+`separate_arm: true`, the mapping supplies an `ArmSpec` event paired with the
+acquisition's target and measurement reference. Otherwise the discriminator is
+armed at acquisition start. Result readiness is
+`max(acquisition_end, arm_start) + discriminator_delay`.
 
 ### Classical feedback
 
@@ -68,7 +85,7 @@ to the target qubit's selected execution flag.
 
 ### Measurement result register
 
-One bit per qubit, read by `FMR`. A pending count prevents reads until all
+One bit per qubit, read by `fmr`. A pending count prevents reads until all
 accepted measurements of that qubit complete.
 
 ### Execution flag
@@ -102,8 +119,11 @@ offset from time zero. Edges occur at `phase + k * period`.
 
 ### TCU logical cycle
 
-Cycle n occurs at `epoch_start + n * tcu.period`. Initially, `epoch_start`
-is `profile.start`; reset calculates a [new start](module-architecture.md#session-reset).
+When the TCU is not paused, cycle n occurs at
+`epoch_start + n * tcu.period + paused_ticks`, where `paused_ticks` is the
+accumulated pause duration. Each paused edge shifts subsequent logical cycles
+by one TCU period. Initially, `epoch_start` is `profile.start` and `paused_ticks`
+is zero; reset calculates a [new start](module-architecture.md#session-reset).
 
 ### Arrival time
 
@@ -201,13 +221,14 @@ intervals sharing an ID conflict if either requires exclusive use.
 
 ### Event specification
 
-`EventSpec` defines an operation's output parameters. `ScheduledEvent`
-adds start and end ticks. The operation occupies `[start, end)`.
+`EventSpec` defines an operation's output parameters. `ScheduledEvent` stores
+the event, start and end ticks, and the resolved `EventSpec` in `resolved`.
+The operation occupies `[start, end)`.
 
 ### Quantum backend
 
-An implementation of `IQuantumBackend` that supplies quantum evolution and
-measurement outcomes. The mock backend supplies fixed outcomes without a
+An implementation of `IQuantumBackend` that supplies quantum-state evolution,
+measurement outcomes, or both. The mock backend supplies fixed outcomes without a
 quantum state.
 
 ### Ideal gate and pulse drive
@@ -225,16 +246,18 @@ Paths resolve relative to the file's directory.
 ### Simulation profile
 
 Clock periods, delays, capacities and codeword mappings fixed for a run.
+Each core can have its own profile overlay. All cores share the TCU clock,
+qubit count, seed, watchdog and two-qubit gate definitions.
 
 ### Drain
 
-Completion of pending events, memory transactions and result deliveries
-after the exit ECALL.
+Completion of pending events, memory transactions, result deliveries, decoder
+work and synchronization across all cores after their exit ECALLs.
 
 ### Session reset
 
-A new epoch with controller and backend state reset. Memory and the profile
-are preserved.
+A new epoch with all cores, the synchronization network, the decoder system
+and the backend reset. Memory and profiles are preserved.
 
 ### Trace record
 

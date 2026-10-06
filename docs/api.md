@@ -12,7 +12,8 @@ Quantum backend operations and the mock implementation. [Open header](../include
 (control_8hpp)=
 ## control.hpp
 
-Profiles, event mappings, time point records and measurement references. [Open header](../include/qsbit/control.hpp).
+Configuration and control-protocol value types: profiles, mappings, timing-point
+records, events and measurement references. [Open header](../include/qsbit/control.hpp).
 
 (cpu_8hpp)=
 ## cpu.hpp
@@ -27,12 +28,13 @@ Per-controller CPU, memory, timing control, synchronization and measurement stat
 (sync_8hpp)=
 ## sync.hpp
 
-Neighbor BISP countdowns and bounded fixed-delay connections. [Open header](../include/qsbit/sync.hpp).
+Countdowns and bounded fixed-delay connections for BISP, the booking-based
+synchronization protocol from Distributed-HISQ. [Open header](../include/qsbit/sync.hpp).
 
 (rv32_8hpp)=
 ## cpu/rv32.hpp
 
-Three-stage RV32I CPU with scalar HISQ control instructions. [Open header](../include/qsbit/cpu/rv32.hpp).
+Three-stage RV32I CPU with scalar qsbit control instructions. [Open header](../include/qsbit/cpu/rv32.hpp).
 
 (vliw_8hpp)=
 ## cpu/vliw.hpp
@@ -92,7 +94,8 @@ Fetch and data ports with timed memory service. [Open header](../include/qsbit/m
 (timing__control_8hpp)=
 ## timing_control.hpp
 
-Quantum instruction adaptation, time point preparation and crossings. [Open header](../include/qsbit/timing_control.hpp).
+Quantum instruction adaptation, time point preparation, mailbox requests and
+replies, and feedback communication. [Open header](../include/qsbit/timing_control.hpp).
 
 (python__backend_8hpp)=
 ## python_backend.hpp

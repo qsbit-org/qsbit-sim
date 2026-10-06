@@ -85,8 +85,9 @@ operations must agree. The final two rounds must also have the same operation
 sequence after subtracting their time offset. Outstanding device operations at a
 region boundary cause an error.
 
-`transition_probabilities` requires one qubit, memoryless noise with fixed parameters
-and computational-basis projective measurement. Aer supports this option for its circuit adapter. It calculates each
+`transition_probabilities` requires one qubit, time-independent, memoryless noise
+parameters and ideal computational-basis projective measurement. Aer supports
+this option for its circuit adapter. It calculates each
 measurement probability from the preceding zero or one result, including all
 intervening evolution and gates. Sampling preserves that dependence. This method
 has the same probability model as direct evolution but uses a different random

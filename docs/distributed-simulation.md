@@ -47,7 +47,7 @@ to generate complete input files.
 
 ## Neighbor connections
 
-`first_to_second` and `second_to_first` are positive, calibrated delays in
+`first_to_second` and `second_to_first` are positive, configured directional delays in
 TCU cycles. `capacity` bounds unconsumed signals in each direction and defaults
 to 8. Self-connections, duplicate connections and unknown core IDs are invalid.
 `sync target` requires a direct connection to that target.
@@ -57,7 +57,8 @@ Each received signal satisfies one request, in order. Signals arriving before
 the matching local request remain buffered. Capacity released on an edge
 becomes available on the following edge.
 
-See [synchronization](modules/synchronization.md) for BISP timing.
+Neighbor synchronization uses BISP, the booking-based synchronization protocol
+from Distributed-HISQ. See [synchronization](modules/synchronization.md) for its timing.
 
 ## Shared quantum device
 
@@ -84,12 +85,12 @@ Mock `outcomes` uses device measurement IDs.
 ## Completion, reset and traces
 
 A halted CPU does not stop other cores. Successful completion requires every
-core, the shared device and all synchronization connections to drain.
+core, the shared device, the decoder system and all synchronization connections to drain.
 The backend advances to the final stop tick before the run finishes.
 An unmatched synchronization reaches the configured watchdog and fails.
 
-Session reset clears all cores, synchronization signals and the shared quantum
-state. Independent core resets are unsupported.
+Session reset clears all cores, synchronization signals, decoder state and the
+shared quantum state. Independent core resets are unsupported.
 
 Multicore trace records include `core` where an event belongs to one controller.
 `SyncBooked.value` is the local countdown deadline; `SyncReceived.value` is the

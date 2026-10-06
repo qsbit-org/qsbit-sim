@@ -1,8 +1,10 @@
 # Acquisition and discrimination
 
-`ControlElectronics` samples the backend at acquisition end and publishes the
-bit after the discriminator delay. Results travel to the CPU and, when enabled,
-the TCU.
+The controller models discriminator timing; the backend supplies measurement
+bits and may model readout assignment internally. At acquisition end,
+`ControlElectronics` requests a measurement through `BackendExecution`, which
+executes pending backend work and returns the sampled bit. Results travel to
+the CPU and, when enabled, the TCU after the discriminator delay.
 
 ## Connections
 
@@ -18,7 +20,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Acquisition and discriminator triggers"];
   owner [label="ControlElectronics::readouts_"];
-  state [label="Readout::reference\nReadout::end and arm and ready\nReadout::sample"];
+  state [label="Readout::reference\nReadout::{end, arm, ready}\nReadout::sample"];
   output [label="Completion to CPU and fast mailboxes"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -27,10 +29,10 @@ digraph module {
 ## From acquisition to result
 
 Timing control reserves the measurement reference and result-delivery
-capacity before queue insertion. If the acquisition requires a separate
-discriminator arm, the mapping must include one arm with the same
-measurement reference and target. Otherwise arming occurs at acquisition
-start.
+capacity before queue insertion. A discriminator arm enables discrimination
+for that acquisition. With `separate_arm: true`, the mapping must include one
+`ArmSpec` event with the same measurement reference and target. Otherwise
+arming occurs at acquisition start.
 
 For acquisition end E, arm start A and discriminator delay L, sampling
 occurs at E and the result becomes ready at `max(E, A) + L`.
@@ -48,7 +50,7 @@ receivers consume the result only on a later clock edge.
 | Object or member | Representation | Role |
 | --- | --- | --- |
 | `Readout::reference` | `MeasurementReference` | Measurement identity reserved by the timing control and measurement result storage. |
-| `Readout::end and arm and ready` | global ticks | Acquisition end, arm start and result-ready ticks. |
+| `Readout::{end, arm, ready}` | global ticks | Acquisition end, arm start and result-ready ticks. |
 | `Readout::sample` | `optional<bool>` | Empty until the backend samples the measurement at acquisition end. |
 | `ControlLinks::cpu_results and fast_results` | independent mailboxes | One completion published to each enabled delivery path. |
 

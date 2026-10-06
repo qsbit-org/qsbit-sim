@@ -1,7 +1,8 @@
 # Decoder feedback
 
-The decoder receives measurement bits through memory-mapped registers and
-returns correction bits to the controller. A run configuration specifies the
+The decoder receives measurement bits through memory-mapped I/O (MMIO)
+registers and returns correction bits to the controller. A session is identified
+by core ID and decoder ID. A run configuration specifies the
 decoder algorithm, transfer bandwidth, link delay, processing latency and
 queue capacities. The [QEC example](../examples/qec/README.md) compiles QIR
 programs that use these registers.
@@ -38,7 +39,7 @@ bandwidth and timing values are positive 32-bit integers. IDs, overhead and
 the base address may be zero.
 
 `measurements` is the number of input bits in one decoding window. Packets
-append bits in arrival order to the session identified by core and decoder ID.
+append bits in arrival order to the selected session.
 A complete window starts one decoding job. Another window for the same session
 waits until that job returns. Returned correction bits accumulate by XOR until
 the CPU consumes them or resets the decoder.

@@ -221,7 +221,7 @@ if args.backend == "mock":
     conflict["cores"][1]["profile"]["mappings"] = mapping(0)
     run("shared-qubit-conflict", conflict, fault="ResourceConflict")
 
-# Shared gate inputs use controller addresses and local output ports.
+# Shared-gate inputs use core IDs and core-local output ports.
 pair = deepcopy(config)
 pair["backend"] = args.backend
 pair.pop("outcomes", None)

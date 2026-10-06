@@ -1,4 +1,4 @@
-"""QuTiP dynamics, acquisition records and the native pulse bridge."""
+"""QuTiP dynamics, acquisition records and the backend bridge between C++ and Python."""
 
 import argparse
 import json

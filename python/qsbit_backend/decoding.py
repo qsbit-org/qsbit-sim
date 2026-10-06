@@ -1,4 +1,4 @@
-"""Decoder configuration and numerical adapters."""
+"""Validate decoder configurations and construct numerical decoder callbacks."""
 
 import importlib
 

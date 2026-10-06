@@ -1,4 +1,4 @@
-"""Reproduce neighbor synchronization and measure BISP booking overhead."""
+"""Recreate neighbor timing and measure booking-based synchronization (BISP) overhead."""
 
 import argparse
 import hashlib

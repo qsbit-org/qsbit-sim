@@ -37,7 +37,7 @@ A result committed at 100 ns cannot affect an operation triggered at 100 ns.
 With a 20 ns TCU period, the updated flags become usable at 120 ns.
 `ExecutionFlagsUpdated` records the result commit.
 
-Pending measurements do not invalidate these flags. `FMR` neither changes
+Pending measurements do not invalidate these flags. `fmr` neither changes
 nor consumes them.
 
 ## Objects and state

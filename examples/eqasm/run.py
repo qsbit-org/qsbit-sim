@@ -1,4 +1,4 @@
-"""Run the Figure 3 gate sequence with HISQ operations and compare scalar and dual-cw issue rates."""
+"""Run the Figure 3 gate sequence with qsbit control operations and compare scalar and dual-codeword issue rates."""
 
 import argparse
 import hashlib

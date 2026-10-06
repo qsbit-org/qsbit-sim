@@ -27,11 +27,11 @@ assigned to a single simulation tick.
 | CPU edge | CPU rising edge | Receive replies and results, then step the CPU. |
 | Memory edge | CPU rising edge | Service instruction and data requests. |
 | TCU edge | TCU rising edge | Trigger due events, enqueue requests and receive results. |
-| Timed wakeup | Next device event, reset or watchdog deadline | Apply reset if due and request device processing. |
-| Device barrier | Notification in the next delta cycle | Wait for clocked methods to finish, process device events and check completion. |
+| Timed wakeup | Next device or decoder event, reset or watchdog deadline | Apply reset if due and request device processing. |
+| Device barrier | Notification in the next delta cycle | Wait for clocked methods to finish, process decoder and device events, and check completion. |
 
-The CPU, memory, timing control, TCU and device models are ordinary C++ objects
-called by these methods. Their state persists between calls. A blocked
+The CPU, memory, timing control, TCU, synchronization, decoder and device models
+are ordinary C++ objects called by these methods. Their state persists between calls. A blocked
 instruction retains its operands until a later CPU edge retries it.
 
 The methods use `dont_initialize()`; they first run when their triggering
@@ -91,20 +91,23 @@ rescheduling an operation.
 
 ## Measurement and completion
 
-At acquisition end, the backend samples the measurement. After the
-discriminator delay, the result travels to the CPU and, when enabled, the
-TCU's execution flags.
+At acquisition end, `ControlElectronics` requests a measurement through
+`BackendExecution`, which executes pending backend work and returns the sampled
+bit. After the discriminator delay, the result travels to the CPU and, when
+enabled, the TCU's execution flags.
 
 A result delivered before the CPU step can complete FMR on that edge.
 The TCU commits new results after evaluating conditions, so they first
 become usable on its next edge.
 
-The exit ECALL halts the CPU after enqueueing any pending events. The simulation
-continues until the TCU receives closure and all queues, device events,
-memory requests and enabled result deliveries have completed.
+The exit ECALL halts its CPU after enqueueing any pending events. The simulation
+continues until every core has halted and its TCU has received closure, all
+queues, device events, memory requests and enabled result deliveries have
+completed, and the decoder system and synchronization connections have drained.
 A fault or watchdog expiry stops the run with failure.
 
-Session reset starts a new epoch and resets the controller and backend,
-while preserving memory and the profile. Simulation time continues.
+Session reset starts a new epoch and resets all cores, `SyncNetwork`,
+`DecoderSystem`, the device and the backend, while preserving memory and
+profiles. Simulation time continues.
 The [reset rules](module-architecture.md#session-reset) specify the new TCU
 start and stale-result handling.

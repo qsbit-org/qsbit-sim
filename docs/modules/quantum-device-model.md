@@ -1,6 +1,6 @@
 # Quantum device simulation
 
-A backend calculates quantum evolution and measurement outcomes.
+A backend supplies quantum-state evolution, measurement outcomes, or both.
 `ControlElectronics` supplies physical times and commits operations in order.
 All ports in a run share this backend state.
 
@@ -29,7 +29,7 @@ digraph module {
 with all active drives. It then measures ending acquisitions and commits starting
 gates. All ports share one backend state.
 
-The mock backend supplies configured bits without quantum evolution.
+The mock backend supplies configured bits without quantum-state evolution.
 Aer applies ideal gates, optional thermal relaxation and measurements with state
 collapse. QuTiP integrates time-dependent oscillator Hamiltonians and dissipation. Stim applies
 Clifford gates and optional gate depolarization. See
@@ -70,7 +70,8 @@ creating the initial state for the new epoch.
 
 ## Implementation and tests
 
-Source: [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../../include/qsbit/backend.hpp).
+Source: [backend.cpp](../../src/backend.cpp), [device.cpp](../../src/device.cpp),
+[python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../../include/qsbit/backend.hpp).
 
 **CTest:** `backend.execution`, `systemc.bell.normal`.
 
@@ -84,6 +85,6 @@ after the last device event.
 Optional `python.qutip` checks analytic drive evolution, dissipation, measurement
 collapse, and pulse and acquisition intervals passed through the native bridge.
 Optional `python.backend_configuration` checks discovery, schema validation and
-CLI precheck and backend selection in full-program execution.
+`--check-config` and backend selection in full-program execution.
 Optional `python.backend_semantics` checks numerical evolution, noise,
 measurement collapse, batch partitioning and validation for each enabled backend.

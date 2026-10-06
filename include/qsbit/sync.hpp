@@ -12,7 +12,7 @@ struct SyncConnection {
   Tick first_to_second = 1, second_to_first = 1;
   std::size_t capacity = 8;
 };
-// Fixed, calibrated delays in TCU cycles between neighboring controllers.
+// Configured directional delays in TCU cycles between neighboring controllers.
 class SyncNetwork {
 public:
   SyncNetwork(Clock clock, std::span<const SyncConnection> connections);

@@ -58,7 +58,13 @@ hooks on all tracked files and runs the complete configured CTest suites.
 | Test family | Main assertions |
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
+| `config.profile` | Profile JSON round trips, typed event fields and invalid configurations. |
 | `cpu.vliw` | Dual-codeword operand modes, reserved encodings, blocked-operation progress and reset. |
+| `cpu.trace` | End-of-edge pipeline snapshots, stalls, branch flushes, reset and core identity. |
+| `backend.execution` | Batch limits, operation order, measurement boundaries, inspection, reset and failures. |
+| `device.two_qubit` | Paired gate inputs, single application, delay compensation, conflicts and reset. |
+| `sync.neighbor` | Neighbor countdowns, directional delays, early signals, capacity and reset. |
+| `decoder.*` | Bounded transport, response timing, correction accumulation and reset under backpressure; optional PyMatching configuration and correction masks. |
 | `control.*` | Atomic enqueue, event-ID lists, queue bounds, deadlines, measurement registers and execution flags. |
 | `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and execution flag updates. |
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |
@@ -84,7 +90,7 @@ and new behavior. The existing suite includes:
 - Overlapping resource intervals, adjacent intervals and same-target sampling
   collisions. Invalid batches must not partially change device state.
 - Delayed discriminator arms, zero discriminator delay, independent CPU and
-  fast-result crossings, and execution flag updates.
+  fast-result mailbox communication, and execution flag updates.
 - Reset at clock and physical boundaries, stale completions and measurement register validity.
 - Exit ECALL while physical work or fast-feedback acknowledgments remain pending.
 
@@ -108,11 +114,13 @@ Enable `QSBIT_PYTHON_BACKENDS` and the selected numerical test options described
 in [building](building.md#cmake-options).
 `python.plugin` checks adapter loading without numerical packages.
 `python.backend_configuration` checks discovery, configuration validation and
-precheck. `QSBIT_TEST_AER` adds thermal relaxation and density-matrix checks;
+`--check-config`. `QSBIT_TEST_AER` adds thermal relaxation and density-matrix checks;
 `QSBIT_TEST_STIM` adds Clifford gates, depolarization and full-program execution.
 `numerical.*` checks Aer Bell correlations, feedback and unsupported operations.
 `QSBIT_TEST_QUTIP` registers `python.qutip`, covering analytic joint evolution,
 waveform continuity, dissipation, collapse and native acquisition metadata.
+`QSBIT_TEST_QEC` registers `decoder.pymatching` for PyMatching configuration
+validation and correction-mask checks; install the `qec` extra to run it.
 
 ## Independent ISA checks
 

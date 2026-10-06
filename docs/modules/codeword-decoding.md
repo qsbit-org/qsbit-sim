@@ -1,7 +1,7 @@
 # Codeword decoding
 
 Codeword decoding expands one port and codeword command into the device events defined
-by the profile. A command can select several events on different physical ports,
+by the profile. A command can select several events on different core-local output ports,
 such as acquisition and a separate discriminator arm.
 
 ## Connections
@@ -9,7 +9,7 @@ such as acquisition and a separate discriminator arm.
 - **Input:** source port and codeword, profile, epoch, instruction ID, first event ID,
   and an optional measurement reference.
 - **Output:** `OperationEvent` values for the timing control's pending events at the current time point.
-- **Caller:** `TimingControl` during cw; time point validation also runs when
+- **Caller:** `TimingControl` while executing `cw`; time point validation also runs when
   the timing control submits a time point and when the TCU checks enqueue.
 
 ```{graphviz}
@@ -56,7 +56,7 @@ queue insertion. Device validation checks acquisition and arm pairing.
 
 Unknown mappings, inconsistent identities, invalid acquisition and arm pairs and
 event counts above the configured limits raise faults. Timing control checks
-staging and per-port limits before accepting cw.
+staging and per-port limits before accepting `cw`.
 
 Reset discards pending events while preserving the profile mappings.
 One codeword expands into events at one time point.

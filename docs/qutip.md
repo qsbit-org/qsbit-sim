@@ -2,7 +2,7 @@
 
 Install the [optional `qutip` extra](backends.md#install-an-optional-backend) and select `"backend": "qutip"` in the run
 configuration. The [pulse experiments](../examples/qutip/README.md) provide a
-complete model, HISQ program generation and result plots.
+complete model, qsbit control-program generation and result plots.
 
 ```sh
 build-python/qsbit-sim --backend qutip --help-backend

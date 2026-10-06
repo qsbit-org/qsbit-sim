@@ -54,7 +54,7 @@ Scalar control instructions use opcode `0x0b` in the RISC-V custom-0 space.
 | 0 | `cw.i.i port, codeword` | `funct7 = 3`; rs1 and rs2 are 5-bit immediates; rd is zero. |
 | 1 | `wait.r interval` | rs1 selects a GPR; funct7, rs2 and rd are zero. |
 | 2 | `wait.i interval` | Bits 31–15 hold an unsigned 17-bit interval; rd is zero. |
-| 3 | `FMR rd, target` | rs1 holds a 5-bit qubit index; funct7 and rs2 are zero. |
+| 3 | `fmr rd, target` | rs1 holds a 5-bit qubit index; funct7 and rs2 are zero. |
 | 6 | `sync target` | Bits 31–15 hold an unsigned 17-bit controller address; rd is zero. |
 
 funct3 values 4, 5 and 7 are reserved. Invalid fixed fields raise
@@ -122,10 +122,10 @@ A positive `wait` enqueues the pending time point and its events, waits for
 acknowledgment, then advances the time point in TCU cycles. A zero interval
 leaves the time point and pending events unchanged.
 
-`FMR` enqueues pending events and waits for all accepted measurements of the
+`fmr` enqueues pending events and waits for all accepted measurements of the
 selected qubit to complete. It copies the latest result into rd without
 changing the measurement register. Further `cw` instructions require a
-positive `wait` after `FMR`.
+positive `wait` after `fmr`.
 
 The exit ECALL enqueues pending events and halts the CPU after acknowledgment.
 The simulation completes when pending events and result deliveries finish.
@@ -139,7 +139,7 @@ The simulation completes when pending events and result deliveries finish.
 | --- | --- |
 | `cw` | Codeword |
 | `wait` | Wait |
-| `FMR` | FetchMeasurement |
+| `fmr` | FetchMeasurement |
 | Exit ECALL | Halt |
 | `sync` | Synchronize |
 
@@ -242,7 +242,7 @@ An overlay changes only the supplied fields.
 | `cpu`, `tcu` | Clock objects with integer `period` and `phase` in nanoseconds. |
 | `start`, `watchdog` | Initial TCU start tick, reused as an offset on reset; global simulation watchdog deadline. |
 | `memory_latency` | CPU periods from memory acceptance to service completion. |
-| `command_latency`, `reply_latency` | Receiver edges for time point and enqueue-reply crossings. |
+| `command_latency`, `reply_latency` | Mailbox communication latency in receiver edges for time-point requests and enqueue replies. |
 | `cpu_result_latency`, `fast_result_latency` | Receiver edges for the independent result paths. |
 | `timing_capacity`, `event_capacity`, `staging_capacity` | Timing entries, entries per port and staged events. |
 | `result_capacity` | Maximum outstanding measurements on each delivery path. |
@@ -257,7 +257,9 @@ a nonempty `actions` array.
 ### Codeword mappings
 
 A mapping is looked up by source `port` and `codeword`. Each selected event
-has its own physical output `port`; neither port is necessarily a qubit index.
+has its own core-local output `port`; neither port is necessarily a qubit index.
+`Simulator` adds a per-core offset when sending events to the shared device,
+which uses globally remapped ports.
 An event selects `kind`, output `port`, `operation`, `targets` and `resources`.
 It also supplies `delay` and `duration`. Gates accept `amplitude`; pulses accept
 `amplitude` and `axis`; acquisitions accept `discriminator_delay` and `separate_arm`.
@@ -265,8 +267,9 @@ Fields belonging to another event kind are rejected. For gates and pulses, `exec
 `always` (default), `last_one`, `last_zero` or `equal`. Conditional flags
 require a single-qubit gate or pulse and enabled fast feedback. A resource has a numeric
 `id` and an `exclusive` boolean. Two overlapping events sharing that resource
-conflict if either reservation is exclusive. The same physical output port
-cannot host overlapping events, even when their resource declarations differ.
+conflict if either reservation is exclusive. The same configured core-local
+output port cannot host overlapping events, even when their resource declarations
+differ. Equal local port numbers on different cores map to distinct device ports.
 A two-qubit gate can reserve both target resources. Its two configured outputs
 share that reservation when their physical intervals coincide. Other events on
 the same target may overlap only when both are pulses or one is a discriminator arm.
@@ -351,6 +354,10 @@ according to `kind` rather than treating zero as a missing value.
 | `TimingPointEnqueued` | Label, current TCU cycle and post-enqueue timing occupancy in `value`. |
 | `EnqueueAcknowledged` | Enqueue label acknowledged to the CPU. |
 | `TimingPointTriggered` | Label and TCU cycle. |
+| `SyncBooked` | Requesting `core`, target core in `targets`, and local countdown deadline tick in `value`. |
+| `SyncReceived` | Receiving `core`, peer core in `targets`, and signal arrival tick in `value`. |
+| `SyncCompleted` | Requesting `core` and peer core in `targets`; both the countdown and received-signal conditions are satisfied. |
+| `TimerPaused` and `TimerResumed` | `core` whose TCU timer pauses or resumes at this tick. |
 | `ConditionCancelled` | Suppressed event ID and label. |
 | `CodewordTriggered` | Event ID, label, resolved port, codeword, operation and targets. |
 | `OperationStart` | Event identity and duration in `value`. |

@@ -1,8 +1,10 @@
 # Use a quantum backend
 
-The backend evolves quantum state and returns measurement outcomes. The controller
-sets the simulated timing. Changing backend does not change CPU, TCU or
-readout delays.
+A backend supplies quantum-state evolution, measurement outcomes, or both.
+The mock backend supplies outcomes without maintaining quantum state.
+Changing the backend does not change controller-side CPU, TCU, acquisition
+duration, or result-delivery timing configured in the profile; a backend may
+model additional readout physics internally.
 
 | Backend | Use | Installation |
 | --- | --- | --- |
@@ -11,7 +13,7 @@ readout delays.
 | `qutip` | Evolve driven oscillator models with couplings, dissipation and measurement. | Python bridge and `qutip` extra. |
 | `stim` | Apply Clifford gates, optional gate depolarization and measurements with collapse. | Python bridge and `stim` extra. |
 | Registered name | Load an installed adapter through its package entry point. | Python bridge and that adapter's dependencies. |
-| `package.module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |
+| `module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |
 
 ## Install an optional backend
 
@@ -33,8 +35,8 @@ uv sync --frozen --group build --extra aer
 source .venv/bin/activate
 ```
 
-Use the `qutip` or `stim` extra for those adapters. To install only the
-bridge package, omit the extra: `python -m pip install -e .` or
+Use the `qutip` or `stim` extra for those adapters. To install only the base
+Python package, without a numerical backend extra, use `python -m pip install -e .` or
 `uv sync --frozen --group build`.
 Dependencies and compatibility ranges are defined in
 [pyproject.toml](../pyproject.toml).
@@ -50,7 +52,8 @@ build-python/qsbit-sim --config build-python/examples/bell-state/run.json
 
 The simulated Bell measurements should agree: either 00 or 11. The summary and
 trace are written under `build-python/examples/bell-state/`. See the
-[examples](../examples/README.md) for feedback, pulses and overlapping drives.
+[measurement-feedback example](../examples/measurement-feedback/README.md)
+and [QuTiP pulse examples](../examples/qutip/README.md) for other experiments.
 
 ## Discover and configure backends
 
@@ -80,7 +83,7 @@ build-python/qsbit-sim --config stim.json --check-config
 build-python/qsbit-sim --config stim.json
 ```
 
-Precheck loads the program, validates the profile and backend options, checks
+`--check-config` loads the program, validates the profile and backend options, checks
 dependencies and initializes the backend with the configured qubit count and seed.
 It does not execute instructions or write simulation outputs. Operations selected
 by the running program are validated before execution.
@@ -179,8 +182,9 @@ The loader imports `Backend` from `my_adapter` and constructs it with validated
 `python_path` is optional for an installed package. Program, profile, trace,
 summary and `python_path` paths resolve relative to the run file.
 
-Only the selected adapter is imported. The bridge alone requires no numerical
-packages. Missing dependencies and malformed adapters fail at construction;
+Only the selected adapter is imported. The base Python support package and C++
+bridge do not require a numerical backend package.
+Missing dependencies and malformed adapters fail at construction;
 unsupported requested operations fail validation.
 
 ## Register an adapter
@@ -227,7 +231,7 @@ Implement these methods on the class selected by `module:Class`:
 | `execute(epoch, operations)` | Execute the ordered batch and return measurement bits in reference order, or an empty list when no measurement is present. |
 | `state()` | Optional. Return complex statevector amplitudes. |
 | `density_matrix()` | Optional. Return rows of complex density-matrix entries. |
-| `transition_probabilities(operations)` | Optional. Return the next Z-measurement probability of one for initial states zero and one. Requires a single qubit, stationary memoryless evolution and ideal projective measurement. |
+| `transition_probabilities(operations)` | Optional. Return the next Z-measurement probability of one for initial states zero and one. Requires a single qubit, time-independent, memoryless noise parameters and ideal computational-basis projective measurement. |
 
 Operation records are defined in [protocol.py](../python/qsbit_backend/protocol.py).
 Each record has `kind`, `tick` and fields specific to its kind:

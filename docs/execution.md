@@ -26,8 +26,9 @@ written to zero. Timing Queue entries follow enqueue and trigger records.
 Port queues show events resolved from their configured codeword mappings. Control outputs show
 active operations and their configured durations.
 
-The CPU edge index is derived from its configured clock. The TCU cycle is the
-last recorded value. CPU slots show end-of-edge occupancy from `CpuPipelineUpdated`.
+The CPU edge index is derived from its configured clock. The displayed TCU cycle
+is the latest cycle recorded at or before the selected timestamp.
+CPU slots show end-of-edge occupancy from `CpuPipelineUpdated`.
 In multicore traces,
 **Core** selects the controller; control outputs include all cores.
 
@@ -55,7 +56,8 @@ From the repository root:
 python3 tools/replay_trace.py PATH/TO/TRACE.jsonl
 ```
 
-The player loads clock settings and core configurations from the matching
-`.summary.json` or `.json` file. Use `--summary PATH/TO/SUMMARY.json` for a different
+For `TRACE.jsonl`, the player first looks for `TRACE.summary.json`, then
+`TRACE.json` in the same directory. It loads clock settings and core configurations
+from that file. Use `--summary PATH/TO/SUMMARY.json` for a different
 filename. Without a summary, recorded events remain available; derived clock
 values are unavailable. Press Ctrl+C to stop the server.

@@ -2,8 +2,8 @@
 
 Run the two-qubit gate sequence from
 [eQASM, Figure 3](https://arxiv.org/pdf/1808.02449v3), then compare scalar
-instructions with 32-bit dual-codeword bundles. Both programs use HISQ
-control operations.
+instructions with 32-bit dual-codeword bundles. Both programs use qsbit control
+instructions while reproducing the eQASM gate schedule.
 
 ## Run
 
@@ -52,7 +52,7 @@ points. The scheduled interval between gate pairs ranges from 20 to 120 ns.
 | --- | --- | --- |
 | RV32 scalar | `rv32` | Two `cw.i.i` instructions and one `wait.i`. |
 | VLIW scalar | `vliw` | The same scalar program. |
-| VLIW dual cw | `vliw` | One `cw.bundle` and one `wait.i`. |
+| VLIW dual-codeword | `vliw` | One `cw.bundle` and one `wait.i`. |
 
 The CPU period is 10 ns; the TCU period is 20 ns. Memory latency is one CPU
 period, and command and reply latencies are one receiver edge each.

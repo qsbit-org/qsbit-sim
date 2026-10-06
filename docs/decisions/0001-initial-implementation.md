@@ -1,6 +1,6 @@
 # ADR 0001: Initial CPU and control profile
 
-Date: 2026-09-16. Updated: 2026-10-03. Status: accepted.
+Date: 2026-09-16. Updated: 2026-10-06. Status: accepted.
 
 ## Context
 
@@ -34,21 +34,22 @@ Load 32-bit RV32I machine code from an ELF file or raw binary. Keep assembly
 outside the simulator. The examples use GNU assembler macros to encode the
 quantum extension in the RISC-V custom-0 opcode space.
 
-cw stores events for the current time point before they enter the TCU.
+`cw` stores events for the current time point before they enter the TCU.
 Several instructions can therefore contribute events
 to one planned cycle. Positive `wait` enqueues pending events before advancing
-the time point. `FMR` enqueues before reading a measurement register; the exit
+the time point. `fmr` enqueues before reading a measurement register; the exit
 ECALL enqueues before halting the CPU. The [instruction reference](../interfaces.md#quantum-instruction-encoding)
 defines the encodings and completion rules.
 
 Measurement result registers retain one bit per qubit. FMR waits until the
 selected qubit has no pending measurements. Codeword mappings select
 execution flags derived from the latest completed measurements; the TCU
-checks them at the trigger edge. `sync` schedules neighbor BISP synchronization.
+checks them at the trigger edge. `sync` schedules neighbor synchronization using
+BISP, the booking-based synchronization protocol from Distributed-HISQ.
 
 ### Timing and backend boundary
 
-A validated profile fixes clocks, crossing delays, capacities and event maps
+A validated profile fixes clocks, mailbox communication latencies, capacities and event maps
 before simulation starts. The [implementation reference](../implementation.md#default-timing)
 lists the defaults. Mailboxes retain payloads and arrival ticks;
 SystemC events wake processes without carrying the payload themselves.
@@ -56,14 +57,15 @@ SystemC events wake processes without carrying the payload themselves.
 At each device event tick, the barrier waits for all due clocked methods
 to finish before processing device events. This includes events triggered with zero output delay on
 that tick. `ControlElectronics` controls evolution intervals, measurements and
-result publication. A backend computes quantum state changes synchronously
+result publication. A numerical backend computes quantum-state evolution synchronously
 and never advances SystemC time.
 
 The built-in mock backend supports deterministic protocol tests. Optional
-Python adapters provide Qiskit Aer simulation and a small-system
-piecewise-constant Hamiltonian backend. Each numerical backend maintains one
-shared state across operations and mid-circuit measurements. Capability checks
-validate all events at a tick before quantum state changes.
+Python adapters provide Qiskit Aer simulation, a QuTiP-based time-dependent
+oscillator-Hamiltonian backend, and Stim Clifford simulation. Each numerical
+backend maintains one shared state across operations and mid-circuit measurements.
+Device preflight validates scheduled work before mutation; committed backend
+operations may then be batched across device boundaries.
 
 ### Replacement interfaces
 

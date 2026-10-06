@@ -1,6 +1,6 @@
 # CPU cycle model
 
-`CpuCycleModel` executes RV32I and scalar HISQ control instructions.
+`CpuCycleModel` executes RV32I and qsbit scalar control instructions.
 `VliwCpuCycleModel` also executes 32-bit dual-codeword bundles. Both use
 fetch, decode and execute stages, with results committed in execute.
 Memory delays and blocked control instructions hold the pipeline while the
@@ -47,8 +47,9 @@ per edge. A load or blocked control instruction holds execute and prevents
 younger instructions from entering it.
 
 Only the oldest instruction can issue a store or control operation.
-Retries keep the same instruction ID and operands. cw completes when
-timing control accepts its events; other control instructions follow the
+Retries keep the same instruction ID and operands. `cw` completes when
+timing control stores the mapped events in the current time point;
+other control instructions follow the
 [instruction completion rules](../module-architecture.md#reserve-phase-operations-and-progress).
 
 A taken branch discards younger instructions and changes the fetch

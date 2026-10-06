@@ -20,7 +20,7 @@ private:
   static void pair(const ScheduledEvent &a, const ScheduledEvent &b);
   std::vector<ScheduledEvent> reservations_;
 };
-// Schedules pulse output, acquisition and discrimination against one shared state.
+// Schedules gate and pulse output, acquisition, and result delivery on the shared backend state.
 class ControlElectronics {
 public:
   ControlElectronics(const Profile &profile, IQuantumBackend &backend, Trace &trace,

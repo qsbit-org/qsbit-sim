@@ -19,7 +19,7 @@ contract, not the C++ alias, determines the unit.
 | TCU `Point::due`, `last_due_`; current time point | Logical TCU cycle in the current epoch |
 | `TraceEvent::cycle` | Kind-specific CPU edge index or logical TCU cycle; see [trace fields](interfaces.md#jsonl-trace) |
 | `memory_latency` | CPU periods after acceptance |
-| Configured crossing latencies | Receiver edges, starting strictly after publication |
+| Configured mailbox communication latencies | Receiver edges, starting strictly after publication |
 
 ## CPU adapter
 
@@ -112,7 +112,7 @@ are computed from the event list.
 
 `EnqueueReply` acknowledges a label. `EndOfStream` identifies the last enqueued
 label, with zero for an empty stream. Mailbox envelopes supply epoch and
-visibility timing; the simulator has one control stream.
+visibility timing; each core has one control stream.
 
 Source: [include/qsbit/control.hpp](../include/qsbit/control.hpp).
 
@@ -169,7 +169,8 @@ struct TriggeredEvents {
 `ControlElectronics` commits time-ordered operations to `BackendExecution`.
 `BackendExecution` owns each operation's events and measurement references until execution.
 `IQuantumBackend::execute()` consumes the complete batch synchronously and returns
-one bit per reference in its terminal measurement, or an empty vector otherwise.
+one bit per reference in the measurement operation at the end of the batch,
+or an empty vector when no measurement is present.
 See [backend execution](backends.md#backend-execution) for batch limits and reset behavior.
 
 Source: [include/qsbit/backend.hpp](../include/qsbit/backend.hpp).

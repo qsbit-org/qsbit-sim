@@ -1,4 +1,4 @@
-"""Run a short AllXY experiment through the CLI and plotting command."""
+"""Run the reduced-repetition AllXY regression through the CLI and plotting command."""
 
 import argparse
 import json

@@ -1,4 +1,4 @@
-"""Plot synchronized output signals and BISP booking overhead."""
+"""Plot synchronized output signals and booking-based synchronization (BISP) overhead."""
 
 import argparse
 import json

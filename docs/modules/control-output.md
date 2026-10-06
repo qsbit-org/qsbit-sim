@@ -7,7 +7,7 @@ including events whose output delay means they have not started yet.
 ## Connections
 
 - **Input:** validated TCU `TriggeredEvents` values with resolved event specifications.
-- **Output:** physical starts and ends, active pulse drives, backend calls and
+- **Output:** physical starts and ends, active pulse drives, backend operations and
   measurement completions.
 - **Scheduling:** the SystemC barrier calls `process()` at the next physical
   boundary after all clocked work due at that tick has finished.
@@ -19,7 +19,7 @@ digraph module {
   input [label="TriggeredEvents"];
   owner [label="ControlElectronics"];
   state [label="reservations_\nboundaries_\nactive_"];
-  output [label="Device events, backend calls and Completion"];
+  output [label="Device events, backend operations and Completion"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
 ```

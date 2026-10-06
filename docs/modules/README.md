@@ -20,7 +20,7 @@ and communication delays.
 
 | Module | What it does |
 | --- | --- |
-| [Port and codeword map](port-codeword-and-waveform-map.md) | Selects device events from the simulation profile. |
+| [Port and codeword mapping](port-codeword-and-waveform-map.md) | Selects device events from the simulation profile. |
 | [Codeword decoding](codeword-decoding.md) | Expands commands into identified per-port events. |
 | [Reserve phase](reserve-phase.md) | Prepares events at a time point and requests queue insertion. |
 | [Communication latency and enqueue](queue-enqueue.md) | Transfers requests and inserts timing and event entries together. |
@@ -34,12 +34,12 @@ and communication delays.
 | Module | What it does |
 | --- | --- |
 | [Control output and resource checks](control-output.md) | Reserve and execute physical intervals. |
-| [Quantum backend](quantum-device-model.md) | Evolves shared state and returns measurement outcomes. |
+| [Quantum backend](quantum-device-model.md) | Supplies quantum-state evolution, measurement outcomes, or both. |
 | [Acquisition and discrimination](acquisition-and-discrimination.md) | Samples measurements and schedules result readiness. |
 | [Measurement result registers](measurement-registers.md) | Stores per-qubit bits and pending measurement counts for FMR. |
 | [Execution flags](execution-flags.md) | Updates per-qubit flags used at the trigger edge. |
 | [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
-| [Synchronization](synchronization.md) | Books neighbor synchronization and pauses the TCU until BISP conditions are met. |
+| [Synchronization](synchronization.md) | Books neighbor synchronization and pauses the TCU until the conditions of BISP, the booking-based synchronization protocol from Distributed-HISQ, are met. |
 
 Run a component's named tests with `ctest --test-dir BUILD_DIRECTORY -R NAME`.
 Numerical tests require the corresponding [build options](../building.md#cmake-options).

@@ -51,7 +51,7 @@ int sc_main(int argc, char **argv) {
                "  --check-config\n"
                "  --cpu-model rv32|vliw\n"
                "  Distributed run files specify cores and sync_connections.\n"
-               "    vliw: RV32I, HISQ instructions and 32-bit dual-cw bundles\n"
+               "    vliw: RV32I, qsbit control instructions, and 32-bit dual-codeword bundles\n"
                "  --profile FILE --trace FILE --summary FILE --seed INTEGER --start TICK\n"
                "  --memory-base ADDRESS --memory-size BYTES --outcomes 0,1,...\n"
                "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"

@@ -1,8 +1,10 @@
 # Distributed-HISQ neighbor synchronization
 
-Run two independent RV32I programs with HISQ timing instructions and BISP
-neighbor synchronization. The example reproduces the synchronized-output
-experiment in [Distributed-HISQ, Figures 12 and 13](https://arxiv.org/html/2509.04798v1#S6.SS3)
+Run two independent RV32I programs with qsbit timing and synchronization
+instructions modeled on Distributed-HISQ. Synchronization uses BISP, the
+booking-based synchronization protocol from Distributed-HISQ. The example
+recreates the synchronized-output timing scenario in
+[Distributed-HISQ, Figures 12 and 13](https://arxiv.org/html/2509.04798v1#S6.SS3)
 and measures synchronization overhead as deterministic work covers the link delay.
 
 ## Run
@@ -41,7 +43,7 @@ sequence. Both programs execute three outer repetitions and then exit.
 [experiment.json](experiment.json) specifies a 5 ns CPU period, a 4 ns TCU
 period and a 10 µs initial TCU start. The two directional link delays are
 8 and 6 TCU cycles, matching the waits after `sync` in Figure 12.
-These are example calibration values; the paper does not report measured
+These are example configured delays; the paper does not report measured
 directional link delays. The control output delay is 228 ns, compensated by
 the readout program's 57-cycle wait. Output markers have a 4 ns duration.
 

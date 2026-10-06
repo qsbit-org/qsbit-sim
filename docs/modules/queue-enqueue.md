@@ -23,7 +23,7 @@ digraph module {
 }
 ```
 
-## Crossing and acceptance
+## Mailbox communication and acceptance
 
 A message arrives at the first receiver edge strictly after publication,
 plus any additional configured receiver periods. For TCU edges at 20 and
@@ -60,7 +60,7 @@ late arrival raise typed faults. The TCU validates the whole transition before
 committing its queue changes. A fault in candidate enqueue also suppresses
 any output planned by that TCU transition.
 
-Session reset clears the crossing mailboxes and TCU queues. Epoch checks prevent
+Session reset clears the communication mailboxes and TCU queues. Epoch checks prevent
 old work from entering the new session.
 
 ## Implementation and tests

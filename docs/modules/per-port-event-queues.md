@@ -1,6 +1,6 @@
 # Per-port event queues
 
-The TCU keeps one event FIFO for each physical output port. Events carry the
+The TCU keeps one event FIFO for each configured local output port. Events carry the
 label of their time point, so one label can select simultaneous events from
 several ports.
 
@@ -41,7 +41,7 @@ occupancy at the start of the edge.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `events_` | `vector<deque<OperationEvent>>` | One FIFO per physical output port. |
+| `events_` | `vector<deque<OperationEvent>>` | One FIFO per configured local output port. |
 | `OperationEvent::label and id` | time point and member identities | Matches queued members to the timing-head manifest. |
 | `Profile::event_capacity and firing_width` | bounds | Storage and same-point output limits per port. |
 

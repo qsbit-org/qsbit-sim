@@ -22,7 +22,7 @@ The request stays unchanged until acknowledgment.
 | `TcuCycleModel` | Own timing and event queues, timer and execution flags. |
 | `Core` and `SyncUnit` | Own one controller's components and its neighbor synchronization state. |
 | `ControlElectronics` | Schedule output, acquisition and discrimination; check resource conflicts. |
-| `IQuantumBackend` | Calculate quantum evolution and measurement outcomes. |
+| `IQuantumBackend` | Supply quantum-state evolution and measurement outcomes according to backend capabilities. |
 | `Simulator` | Schedule calls, reset and same-tick device processing, and determine completion. |
 
 Direct calls add no implied delay. Command, reply, memory and measurement
@@ -41,12 +41,12 @@ Each subsequent time point enters the timing queue, even if it has no events.
 | `sync` | The connected target is validated and stored. | Adds a synchronization event at the current time point. |
 | `wait` with zero interval | Immediate. | No changes. |
 | `wait` with positive interval d | Pending events are enqueued and acknowledged. | Advances the time point by d TCU cycles. |
-| `FMR` | Required enqueue completes and the target register's pending count reaches zero. | Copies the bit into a GPR. |
+| `fmr` | Required enqueue completes and the target register's pending count reaches zero. | Copies the bit into a GPR. |
 | Exit ECALL | Required enqueue completes and closure is published. | Halts the CPU; simulation continues until drain. |
 
 `cw` may retire before queue insertion. Two codewords at time point 4 followed
 by `wait.i 3` enqueue both events for cycle 4, then advance the time point to 7.
-After `FMR` enqueues a point, a positive `wait` is required before another `cw`.
+After `fmr` enqueues a point, a positive `wait` is required before another `cw`.
 
 Only one enqueue request may await a reply. A blocked instruction retains its
 identity and operands across retries, preventing duplicate requests.
@@ -172,12 +172,17 @@ Its mailbox envelope supplies epoch and visibility timing.
 
 Success requires all of the following:
 
-- The CPU has halted, the timing control is closed, and the TCU has received closure.
-- Timing and event queues, physical events and scheduled readouts are empty.
-- Memory transactions and communication mailboxes have drained.
-- Decoder requests, active jobs and incomplete measurement windows are empty.
-- All CPU and enabled fast-feedback deliveries, including credit acknowledgments,
-  have completed.
+- For every core, the CPU has halted, timing control is closed, and the TCU has
+  received closure.
+- Every core's timing and event queues are empty; shared physical events and
+  scheduled readouts are empty.
+- Every core's memory transactions and communication mailboxes have drained.
+- Decoder requests, the reset slot, active jobs and incomplete measurement
+  windows are empty.
+- Every core's synchronization unit has completed its request, and the
+  synchronization network has no unconsumed signals.
+- Every core's CPU and enabled fast-feedback deliveries, including credit
+  acknowledgments, have completed.
 
 Measurement registers retain their bits after completion.
 Watchdog expiry reports a failed run.
@@ -185,12 +190,13 @@ Watchdog expiry reports a failed run.
 ## Session reset
 
 Reset takes precedence over ordinary work at its tick and starts a new epoch.
-It clears CPU and timing control state, mailboxes, TCU queues, execution flags, device
-reservations, readouts and measurement registers. Active and future events receive reset-abort
-records. The backend is initialized again with the configured qubit count and seed.
+It clears every core's CPU, timing control, mailboxes, TCU queues, execution flags,
+measurement registers and synchronization unit. It also resets `SyncNetwork`
+and `DecoderSystem`, and clears shared device reservations and readouts.
+Active and future device events receive reset-abort records. The backend is
+initialized again with the configured qubit count and seed.
 
-The CPU returns to the loaded entry PC. Memory bytes and the simulation profile
-are preserved.
+Each CPU returns to its loaded entry PC. Memory bytes and profiles are preserved.
 
 The new TCU start is the first TCU edge at or after
 `reset_tick + profile.start`. SystemC time never rewinds. Stale completions

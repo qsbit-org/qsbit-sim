@@ -1,7 +1,7 @@
 # Implementation and default profile
 
 The simulator separates clocked controller models from device execution and
-quantum-state calculations.
+quantum-state evolution.
 
 ## Implementation map
 
@@ -20,17 +20,18 @@ Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 | `qsbit_core` | ISA, memory, CPU models, Core, TCU, synchronization, feedback and devices. | C++20; no SystemC or Python link dependency. |
 | `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Core and SystemC. |
 | `qsbit_config` | JSON run and profile parsing. | Core and the configured JSON library. |
-| `qsbit_python` | Calls to optional Python backend adapters. | Python development library and pybind11; built only when enabled. |
+| `qsbit_python` | Calls to optional Python backend adapters. | Python development headers and library, plus pybind11; built only when enabled. |
 
 The [module reference](modules/README.md) maps logical responsibilities to their
 C++ owners and source files.
 
 `Simulator` registers three clock methods: CPU and memory on CPU rising edges,
-and TCU on TCU rising edges. A timed wakeup handles device boundaries, reset and
-watchdog. A zero-time barrier processes physical work only after every clocked
+and TCU on TCU rising edges. A timed wakeup handles device and decoder boundaries,
+reset and watchdog. A zero-time barrier processes physical work only after every clocked
 method due at that tick has finished. Each `Core` has independent CPU and memory
 state. All cores submit outputs to one `ControlElectronics` instance and share
-one backend. See [distributed simulation](distributed-simulation.md).
+one backend. Neighbor synchronization uses BISP, the booking-based synchronization
+protocol from Distributed-HISQ. See [distributed simulation](distributed-simulation.md).
 
 ## Default timing
 
@@ -46,8 +47,8 @@ integers. Architectural registers and addresses use 32 bits.
 | TCU period | 20 ns |
 | CPU and TCU phase | 0 ns |
 | Initial TCU cycle zero | 1000 ns |
-| Command, reply and CPU-result crossing | 1 receiver edge |
-| Fast-result crossing | 2 TCU receiver edges |
+| Command, reply and CPU-result mailbox communication latency | 1 receiver edge |
+| Fast-result mailbox communication latency | 2 TCU receiver edges |
 | Memory service | 1 CPU period after acceptance |
 | Timing queue capacity | 32 points |
 | Event queue capacity | 32 entries per port |
@@ -82,16 +83,17 @@ instruction can publish a store or control operation. Speculative fetch faults
 become fatal only when their instruction is oldest.
 
 Memory has separate fetch and data ports, each with one pending transaction.
-Request crossing, service time and response crossing are distinct delays.
+Request mailbox communication latency, service time and response mailbox
+communication latency are distinct delays.
 Stores occur once at completion. Reset cancels pending transactions and
 preserves committed bytes.
 
 ## Timing control and TCU
 
-cw resolves a mapping and prepares events for the current time point.
-It completes on local acceptance. Positive `wait`, `FMR` and the exit ECALL
+`cw` resolves a mapping and prepares events for the current time point.
+It completes on local acceptance. Positive `wait`, `fmr` and the exit ECALL
 enqueue pending events; only one request can await a reply.
-wait(0) changes neither the time point nor its events.
+`wait` with interval zero changes neither the time point nor its events.
 
 TCU enqueue inserts the time point and all event members together.
 It checks capacity before triggering removes any old entries. The timer selects
@@ -139,14 +141,16 @@ Qubit 0 is the least significant statevector bit.
 ## Unsupported features
 
 The simulator does not implement privileged execution, interrupts, caches,
-compressed instructions, regional synchronization, classical messaging, TQEC input, sampled
-waveforms or GPU adapters. The exit ECALL completes the program;
+compressed instructions, regional synchronization, inter-controller `send` and
+`recv` messaging, or TQEC input. No GPU backend is bundled with qsbit-sim.
+The exit ECALL completes the program;
 other ECALLs and EBREAK raise traps. FENCE.I and unselected ISA extensions
 raise `IllegalInstruction`.
 `sync` requires a configured neighbor connection; an unconnected target raises
 `UnsupportedSynchronization`.
 
-Session reset clears controller and quantum state under the same profile.
+Session reset clears all cores, the synchronization network, the decoder system
+and quantum state while preserving the profiles.
 A controller-only reset that preserves qubit state is not implemented.
 
 See [ADR 0001](decisions/0001-initial-implementation.md) for the implementation

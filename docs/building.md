@@ -50,7 +50,7 @@ RISC-V binutils, but no numerical quantum packages. See the
 | Option | Default | Effect |
 | --- | --- | --- |
 | `QSBIT_BUILD_EXAMPLES` | ON | Assemble example programs with GNU RISC-V binutils. |
-| `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge using Python development files and pybind11. |
+| `QSBIT_PYTHON_BACKENDS` | OFF | Build the Python bridge using the Python development headers and libraries, and pybind11. |
 | `BUILD_TESTING` | OFF | Build core tests and examples. |
 | `QSBIT_TEST_AER` | OFF | Register numerical tests for the `aer` extra. |
 | `QSBIT_TEST_QUTIP` | OFF | Register numerical tests for the `qutip` extra. |
@@ -93,8 +93,8 @@ lockfile automatically and do not update recipe revisions.
 
 Create optional Python environments in `.venv` and activate them before CMake
 configuration. Select an existing interpreter with
-`-DPython3_EXECUTABLE=/path/to/python` when needed. Its development library must
-match that interpreter.
+`-DPython3_EXECUTABLE=/path/to/python` when needed. CMake must find the
+development headers and library for that interpreter.
 
 For a locked development environment with Aer, QuTiP and ISA tests:
 

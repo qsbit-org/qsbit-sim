@@ -27,7 +27,7 @@ two. The programs encode the same operations at the same time points. qsbit-sim 
 its ELF without reading the CACTUS schedule. All measurements have
 deterministic basis state results. CACTUS uses QuantumSim, while qsbit-sim uses
 Aer. The mapping covers seven qubits. Each mapped command has a 40 ns delay;
-single-qubit gates and measurements have a 20 ns duration. Both native
+single-qubit gates and measurements have a 20 ns duration. Both qsbit-sim
 profiles start at 1040 ns and set `cpu_result_latency` to 12 CPU receiver
 edges. At the default 5 ns period, a result published on a CPU edge arrives
 60 ns later.
@@ -39,14 +39,14 @@ edges. At the default 5 ns period, a result published on a CPU edge arrives
 | `parallel` | X on qubits 0 and 1, then simultaneous measurements. |
 | `repeat` | X, measure, X, measure on qubit 0; checks repeated results. |
 | `entangle_uncompute` | H on 0 and 3, two CZ operations, H on both, then measurements; checks a two-qubit path returning to a basis state. |
-| `pressure` | Forty alternating X operations on qubits 0 and 1, then two measurements; the native timing and event capacities are two. |
+| `pressure` | Forty alternating X operations on qubits 0 and 1, then two measurements; the qsbit-sim timing and event capacities are two. |
 | `feedback_0` | Z and measurement on qubit 0, then a branch selects Z on qubit 1. |
 | `feedback_1` | X and measurement on qubit 0, then a branch selects X on qubit 1. |
 
 The first six workloads run in both unmodified and corrected CACTUS binary
 modes. The corrected mode changes two measurement identification expressions.
 Each feedback workload runs in unmodified assembly mode and corrected binary
-mode. These combinations make 16 cases. The eQASM programs include eight
+mode. The eQASM programs include eight
 terminal `qwait` guards because CACTUS prefetches timing points. The guards
 contain no quantum operations. The reference must report no queue error in the
 observation window. The simulator completes after the exit ECALL and all outstanding work.
@@ -103,8 +103,7 @@ The test assembles the checked-in RV32I source with the build's RISC-V tools.
 It writes ELF files, native traces, summaries, and logs under
 `build-clang/cactus-golden`. It does not rewrite the fixtures. `manifest.json`
 names each case, its probe set, event count, and trace and binary hashes. `traces/`
-contains raw CACTUS JSONL; `golden/` contains normalized events. The test
-covers 16 cases and 308 compared events.
+contains raw CACTUS JSONL; `golden/` contains normalized events.
 
 To refresh a fixture, rebuild the pinned CACTUS revision and eQASM assembler in
 a separate workspace. Apply `assembler-compatibility.patch` to the assembler;

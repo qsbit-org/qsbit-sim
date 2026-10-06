@@ -1,4 +1,4 @@
-"""Plot the Figure 3 gate sequence and scalar versus dual-cw issue results."""
+"""Plot the Figure 3 gate sequence and scalar versus dual-codeword issue results."""
 
 import argparse
 import json
