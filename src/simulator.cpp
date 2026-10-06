@@ -6,6 +6,8 @@
 namespace qsbit {
 namespace {
 Profile validated(const std::vector<CoreConfig> &cores, const std::vector<SyncConnection> &links) {
+  require(sc_core::sc_get_time_resolution().to_seconds() == 1e-9, ErrorCode::InvalidProfile,
+          "SystemC time resolution must be 1 ns");
   require(!cores.empty(), ErrorCode::InvalidProfile, "at least one core is required");
   const auto &first = cores.front().profile;
   std::set<std::uint32_t> ids;
@@ -77,8 +79,6 @@ Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> confi
       network_(profile_.tcu, connections), device_(profile_, *backend_, trace_, execution),
       tcu_clock_("tcu_clock", time_at(profile_.tcu.period), 0.5, time_at(profile_.tcu.phase)),
       resets_(std::move(resets)), reverse_(reverse_registration) {
-  require(sc_core::sc_get_time_resolution() == sc_core::sc_time(1, sc_core::SC_NS),
-          ErrorCode::InvalidProfile, "SystemC time resolution must be 1 ns");
   require(std::is_sorted(resets_.begin(), resets_.end()) &&
               std::adjacent_find(resets_.begin(), resets_.end()) == resets_.end(),
           ErrorCode::InvalidProfile, "reset ticks must be sorted and unique");

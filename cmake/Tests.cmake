@@ -120,7 +120,7 @@ add_test(NAME cli.mock COMMAND "${Python3_EXECUTABLE}"
 set_tests_properties(cli.mock PROPERTIES TIMEOUT 30 LABELS "fast;integration")
 add_executable(adapter_tests tests/adapter_tests.cpp)
 target_link_libraries(adapter_tests PRIVATE qsbit_systemc)
-foreach(scenario normal reset)
+foreach(scenario normal reset fine_resolution coarse_resolution)
   add_test(NAME adapter.${scenario} COMMAND adapter_tests ${scenario})
   set_tests_properties(adapter.${scenario} PROPERTIES TIMEOUT 15 LABELS "fast;integration")
 endforeach()

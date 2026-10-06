@@ -72,13 +72,16 @@ while preserving memory bytes and the simulation profile. SystemC time keeps mov
 forward.
 
 Construction rejects invalid profiles, reset ticks, missing backends and CPU
-factories that return no model. Version 1 requires a SystemC resolution of 1 ns.
+factories that return no model. Set the SystemC resolution to 1 ns before
+constructing `Simulator`. Construction rejects other resolutions before
+initializing the backend or creating clocks.
 
 ## Implementation and tests
 
 Source: [simulator.cpp](../../src/simulator.cpp) and [simulator.hpp](../../include/qsbit/simulator.hpp).
 
-**CTest:** `systemc.use_cases`.
+**CTest:** `systemc.use_cases`, `adapter.fine_resolution`, `adapter.coarse_resolution`.
 
 The integration tests cover unequal clock periods and phases, reset at coincident
 physical boundaries, and exact trace equality after reversing process registration.
+The resolution tests reject unsupported precision before backend initialization.
