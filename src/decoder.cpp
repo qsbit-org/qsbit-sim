@@ -39,6 +39,7 @@ void DecoderSystem::event(Tick now, Epoch epoch, const char *kind, Id id, std::u
   e.core = core;
   e.value = target;
   e.detail = "tag=" + std::to_string(tag) + ",requests=" + std::to_string(requests_.size()) +
+             ",resets=" + std::to_string(reset_request_.has_value()) +
              ",jobs=" + std::to_string(jobs_.size());
   trace_.emit(std::move(e));
 }
@@ -79,22 +80,29 @@ std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const Mem
         event(now, epoch, "DecoderResultConsumed", 0, core, r.decoder);
         return 0;
       }
-      require(request.value == 2 || (r.count > 0 && r.count <= 64), ErrorCode::InvalidOperand,
+      const bool resetting = request.value == 2;
+      require(resetting || (r.count > 0 && r.count <= 64), ErrorCode::InvalidOperand,
               "decoder packet must contain 1 to 64 bits");
-      if (requests_.size() >= config_.request_capacity)
+      if (resetting ? reset_request_.has_value() : requests_.size() >= config_.request_capacity)
         return std::nullopt;
-      const auto bytes =
-          checked_add(config_.packet_overhead, request.value == 2 ? 0 : (r.count + 7ULL) / 8);
+      const auto count = resetting ? 0 : r.count;
+      const auto bytes = checked_add(config_.packet_overhead, (count + 7ULL) / 8);
       const auto duration =
           std::max<Tick>(1, (bytes + config_.bytes_per_tick - 1) / config_.bytes_per_tick);
       const auto sent = std::max(now, tx_available_);
-      tx_available_ = checked_add(sent, duration);
+      const auto end = checked_add(sent, duration);
+      const auto arrival = checked_add(end, config_.link_latency);
       require(next_ != std::numeric_limits<Id>::max(), ErrorCode::Capacity,
               "decoder request id overflow");
-      const auto id = next_++;
-      requests_.push_back({id, core, r.decoder, r.count, request.value, r.tag,
-                           std::uint64_t(r.low) | (std::uint64_t(r.high) << 32), sent,
-                           checked_add(tx_available_, config_.link_latency)});
+      const auto id = next_;
+      const auto data = resetting ? 0 : std::uint64_t(r.low) | (std::uint64_t(r.high) << 32);
+      const Request packet{id, core, r.decoder, count, r.tag, data, sent, arrival};
+      if (resetting)
+        reset_request_ = packet;
+      else
+        requests_.push_back(packet);
+      ++next_;
+      tx_available_ = end;
       event(now, epoch, "DecoderRequestSubmitted", id, core, r.decoder, r.tag);
       return 0;
     }
@@ -107,9 +115,9 @@ std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const Mem
     return d.outputs;
   const auto &s = sessions_[{core, r.decoder}];
   if (offset == 20) {
-    const bool pending = std::any_of(requests_.begin(), requests_.end(), [&](const auto &p) {
-      return p.core == core && p.decoder == r.decoder;
-    });
+    const auto matches = [&](const auto &p) { return p.core == core && p.decoder == r.decoder; };
+    const bool pending = (reset_request_ && matches(*reset_request_)) ||
+                         std::any_of(requests_.begin(), requests_.end(), matches);
     return (s.result ? 1U : 0U) | ((pending || s.submitted || !s.measurements.empty()) ? 2U : 0U);
   }
   require((offset == 24 || offset == 28) && s.result.has_value(), ErrorCode::Protocol,
@@ -117,10 +125,26 @@ std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const Mem
   return static_cast<std::uint32_t>(*s.result >> (offset == 24 ? 0 : 32));
 }
 void DecoderSystem::step(Tick now, Epoch epoch) {
-  for (auto &p : requests_) {
+  const auto transmitted = [&](Request &p) {
     if (!p.transmitted && p.sent <= now) {
       event(now, epoch, "DecoderRequestSent", p.id, p.core, p.decoder, p.tag);
       p.transmitted = true;
+    }
+  };
+  for (auto &p : requests_)
+    transmitted(p);
+  if (reset_request_) {
+    transmitted(*reset_request_);
+    if (reset_request_->arrival <= now) {
+      const auto p = *reset_request_;
+      reset_request_.reset();
+      const auto cancelled = [&](const auto &item) {
+        return item.core == p.core && item.decoder == p.decoder && item.id < p.id;
+      };
+      std::erase_if(requests_, cancelled);
+      std::erase_if(jobs_, cancelled);
+      sessions_[{p.core, p.decoder}] = {};
+      event(now, epoch, "DecoderReset", p.id, p.core, p.decoder, p.tag);
     }
   }
   for (auto it = jobs_.begin(); it != jobs_.end();) {
@@ -146,14 +170,6 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
     const auto &p = requests_.front();
     const auto &d = decoder(p.decoder);
     auto &s = sessions_[{p.core, p.decoder}];
-    if (p.command == 2) {
-      std::erase_if(jobs_,
-                    [&](const auto &j) { return j.core == p.core && j.decoder == p.decoder; });
-      s = {};
-      event(now, epoch, "DecoderReset", p.id, p.core, p.decoder);
-      requests_.pop_front();
-      continue;
-    }
     if (s.submitted)
       break;
     require(s.measurements.size() + p.count <= d.measurements, ErrorCode::Protocol,
@@ -206,12 +222,13 @@ void DecoderSystem::reset() {
   registers_.clear();
   sessions_.clear();
   requests_.clear();
+  reset_request_.reset();
   jobs_.clear();
   available_.clear();
   tx_available_ = rx_available_ = 0;
 }
 bool DecoderSystem::idle() const {
-  return requests_.empty() && jobs_.empty() &&
+  return requests_.empty() && !reset_request_ && jobs_.empty() &&
          std::all_of(sessions_.begin(), sessions_.end(),
                      [](const auto &entry) { return entry.second.measurements.empty(); });
 }
@@ -221,11 +238,15 @@ std::optional<Tick> DecoderSystem::next_boundary(Tick now) const {
     if (tick > now && (!next || tick < *next))
       next = tick;
   };
-  for (const auto &p : requests_) {
+  const auto request_boundary = [&](const Request &p) {
     if (!p.transmitted)
       include(p.sent);
     include(p.arrival);
-  }
+  };
+  for (const auto &p : requests_)
+    request_boundary(p);
+  if (reset_request_)
+    request_boundary(*reset_request_);
   for (const auto &j : jobs_) {
     include(j.start);
     include(j.completion);

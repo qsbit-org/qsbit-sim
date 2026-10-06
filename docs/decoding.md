@@ -7,7 +7,8 @@ queue capacities. The [QEC example](../examples/qec/README.md) compiles QIR
 programs that use these registers.
 
 **CTest:** `decoder.transport` checks bounded queues, transfer timing, result
-routing, accumulated corrections, 64-bit payloads, reset and invalid accesses.
+routing, accumulated corrections, 64-bit payloads, reset under backpressure and
+invalid accesses.
 Optional `decoder.pymatching` checks matrix configuration and correction masks.
 Cross-project `integration.qec` executes compiled measurement and correction
 loops and checks late feedback failure.
@@ -23,7 +24,7 @@ strategies are unsupported.
 | Field | Meaning |
 | --- | --- |
 | `mmio_base` | Aligned start address of 32 bytes outside every core's RAM. |
-| `request_capacity` | Maximum packets waiting for delivery or decoder admission. |
+| `request_capacity` | Maximum syndrome packets waiting for delivery or decoder admission. |
 | `result_capacity` | Maximum sessions with an active job or unread corrections. |
 | `link_latency` | Positive one-way propagation delay in nanoseconds. |
 | `bytes_per_tick` | Positive transfer bandwidth in bytes per nanosecond. |
@@ -85,9 +86,14 @@ is nonpreemptive. The next response can start when transmission ends, while the
 previous response is still propagating. Different cores share these resources
 but keep separate input windows and correction bits.
 
-A full request queue holds the CPU's memory write pending. A full result queue
-holds the final packet of a window at the request queue head. The simulator
-does not drop packets or replace unread results. Core memory edges run before
+A full request queue holds syndrome-submit writes pending. Reset commands use
+one separate slot shared by all cores and decoders. An occupied slot holds
+further reset writes pending. Both kinds of request share the same transmission
+bandwidth and propagation delay.
+
+A full result queue holds the final packet of a window at the request queue
+head. Reset bypasses that head when its packet arrives. Queue pressure does not
+discard packets or replace unread results. Core memory edges run before
 decoder progress at the same tick, so a result returned at that tick becomes
 readable on a later memory edge.
 
@@ -107,20 +113,28 @@ must be aligned 32-bit data loads or stores.
 | 8 | Set payload bits 0–31. | Invalid. |
 | 12 | Set payload bits 32–63. | Invalid. |
 | 16 | Set 32-bit logging tag. | Invalid. |
-| 20 | Command: 1 submits, 2 resets, 3 consumes corrections. | Status: bit 0 means corrections are ready; bit 1 means requests, processing or an incomplete window remain. |
+| 20 | Command: 1 submits, 2 resets, 3 consumes corrections. | Status: bit 0 means corrections are ready; bit 1 means syndrome requests, reset, processing or an incomplete window remain. |
 | 24 | Invalid. | Correction bits 0–31. |
 | 28 | Invalid. | Correction bits 32–63. |
 
 Command 1 snapshots the selected ID, count, payload and tag. The least
-significant payload bit is the first measurement. Command 2 travels through
-the request link and clears that session's input, active job and corrections
-when it arrives. A cancelled job cannot return corrections. A response that has
-already started transmitting occupies the link until its transmission ends.
-Request link and decoder start reservations remain intact.
+significant payload bit is the first measurement.
+
+Command 2 travels through the request link. On arrival, it clears the selected
+core's session on the selected decoder: partial input, earlier queued syndrome
+requests, the active job and unread corrections. Later requests and other
+sessions remain unchanged. Reset takes precedence over job completion and
+result delivery at the same tick. A cancelled job cannot return corrections.
+A response that has already started transmitting occupies the link until its
+transmission ends. Request link and decoder start reservations remain intact.
+Poll status bit 1 until it clears to wait for reset completion before submitting
+new work.
+
 Command 3 clears completed corrections locally. Consuming an unfinished result
 or reading corrections before any result has returned is a protocol error.
 
-A simulator reset clears all sessions, queued requests, jobs and reservations.
+A simulator reset clears all sessions, queued requests, the reset slot, jobs
+and reservations. A pending decoder reset prevents a successful drain.
 An incomplete window prevents a successful drain; the watchdog terminates a
 program that exits without completing it. An unread completed result does not
 prevent drain.
@@ -135,5 +149,5 @@ the ID of the packet that completes its measurement window.
 
 These records use `core` for the requesting controller, `value` for decoder ID,
 and `id` for request or job identity. Request records include the logging tag
-in `detail`; that field also reports request and job counts. Ticks are
-nanoseconds. Result consumption uses ID zero.
+in `detail`; that field also reports syndrome request, pending reset and job
+counts. Ticks are nanoseconds. Result consumption uses ID zero.

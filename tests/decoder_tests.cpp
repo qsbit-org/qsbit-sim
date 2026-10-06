@@ -6,16 +6,24 @@ namespace {
 class Responses {
 public:
   Responses(std::vector<Tick> latencies, std::uint32_t outputs = 1, Tick link_latency = 1)
-      : config_(configuration(latencies, outputs, link_latency)), device_(config_, trace_) {}
+      : Responses(configuration(latencies, outputs, link_latency)) {}
+  explicit Responses(DecoderSystemConfig config)
+      : config_(std::move(config)), device_(config_, trace_) {}
 
   void submit(std::uint32_t core) {
     write(core, 0, core);
     write(core, 4, 1);
     command(core, 1);
   }
-  void command(std::uint32_t core, std::uint32_t value) {
-    write(core, 20, value);
+  void command(std::uint32_t core, std::uint32_t value) { CHECK(try_command(core, value)); }
+  bool try_command(std::uint32_t core, std::uint32_t value) {
+    if (!device_.access(core, {1, config_.base + 20, value, 4, true, false}, now_, 1))
+      return false;
     device_.step(now_, 1);
+    return true;
+  }
+  void write(std::uint32_t core, unsigned offset, std::uint32_t value) {
+    CHECK(device_.access(core, {1, config_.base + offset, value, 4, true, false}, now_, 1));
   }
   void advance(Tick target) {
     CHECK(target >= now_);
@@ -41,6 +49,8 @@ public:
     CHECK(returned == expected);
   }
   void reset() { device_.reset(); }
+  bool idle() const { return device_.idle(); }
+  std::optional<Tick> next_boundary() const { return device_.next_boundary(now_); }
 
 private:
   static DecoderSystemConfig configuration(const std::vector<Tick> &latencies,
@@ -55,9 +65,6 @@ private:
                                  [outputs](auto) { return std::vector<bool>(outputs, true); }});
     return config;
   }
-  void write(std::uint32_t core, unsigned offset, std::uint32_t value) {
-    CHECK(device_.access(core, {1, config_.base + offset, value, 4, true, false}, now_, 1));
-  }
   Trace trace_;
   DecoderSystemConfig config_;
   DecoderSystem device_;
@@ -65,7 +72,7 @@ private:
 };
 
 void response_order() {
-  Responses responses({100, 1});
+  Responses responses(std::vector<Tick>{100, 1});
   responses.submit(0);
   responses.advance(2);
   responses.submit(1);
@@ -133,12 +140,115 @@ void response_cancellation() {
   CHECK(responses.status(1) == 1 && responses.status(0) == 0);
   responses.expect_returns({{1, 18}});
 }
+
+void reset_full_queue() {
+  DecoderSystemConfig config;
+  config.request_capacity = config.result_capacity = 1;
+  config.link_latency = 3;
+  config.packet_overhead = 2;
+  for (auto id : {0U, 1U})
+    config.decoders.push_back({id, 1, 1, 2, 1, [](auto) { return std::vector<bool>{true}; }});
+  Responses responses(config);
+  responses.submit(0);
+  responses.advance(15);
+  CHECK(responses.status(0) == 1);
+  responses.write(0, 0, 1);
+  responses.command(0, 1);
+  responses.advance(21);
+  CHECK(responses.status(0) == 2);
+  CHECK(!responses.try_command(0, 1));
+  responses.write(0, 0, 0);
+  responses.command(0, 2);
+  CHECK(responses.status(0) == 3);
+  CHECK(!responses.try_command(1, 2));
+  CHECK(responses.status(1) == 0);
+  CHECK(responses.next_boundary() == 26);
+  responses.advance(25);
+  CHECK(responses.status(0) == 3);
+  responses.advance(26);
+  CHECK(responses.status(0) == 0);
+  responses.write(0, 0, 1);
+  responses.advance(34);
+  CHECK(responses.status(0) == 2);
+  responses.advance(35);
+  CHECK(responses.status(0) == 1);
+  responses.expect_returns({{0, 15}, {0, 35}});
+  responses.command(0, 2);
+  responses.advance(40);
+  CHECK(responses.status(0) == 0 && responses.idle());
+}
+
+void reset_request_order() {
+  DecoderSystemConfig config;
+  config.request_capacity = 5;
+  config.result_capacity = 1;
+  config.packet_overhead = 0;
+  config.decoders.push_back({0, 2, 1, 20, 1, [](auto) { return std::vector<bool>{true}; }});
+  Responses responses(config);
+  responses.write(1, 4, 1);
+  responses.command(1, 1);
+  responses.write(0, 4, 2);
+  responses.command(0, 1);
+  responses.command(0, 1);
+  responses.command(0, 2);
+  responses.command(0, 1);
+  responses.command(1, 1);
+  responses.advance(28);
+  CHECK(responses.status(0) == 2 && responses.status(1) == 2);
+  responses.advance(29);
+  CHECK(responses.status(0) == 1);
+  responses.command(0, 3);
+  responses.advance(51);
+  CHECK(responses.status(1) == 2);
+  responses.advance(52);
+  CHECK(responses.status(1) == 1 && responses.idle());
+  responses.expect_returns({{0, 29}, {1, 52}});
+
+  Responses partial(config);
+  partial.write(0, 4, 1);
+  partial.command(0, 1);
+  partial.advance(2);
+  partial.command(0, 2);
+  partial.write(0, 4, 2);
+  partial.command(0, 1);
+  partial.advance(28);
+  CHECK(partial.status(0) == 1 && partial.idle());
+  partial.expect_returns({{0, 28}});
+}
+
+void reset_boundaries() {
+  Responses responses(std::vector<Tick>{1});
+  responses.submit(0);
+  responses.advance(4);
+  responses.command(0, 2);
+  responses.advance(6);
+  CHECK(responses.status(0) == 0);
+  responses.expect_returns({});
+  responses.submit(0);
+  responses.advance(12);
+  CHECK(responses.status(0) == 1);
+  responses.expect_returns({{0, 12}});
+  responses.command(0, 2);
+  CHECK(responses.status(0) == 3 && !responses.idle());
+  CHECK(responses.next_boundary() == 14);
+  responses.reset();
+  CHECK(responses.status(0) == 0 && responses.idle() && !responses.next_boundary());
+  responses.advance(20);
+  responses.command(0, 2);
+  CHECK(responses.status(0) == 2 && !responses.idle());
+  CHECK(responses.next_boundary() == 22);
+  responses.advance(22);
+  CHECK(responses.status(0) == 0 && responses.idle());
+}
 } // namespace
 int main() {
   try {
     response_order();
     response_contention();
     response_cancellation();
+    reset_full_queue();
+    reset_request_order();
+    reset_boundaries();
     Trace trace;
     unsigned calls = 0;
     DecoderSystemConfig config;

@@ -42,7 +42,7 @@ private:
   };
   struct Request {
     Id id;
-    std::uint32_t core, decoder, count, command, tag;
+    std::uint32_t core, decoder, count, tag;
     std::uint64_t data;
     Tick sent, arrival;
     bool transmitted = false;
@@ -64,6 +64,7 @@ private:
   std::map<std::pair<std::uint32_t, std::uint32_t>, Session> sessions_;
   std::map<std::uint32_t, Tick> available_;
   std::deque<Request> requests_;
+  std::optional<Request> reset_request_;
   std::deque<Job> jobs_;
   Tick tx_available_ = 0, rx_available_ = 0;
   Id next_ = 1;
