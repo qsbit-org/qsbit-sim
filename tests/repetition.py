@@ -109,6 +109,12 @@ except ValueError:
 precheck = deepcopy(config)
 precheck["summary"] = str(output / "precheck-result.json")
 precheck_path = output / "precheck-run.json"
+precheck_path.write_text(json.dumps(dict(precheck, decoding={})))
+try:
+    run_config(precheck_path, str(args.simulator), check_only=True)
+    raise AssertionError("accepted decoder feedback in a repetition strategy")
+except ValueError as error:
+    assert "decoder feedback" in str(error), str(error)
 precheck_path.write_text(json.dumps(precheck))
 proc = subprocess.run(
     [str(args.simulator), "--config", str(precheck_path), "--check-config"],

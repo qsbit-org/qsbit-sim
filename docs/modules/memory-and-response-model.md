@@ -4,6 +4,11 @@
 loaded `ProgramImage` and keeps one pending transaction for each of its two ports.
 A store changes memory when its transaction completes.
 
+An attached device handles accesses within its MMIO range. If the device
+cannot accept a write, the memory model keeps that transaction pending and
+retries it on a later memory edge. The [decoder](../decoding.md) uses this
+mechanism to apply request-queue backpressure.
+
 ## Connections
 
 - **Input:** fetch and data requests through separate `MemoryPort` mailboxes.

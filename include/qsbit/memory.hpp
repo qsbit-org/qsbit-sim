@@ -3,6 +3,7 @@
 #include "qsbit/image.hpp"
 #include "qsbit/mailbox.hpp"
 #include <array>
+#include <functional>
 #include <optional>
 
 namespace qsbit {
@@ -28,6 +29,12 @@ struct MemoryPort {
 };
 class MemoryModel {
 public:
+  using DeviceAccess =
+      std::function<std::optional<std::uint32_t>(const MemoryRequest &, Tick, Epoch)>;
+  void attach_device(std::function<bool(std::uint32_t)> contains, DeviceAccess access) {
+    device_contains_ = std::move(contains);
+    device_access_ = std::move(access);
+  }
   MemoryModel(ProgramImage image, Clock clock, std::uint32_t latency);
   void step(Tick now, Epoch epoch, MemoryPort &fetch, MemoryPort &data);
   void reset();
@@ -35,6 +42,8 @@ public:
   [[nodiscard]] bool idle() const { return !pending_[0] && !pending_[1]; }
 
 private:
+  std::function<bool(std::uint32_t)> device_contains_;
+  DeviceAccess device_access_;
   struct Pending {
     MemoryRequest request;
     Tick completion;

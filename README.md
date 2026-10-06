@@ -83,6 +83,7 @@ cross-project CI and checks to run before a pull request.
 - [Controller architecture](docs/high-level-design.md) and [diagram](docs/architecture.md)
 - [Simulation timing](docs/module-architecture.md)
 - [Distributed simulation](docs/distributed-simulation.md) and [Distributed-HISQ example](examples/distributed-hisq/README.md)
+- [Decoder feedback](docs/decoding.md) and [QEC example](examples/qec/README.md)
 - [Component reference](docs/modules/README.md) and [C++ interfaces](docs/cpp-interfaces.md)
 - [CACTUS validation](CACTUS_VALIDATION.md)
 

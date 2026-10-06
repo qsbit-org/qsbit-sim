@@ -140,7 +140,9 @@ requests and record the two Git revisions.
 
 The tests compile QIR to ELF and execute it in the simulator. The mock test
 checks operation timing and measurement-result order. The Aer test checks
-Bell-state amplitudes and measurement correlations.
+Bell-state amplitudes and measurement correlations. The QEC test uses Stim
+and PyMatching to check adaptive loops, measurement-result reuse, conditional
+corrections and late decoder feedback.
 
 ## CI, sanitizers and coverage
 

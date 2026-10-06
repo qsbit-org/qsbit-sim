@@ -42,7 +42,11 @@ notifies the device barrier for a later delta cycle. The barrier processes
 device events only after all clocked methods due at that tick have finished.
 This includes events triggered with zero output delay.
 
-`schedule_wakeup()` selects the earliest device event, reset or watchdog
+The barrier also advances the configured [decoder](../decoding.md) after
+the clocked memory accesses. Decoder results therefore become visible to the
+CPU on a later memory edge.
+
+`schedule_wakeup()` selects the earliest device event, decoder transition, reset or watchdog
 deadline. It cancels the previous timed notification before scheduling
 the next one. See [simulation execution](../simulation-model.md) for
 same-tick ordering.

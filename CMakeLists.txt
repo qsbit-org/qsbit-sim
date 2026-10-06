@@ -19,6 +19,7 @@ option(BUILD_TESTING "Build and register tests" OFF)
 option(QSBIT_TEST_AER "Run tests requiring the Aer extra" OFF)
 option(QSBIT_TEST_QUTIP "Run tests requiring the QuTiP extra" OFF)
 option(QSBIT_TEST_STIM "Run tests requiring the Stim extra" OFF)
+option(QSBIT_TEST_QEC "Run tests requiring the QEC extra" OFF)
 option(QSBIT_TEST_EXPERIMENTS "Run full and replay experiment checks" OFF)
 option(QSBIT_TEST_WEBSITE "Build and browser-test the documentation website" OFF)
 option(QSBIT_ISA_REFERENCES "Run optional independent RV32I reference tests" OFF)
@@ -52,7 +53,7 @@ if(QSBIT_SANITIZERS)
 endif()
 
 # No SystemC or Python dependency is attached to the pure transition library.
-add_library(qsbit_core STATIC src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp
+add_library(qsbit_core STATIC src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp src/decoder.cpp
   src/control.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/timing_control.cpp src/cpu/rv32.cpp
   src/backend.cpp src/device.cpp src/defaults.cpp src/cpu/vliw.cpp src/core.cpp src/sync.cpp)
 target_include_directories(qsbit_core PUBLIC include)
@@ -87,7 +88,7 @@ endif()
 if(QSBIT_TEST_WEBSITE AND NOT BUILD_TESTING)
   message(FATAL_ERROR "Website tests require BUILD_TESTING")
 endif()
-if(QSBIT_TEST_AER OR QSBIT_TEST_QUTIP OR QSBIT_TEST_STIM OR QSBIT_TEST_EXPERIMENTS)
+if(QSBIT_TEST_AER OR QSBIT_TEST_QUTIP OR QSBIT_TEST_STIM OR QSBIT_TEST_QEC OR QSBIT_TEST_EXPERIMENTS)
   if(NOT BUILD_TESTING OR NOT QSBIT_PYTHON_BACKENDS)
     message(FATAL_ERROR "Backend tests require BUILD_TESTING and QSBIT_PYTHON_BACKENDS")
   endif()

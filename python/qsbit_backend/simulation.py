@@ -222,6 +222,10 @@ def run_config(path, executable, check_only=False):
     Draft202012Validator(SCHEMA).validate(strategy)
     strategy["repetitions"] = int(strategy["repetitions"])
     strategy.setdefault("quantum_execution", "direct")
+    if "decoding" in config:
+        raise ValueError(
+            "decoder feedback requires full program execution without a simulation strategy"
+        )
     if config.get("backend", "mock") == "mock":
         raise ValueError("repeated simulation requires a Python backend")
     if strategy["execution"] == "full" and strategy["quantum_execution"] != "direct":

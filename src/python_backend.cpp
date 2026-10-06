@@ -5,6 +5,29 @@
 
 namespace py = pybind11;
 namespace qsbit {
+DecoderSystemConfig python_decoders(const std::string &config) {
+  auto module = py::module_::import("qsbit_backend.decoding");
+  auto settings = module.attr("validate")(py::module_::import("json").attr("loads")(config));
+  DecoderSystemConfig result;
+  result.base = settings["mmio_base"].cast<std::uint32_t>();
+  result.request_capacity = settings["request_capacity"].cast<std::uint32_t>();
+  result.result_capacity = settings["result_capacity"].cast<std::uint32_t>();
+  result.link_latency = settings["link_latency"].cast<Tick>();
+  result.bytes_per_tick = settings["bytes_per_tick"].cast<std::uint32_t>();
+  result.packet_overhead = settings["packet_overhead"].cast<std::uint32_t>();
+  for (auto item : settings["decoders"]) {
+    auto d = py::reinterpret_borrow<py::dict>(item);
+    auto callback = module.attr("create")(d);
+    result.decoders.push_back(
+        {d["id"].cast<std::uint32_t>(), d["measurements"].cast<std::uint32_t>(),
+         d["outputs"].cast<std::uint32_t>(), d["latency"].cast<Tick>(),
+         d["initiation_interval"].cast<Tick>(), [callback](std::span<const std::uint8_t> bits) {
+           return callback(std::vector<std::uint8_t>(bits.begin(), bits.end()))
+               .cast<std::vector<bool>>();
+         }});
+  }
+  return result;
+}
 namespace {
 py::dict descriptor(const EventSpec &a) {
   const char *kind = "gate";

@@ -1358,6 +1358,42 @@ wheels = [
 ]
 
 [[package]]
+name = "networkx"
+version = "3.4.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.11'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/1d/06475e1cd5264c0b870ea2cc6fdb3e37177c1e565c43f56ff17a10e3937f/networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1", size = 2151368, upload-time = "2024-10-21T12:39:38.695Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/54/dd730b32ea14ea797530a4479b2ed46a6fb250f682a9cfb997e968bf0261/networkx-3.4.2-py3-none-any.whl", hash = "sha256:df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f", size = 1723263, upload-time = "2024-10-21T12:39:36.247Z" },
+]
+
+[[package]]
+name = "networkx"
+version = "3.6.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version == '3.11.*'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl", hash = "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762", size = 2068504, upload-time = "2025-12-08T17:02:38.159Z" },
+]
+
+[[package]]
+name = "networkx"
+version = "3.7"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/76/3af777226b63a5e64a6b36b1ec5855c14e2b94a37096d4760e595fc43511/networkx-3.7.tar.gz", hash = "sha256:fd77a511bd90f39f3d016351345b52cf5319b813bdca01de3f755d3cca62e96a", size = 1866482, upload-time = "2026-09-21T16:45:16.974Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/cd/fe58041e9011f307c490e3e17dd48cc516448f7c698a3f2d9d9d65d7e6a8/networkx-3.7-py3-none-any.whl", hash = "sha256:e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0", size = 2142205, upload-time = "2026-09-21T16:45:14.609Z" },
+]
+
+[[package]]
 name = "nodeenv"
 version = "1.10.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1813,6 +1849,47 @@ wheels = [
 ]
 
 [[package]]
+name = "pymatching"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "networkx", version = "3.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/19/39472c89d532e576890320eff5e9738e4b4d7828d027315f7e198ba0be8c/pymatching-2.4.0.tar.gz", hash = "sha256:0c30dafa506b086f50d15530debd7b7b39228597d22c52d5ccd114bcbb0a2326", size = 347169, upload-time = "2026-05-22T18:10:07.471Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/56/f12f6ffbae1eb625cd5865e819a68c4c3a18ca66a805b922d627bdaaf6d1/pymatching-2.4.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c51ee0ffa161f35ae6b887a0bebdf85e3fa456139e56d5e070823ef0434f692f", size = 380016, upload-time = "2026-05-22T18:09:21.66Z" },
+    { url = "https://files.pythonhosted.org/packages/36/ce/833b2d944f89b9747dc3471a800908549df0739ce4183440bde64b9fe2df/pymatching-2.4.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:8778d0a06b606b169f8517279f01d4c0f9bf1725085f7a3d1ddcb24a53952fdd", size = 411645, upload-time = "2026-05-22T18:09:23.678Z" },
+    { url = "https://files.pythonhosted.org/packages/95/b7/fb2c636ecd614617f5facf075b9b01d2bde4bdac3f84fe930b8e9db8079e/pymatching-2.4.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fd8699227cda0d9c95152ee67ce2e5119fc845ff7951bfd8ed34dab9628733c1", size = 623826, upload-time = "2026-05-22T18:09:25.285Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/e3/eb30dd8f5e0e209d0fc703fcf43a6a4c37703339198ba12a9c92b78c4393/pymatching-2.4.0-cp310-cp310-win_amd64.whl", hash = "sha256:4683b652ba3983bc26405107382d666d8ccf68f53ea50fc5fb274251871177ec", size = 345239, upload-time = "2026-05-22T18:09:27.033Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/21/e1985ee29b8cc3f317c8a2504fdee1bb9ba1e13c1dd1220a9bcf35ad537c/pymatching-2.4.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:133168b1fec946bfc992a9e5abbdbbc7eebc672b04d27cfd060ea153eb6cf576", size = 381268, upload-time = "2026-05-22T18:09:28.887Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/21/67745b4a411f0bad057cb16c7243dceb411450bf2719e40aceaeb595d42c/pymatching-2.4.0-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:df8c9229c5265d71f871fba3fbdbd27cda71ca81969275eefeb64688ee2f59f4", size = 412929, upload-time = "2026-05-22T18:09:30.533Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/6c/9b5a4c35727d74917b8a611f8cacbe9e5c81198648bcd7b5958f6573d39e/pymatching-2.4.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ac25684a41ab859cbb0f2ea34d86485aa89d4d22f97df684f9579c167c7d560a", size = 624601, upload-time = "2026-05-22T18:09:32.111Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/27/990d222ce88eba0f9afa4af68dc00adaf0134348c743feee0c1ab647f9eb/pymatching-2.4.0-cp311-cp311-win_amd64.whl", hash = "sha256:1a1b831f8ebf47f5e2a865d1bcc250da208c57ff881a37177ee548248da447c2", size = 345942, upload-time = "2026-05-22T18:09:33.822Z" },
+    { url = "https://files.pythonhosted.org/packages/80/bc/4983d49570d97b4489de8ed1580faea58e63a16e6c7046e45aaa636ea054/pymatching-2.4.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:881f3410975b5a2d393561d44fa4513c878653d0e718e55930b08f52e9a04fc5", size = 380199, upload-time = "2026-05-22T18:09:35.25Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/0e/00cd2b9c2da28fb3dafb77da8e2da18ceedda42de2298c682fbb016a9189/pymatching-2.4.0-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:af03cdd7389e7b9f93069f1dd1bb9931c3836a2bfc0d01952993f394b0bfa10d", size = 412898, upload-time = "2026-05-22T18:09:37.024Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/03/b3186c28500a5aa751f7fc37b52fe6129ba24092604a8118faea456f482c/pymatching-2.4.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:15e6d73153713a8f383f44ba4497d478fb4c4d765fbdd30f9fc1e1d47af75760", size = 626230, upload-time = "2026-05-22T18:09:38.547Z" },
+    { url = "https://files.pythonhosted.org/packages/60/c8/d9abe73cc6dbaddf61d3c5875a9687aaa9591a976b109cc7cb6b7595cccb/pymatching-2.4.0-cp312-cp312-win_amd64.whl", hash = "sha256:eb4428581a2578a8cc77f695ab267c184f444d9de5cb25301fe9f3f893214ea4", size = 347707, upload-time = "2026-05-22T18:09:40.805Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/18/375faa94219e1781ef5fc05aac95a2ba1047e0071069f2aae1416bfeb393/pymatching-2.4.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:fe3baa498155a227f5ce1ee6fe07f40524d9fb9961ac299a2050e69f7de50dba", size = 380257, upload-time = "2026-05-22T18:09:43.042Z" },
+    { url = "https://files.pythonhosted.org/packages/79/eb/36ceb0597d6ec4fc2c976b076c9523450ef61812173fc8c58bce669d6328/pymatching-2.4.0-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:a49db8f20d01523c9e12fc8207a5831ed261b53fb8e629c78e45b0081fcd5199", size = 413005, upload-time = "2026-05-22T18:09:44.574Z" },
+    { url = "https://files.pythonhosted.org/packages/80/8d/a4450b34a032cc7eee70b45c21a03d32c89dad311ea5b41deb386539fbcb/pymatching-2.4.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6450797ca5001449fcf5b43a68181a783f4ca50650f880a02ef5bf91b13aa359", size = 625936, upload-time = "2026-05-22T18:09:46.059Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/c5/ca8cd432ce388cdbdc7df86110a2987d7526743269416d0a1cc83d5b2fd7/pymatching-2.4.0-cp313-cp313-win_amd64.whl", hash = "sha256:a14022ecf4e810152db998d14429d430630433b9ed1edc2abe53494753b0a0ca", size = 347728, upload-time = "2026-05-22T18:09:47.678Z" },
+    { url = "https://files.pythonhosted.org/packages/13/65/4289d2923789a407ca34e67b0d44f47caeba1f2219abdfa5f679a66e6e72/pymatching-2.4.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:0e071c90c108daf1c6f8cefcac9ad4989a1a1694fe7433ee413cef7b65f4207e", size = 381252, upload-time = "2026-05-22T18:09:49.122Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/0f/5d532d693eca9bfe49e4a798a3e3d3b05f1da24b8aee7b4e21c3ade55502/pymatching-2.4.0-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:f2390db2679b5009509b6ea1b0838187966c2d8fd1ab8050e5d9b6c908a3ea7e", size = 413276, upload-time = "2026-05-22T18:09:50.624Z" },
+    { url = "https://files.pythonhosted.org/packages/33/13/be44c3e2f8749652c23adc77a94c4efe5383287a4c01a548cc031d0e439c/pymatching-2.4.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:70869b2a4a8fab2f1e54cc0b68fd050b7556133b5ce8c2d2d5d4f4d1319c14d3", size = 625898, upload-time = "2026-05-22T18:09:52.415Z" },
+    { url = "https://files.pythonhosted.org/packages/17/0d/eb2df17fe0bf089c43445ba759e89150a0d36fb7fcbc44e750d8d31f0dbe/pymatching-2.4.0-cp314-cp314-win_amd64.whl", hash = "sha256:5c5ce4ed245d3670ea7d62b09f8a29b105533b032a3d21fdf6df04c9b6441ff1", size = 356304, upload-time = "2026-05-22T18:09:54.3Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2037,6 +2114,13 @@ plots = [
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
+qec = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pymatching" },
+    { name = "stim" },
+]
 qutip = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
@@ -2069,12 +2153,14 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'plots'", specifier = ">=3.9,<4" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=4,<5" },
     { name = "numpy", marker = "extra == 'aer'", specifier = ">=1.26,<3" },
+    { name = "numpy", marker = "extra == 'qec'", specifier = ">=1.26,<3" },
     { name = "numpy", marker = "extra == 'qutip'", specifier = ">=1.26,<3" },
     { name = "playwright", marker = "extra == 'docs-test'", specifier = ">=1.51,<2" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4,<5" },
     { name = "pybind11", specifier = ">=3.0,<4" },
     { name = "pyelftools", marker = "extra == 'experiments'", specifier = "==0.32" },
     { name = "pyelftools", marker = "extra == 'verification'", specifier = "==0.32" },
+    { name = "pymatching", marker = "extra == 'qec'", specifier = ">=2.3,<3" },
     { name = "qiskit", marker = "extra == 'aer'", specifier = ">=2.1,<3" },
     { name = "qiskit-aer", marker = "extra == 'aer'", specifier = ">=0.17,<0.18" },
     { name = "qsbit-sim-backends", extras = ["aer", "plots"], marker = "extra == 'experiments'" },
@@ -2082,10 +2168,11 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.10" },
     { name = "scipy", marker = "extra == 'qutip'", specifier = ">=1.11,<2" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=8.1,<9" },
+    { name = "stim", marker = "extra == 'qec'", specifier = ">=1.15,<2" },
     { name = "stim", marker = "extra == 'stim'", specifier = ">=1.15,<2" },
     { name = "unicorn", marker = "extra == 'verification'", specifier = "==2.1.4" },
 ]
-provides-extras = ["aer", "qutip", "stim", "plots", "experiments", "verification", "dev", "docs", "docs-test"]
+provides-extras = ["aer", "qutip", "stim", "qec", "plots", "experiments", "verification", "dev", "docs", "docs-test"]
 
 [package.metadata.requires-dev]
 build = [{ name = "conan", specifier = "==2.32.0" }]

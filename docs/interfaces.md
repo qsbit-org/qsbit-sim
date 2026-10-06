@@ -216,6 +216,7 @@ Output parent directories are created as needed.
 | `simulation` | Optional [repeated-simulation strategy](repeated-simulations.md). |
 | `trace_stalls` | Include `CpuStalled` records; boolean, default `true`. |
 | `backend_execution` | Batch settings shared by all backends: `max_batch_operations` is an integer from 1 to 4294967295, default 1024. |
+| `decoding` | Optional [decoder configuration](decoding.md): MMIO address, bounded transport queues, algorithms and timing. |
 | `$schema` | Optional editor schema URI; runtime validates through the selected adapter. |
 | `profile_file` | Path to a separate profile overlay. |
 | `profile` | Inline profile overlay. |
@@ -359,6 +360,8 @@ according to `kind` rather than treating zero as a missing value.
 | `MeasurementRegisterUpdated` | Measurement ID, target and bit delivered before the CPU step; FMR can read it on this edge. |
 | `ExecutionFlagsUpdated` | Measurement ID, target and bit used to update execution flags after the triggering decision. |
 | `MeasurementRegisterRead` | Reading instruction ID, target qubit and returned bit. |
+| `DecoderRequestSubmitted`, `DecoderRequestSent`, `DecoderRequestArrived` | Request identity, requesting `core` and decoder ID in `value`; see [decoder traces](decoding.md#trace). |
+| `DecoderStarted`, `DecoderCompleted`, `DecoderResultReturned`, `DecoderReset`, `DecoderResultConsumed` | Decoder processing and result lifetime; decoder ID in `value`. |
 | `EndOfStreamVisible` | Last enqueued label when the TCU receives closure. |
 | `SessionReset` and `ResetAborted` | New epoch and aborted event IDs where applicable. |
 | `StaleCompletionDiscarded` | An old-epoch completion was ignored. |

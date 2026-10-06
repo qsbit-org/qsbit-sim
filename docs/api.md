@@ -49,6 +49,11 @@ End-of-edge CPU pipeline snapshots. [Open header](../include/qsbit/cpu/trace.hpp
 
 Construction of the default timing and device profile. [Open header](../include/qsbit/defaults.hpp).
 
+(decoder_8hpp)=
+## decoder.hpp
+
+Decoder MMIO registers, bounded transport and timed processing. [Open header](../include/qsbit/decoder.hpp).
+
 (device_8hpp)=
 ## device.hpp
 

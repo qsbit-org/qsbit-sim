@@ -213,6 +213,28 @@ public:
 ```
 <!-- /source -->
 
+## Decoder configuration
+
+`DecoderSystemConfig` supplies bounded transport parameters and numerical
+callbacks. Each callback accepts one measurement window and returns correction
+bits. See [decoder feedback](decoding.md) for timing and register semantics.
+
+<!-- source: {"path": "include/qsbit/decoder.hpp", "start": "struct DecoderConfig {", "end": "class DecoderSystem {"} -->
+```cpp
+struct DecoderConfig {
+  std::uint32_t id = 0, measurements = 0, outputs = 0;
+  Tick latency = 1, initiation_interval = 1;
+  std::function<std::vector<bool>(std::span<const std::uint8_t>)> decode;
+};
+struct DecoderSystemConfig {
+  std::uint32_t base = 0x40000000, request_capacity = 16, result_capacity = 16;
+  Tick link_latency = 1;
+  std::uint32_t bytes_per_tick = 1, packet_overhead = 16;
+  std::vector<DecoderConfig> decoders;
+};
+```
+<!-- /source -->
+
 ## Trace record
 
 `TraceEvent` stores a timestamp, kind and event-specific fields.

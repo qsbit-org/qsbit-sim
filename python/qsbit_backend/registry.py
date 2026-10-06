@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import best_match
 
 from .catalog import builtins, obj
+from .decoding import SCHEMA as DECODING_SCHEMA
 from .protocol import API_VERSION
 
 
@@ -148,6 +149,7 @@ def inspect_backend(name, command):
                 "type": "object",
                 "properties": {
                     "backend": {"enum": names},
+                    "decoding": DECODING_SCHEMA,
                     "backend_execution": obj(
                         {
                             "max_batch_operations": {

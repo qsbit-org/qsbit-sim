@@ -35,6 +35,7 @@ acknowledged. The simulation continues until the TCU receives closure,
 all queued and device work finishes, memory is idle, and all enabled
 result deliveries and acknowledgments complete. Multicore runs require every
 core and all synchronization connections to drain before stopping the shared device.
+Configured decoders must also finish all requests and complete their input windows.
 
 When these conditions hold, the device evolves the backend state to the current
 tick before the simulator emits `SimulationCompleted`. Trace ticks are

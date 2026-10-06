@@ -24,6 +24,7 @@ int sc_main(int argc, char **argv) {
     std::string memory_dump;
     std::string backend_command;
     Json backend_options = Json::object();
+    Json decoder_options = Json::object();
     BackendExecutionConfig backend_execution;
     std::string cpu_model = "rv32";
     Json core_settings = Json::array(), connection_settings = Json::array();
@@ -100,7 +101,8 @@ int sc_main(int argc, char **argv) {
                                             "cpu_model",
                                             "cores",
                                             "sync_connections",
-                                            "backend_execution"};
+                                            "backend_execution",
+                                            "decoding"};
         for (const auto &[key, ignored] : config.items()) {
           (void)ignored;
           require(allowed.contains(key), ErrorCode::InvalidProfile, "unknown run key: " + key);
@@ -125,6 +127,11 @@ int sc_main(int argc, char **argv) {
           backend_name = json_string(config["backend"], "backend");
         if (config.contains("backend_options"))
           backend_options = config["backend_options"];
+        if (config.contains("decoding")) {
+          require(config["decoding"].is_object() && !config["decoding"].empty(),
+                  ErrorCode::InvalidProfile, "decoding must be a nonempty object");
+          decoder_options = config["decoding"];
+        }
         if (config.contains("backend_execution")) {
           const auto &execution = config["backend_execution"];
           require(execution.is_object(), ErrorCode::InvalidProfile,
@@ -303,8 +310,18 @@ int sc_main(int argc, char **argv) {
       throw Fault(ErrorCode::UnsupportedCapability, "this build has no Python backends");
 #endif
     }
+    DecoderSystemConfig decoding;
+    if (!decoder_options.empty()) {
+#ifdef QSBIT_HAS_PYTHON
+      if (!python)
+        python = std::make_unique<PythonSession>(module_directory);
+      decoding = python_decoders(decoder_options.dump());
+#else
+      throw Fault(ErrorCode::UnsupportedCapability, "decoder adapters require Python support");
+#endif
+    }
     Simulator sim("simulator", std::move(cores), connections, std::move(backend), resets, reverse,
-                  backend_execution);
+                  backend_execution, std::move(decoding));
     sim.include_stalls(trace_stalls);
     if (check_config) {
       std::cout << "Configuration valid\n";
@@ -318,9 +335,10 @@ int sc_main(int argc, char **argv) {
       require(bool(trace), ErrorCode::InvalidOperand, "cannot open trace output");
       sim.trace().write_jsonl(trace);
     }
-    const auto result =
-        simulation_summary(sim, backend_name, backend_options, backend_execution, models,
-                           connection_settings, inspect, !core_settings.empty());
+    auto result = simulation_summary(sim, backend_name, backend_options, backend_execution, models,
+                                     connection_settings, inspect, !core_settings.empty());
+    if (!decoder_options.empty())
+      result["decoding"] = decoder_options;
     write_json(summary_path, result);
     if (!memory_dump.empty()) {
       ensure_parent(memory_dump);

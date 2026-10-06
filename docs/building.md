@@ -55,6 +55,7 @@ RISC-V binutils, but no numerical quantum packages. See the
 | `QSBIT_TEST_AER` | OFF | Register numerical tests for the `aer` extra. |
 | `QSBIT_TEST_QUTIP` | OFF | Register numerical tests for the `qutip` extra. |
 | `QSBIT_TEST_STIM` | OFF | Register numerical tests for the `stim` extra. |
+| `QSBIT_TEST_QEC` | OFF | Register PyMatching configuration tests for the `qec` extra. |
 | `QSBIT_TEST_EXPERIMENTS` | OFF | Register full execution and replay checks for the `experiments` extra. |
 | `QSBIT_TEST_WEBSITE` | OFF | Register strict website and browser tests; requires testing and the [website tools](website.md). |
 | `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests using the `verification` extra. |

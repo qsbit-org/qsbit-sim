@@ -25,7 +25,12 @@ void MemoryModel::step_port(Tick now, Epoch epoch, MemoryPort &port, std::size_t
       MemoryResponse response;
       response.id = request.id;
       try {
-        if (request.write)
+        if (device_contains_ && device_contains_(request.address)) {
+          auto result = device_access_(request, now, epoch);
+          if (!result)
+            return;
+          response.value = *result;
+        } else if (request.write)
           image_.write(request.address, request.width, request.value);
         else
           response.value = image_.read(request.address, request.width, request.instruction);

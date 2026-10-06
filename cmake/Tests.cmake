@@ -1,3 +1,7 @@
+add_executable(decoder_tests tests/decoder_tests.cpp)
+target_link_libraries(decoder_tests PRIVATE qsbit_core)
+add_test(NAME decoder.transport COMMAND decoder_tests)
+set_tests_properties(decoder.transport PROPERTIES TIMEOUT 15 LABELS "fast;component")
 add_executable(backend_execution_tests tests/backend_execution_tests.cpp)
 target_link_libraries(backend_execution_tests PRIVATE qsbit_core)
 add_test(NAME backend.execution COMMAND backend_execution_tests)
@@ -52,6 +56,11 @@ add_test(NAME systemc.tcu_trace COMMAND tcu_trace "${CMAKE_CURRENT_BINARY_DIR}/t
 set_tests_properties(systemc.tcu_trace PROPERTIES TIMEOUT 15 LABELS "fast;integration")
 find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump riscv64-elf-objdump REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if(QSBIT_TEST_QEC)
+  add_test(NAME decoder.pymatching COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/decoding.py")
+  set_tests_properties(decoder.pymatching PROPERTIES TIMEOUT 30 LABELS "backend;component")
+endif()
 add_test(NAME systemc.vliw COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/vliw.py" --simulator "$<TARGET_FILE:qsbit_sim>"
   --assembler "${RISCV_AS}" --linker "${RISCV_LD}" --source "${CMAKE_CURRENT_SOURCE_DIR}"

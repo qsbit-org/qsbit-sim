@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qsbit/core.hpp"
+#include "qsbit/decoder.hpp"
 #include "qsbit/device.hpp"
 #include <systemc>
 
@@ -13,11 +14,11 @@ public:
   Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage image,
             std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets = {},
             bool reverse_registration = false, CpuFactory cpu_factory = {},
-            BackendExecutionConfig execution = {});
+            BackendExecutionConfig execution = {}, DecoderSystemConfig decoding = {});
   Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> cores,
             std::vector<SyncConnection> connections, std::unique_ptr<IQuantumBackend> backend,
             std::vector<Tick> resets = {}, bool reverse_registration = false,
-            BackendExecutionConfig execution = {});
+            BackendExecutionConfig execution = {}, DecoderSystemConfig decoding = {});
   [[nodiscard]] const Trace &trace() const { return trace_; }
   void include_stalls(bool enabled) { trace_.include_stalls(enabled); }
   [[nodiscard]] const Core &core(std::size_t index) const { return *cores_.at(index); }
@@ -45,6 +46,7 @@ private:
   TriggeredEvents device_events(const TriggeredEvents &batch, std::size_t index) const;
   const Profile profile_;
   Trace trace_;
+  DecoderSystem decoders_;
   std::unique_ptr<IQuantumBackend> backend_;
   SyncNetwork network_;
   std::vector<std::unique_ptr<Core>> cores_;

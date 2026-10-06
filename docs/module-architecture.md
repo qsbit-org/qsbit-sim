@@ -175,6 +175,7 @@ Success requires all of the following:
 - The CPU has halted, the timing control is closed, and the TCU has received closure.
 - Timing and event queues, physical events and scheduled readouts are empty.
 - Memory transactions and communication mailboxes have drained.
+- Decoder requests, active jobs and incomplete measurement windows are empty.
 - All CPU and enabled fast-feedback deliveries, including credit acknowledgments,
   have completed.
 

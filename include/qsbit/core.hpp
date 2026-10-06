@@ -8,6 +8,10 @@
 namespace qsbit {
 class Core {
 public:
+  void attach_device(std::function<bool(std::uint32_t)> contains,
+                     MemoryModel::DeviceAccess access) {
+    memory_.attach_device(std::move(contains), std::move(access));
+  }
   using CpuFactory = std::function<std::unique_ptr<ICpuCycleModel>(Clock, std::uint32_t, Trace &)>;
   Core(std::uint32_t id, Profile profile, ProgramImage image, Trace &trace, SyncNetwork &network,
        TimingControl::ValidateAction validate, CpuFactory cpu_factory = {},

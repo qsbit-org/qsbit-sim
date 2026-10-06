@@ -61,18 +61,20 @@ std::unique_ptr<IQuantumBackend> validated(std::unique_ptr<IQuantumBackend> back
 Simulator::Simulator(sc_core::sc_module_name name, Profile profile, ProgramImage image,
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
                      bool reverse_registration, CpuFactory cpu_factory,
-                     BackendExecutionConfig execution)
+                     BackendExecutionConfig execution, DecoderSystemConfig decoding)
     : Simulator(name,
                 std::vector<CoreConfig>{
                     {0, std::move(profile), std::move(image), std::move(cpu_factory)}},
-                {}, std::move(backend), std::move(resets), reverse_registration, execution) {}
+                {}, std::move(backend), std::move(resets), reverse_registration, execution,
+                std::move(decoding)) {}
 Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> configs,
                      std::vector<SyncConnection> connections,
                      std::unique_ptr<IQuantumBackend> backend, std::vector<Tick> resets,
-                     bool reverse_registration, BackendExecutionConfig execution)
+                     bool reverse_registration, BackendExecutionConfig execution,
+                     DecoderSystemConfig decoding)
     : sc_module(name), profile_(validated(configs, connections)),
-      backend_(validated(std::move(backend))), network_(profile_.tcu, connections),
-      device_(profile_, *backend_, trace_, execution),
+      decoders_(std::move(decoding), trace_), backend_(validated(std::move(backend))),
+      network_(profile_.tcu, connections), device_(profile_, *backend_, trace_, execution),
       tcu_clock_("tcu_clock", time_at(profile_.tcu.period), 0.5, time_at(profile_.tcu.phase)),
       resets_(std::move(resets)), reverse_(reverse_registration) {
   require(sc_core::sc_get_time_resolution() == sc_core::sc_time(1, sc_core::SC_NS),
@@ -85,6 +87,7 @@ Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> confi
             "reset tick outside run");
   std::uint32_t offset = 0;
   for (auto &config : configs) {
+    decoders_.validate_memory(config.image);
     port_offsets_.push_back(offset);
     const auto clock = config.profile.cpu;
     const auto index = cores_.size();
@@ -97,6 +100,11 @@ Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> confi
         },
         std::move(config.cpu_factory), config.sync_capacity, configs.size() > 1));
     offset += config.profile.ports;
+    cores_.back()->attach_device(
+        [this](std::uint32_t address) { return decoders_.contains(address); },
+        [this, id = config.id](const MemoryRequest &request, Tick now, Epoch epoch) {
+          return decoders_.access(id, request, now, epoch);
+        });
     cpu_clocks_.push_back(
         std::make_unique<sc_core::sc_clock>(sc_core::sc_gen_unique_name("cpu_clock"),
                                             time_at(clock.period), 0.5, time_at(clock.phase)));
@@ -143,6 +151,7 @@ bool Simulator::reset_at(Tick now) {
   if (last_reset_ != now) {
     epoch_ = checked_add(epoch_, 1);
     network_.reset();
+    decoders_.reset();
     for (auto &core : cores_)
       core->reset(now);
     device_.reset(now, epoch_);
@@ -262,6 +271,8 @@ void Simulator::barrier() {
   if (profile_.tcu.edge(now) && tcu_done_ != now)
     return;
   try {
+    if (last_reset_ != now)
+      decoders_.step(now, epoch_);
     if (!reset_at(now) && device_.next_boundary() == now)
       device_.process(now, epoch_, [&](const Completion &result) {
         auto local = result;
@@ -270,7 +281,7 @@ void Simulator::barrier() {
         local.reference.measurement = (local.reference.measurement - 1) / cores_.size() + 1;
         cores_.at(index)->deliver(now, epoch_, local);
       });
-    if (device_.drained() && network_.empty() &&
+    if (device_.drained() && network_.empty() && decoders_.idle() &&
         std::all_of(cores_.begin(), cores_.end(), [](const auto &c) { return c->drained(); })) {
       device_.finalize(now);
       success_ = true;
@@ -291,6 +302,8 @@ void Simulator::barrier() {
 void Simulator::schedule_wakeup() {
   const Tick now = sc_core::sc_time_stamp().value();
   Tick next = profile_.watchdog;
+  if (auto decoder = decoders_.next_boundary(now))
+    next = std::min(next, *decoder);
   if (auto device = device_.next_boundary())
     next = std::min(next, *device);
   const auto reset = std::upper_bound(resets_.begin(), resets_.end(), now);

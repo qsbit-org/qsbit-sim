@@ -1,10 +1,12 @@
 #pragma once
 
 #include "qsbit/backend.hpp"
+#include "qsbit/decoder.hpp"
 #include <memory>
 #include <string>
 
 namespace qsbit {
+DecoderSystemConfig python_decoders(const std::string &config);
 class PythonSession {
 public:
   explicit PythonSession(const std::string &module_directory);
