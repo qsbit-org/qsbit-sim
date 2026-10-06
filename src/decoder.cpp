@@ -133,7 +133,7 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
       event(now, epoch, "DecoderCompleted", j.id, j.core, j.decoder);
       j.completed = true;
     }
-    if (j.arrival <= now) {
+    if (j.arrival && *j.arrival <= now) {
       auto &s = sessions_.at({j.core, j.decoder});
       s.result = s.result.value_or(0) ^ j.result;
       s.submitted = false;
@@ -178,16 +178,28 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
       const auto start = std::max(checked_add(now, 1), available_[d.id]);
       available_[d.id] = checked_add(start, d.initiation_interval);
       const auto complete = checked_add(start, d.latency);
-      const auto bytes = checked_add(config_.packet_overhead, (d.outputs + 7ULL) / 8);
-      const auto duration =
-          std::max<Tick>(1, (bytes + config_.bytes_per_tick - 1) / config_.bytes_per_tick);
-      rx_available_ = checked_add(std::max(complete, rx_available_), duration);
-      jobs_.push_back({p.id, p.core, p.decoder, start, complete,
-                       checked_add(rx_available_, config_.link_latency), bits});
+      jobs_.push_back({p.id, p.core, p.decoder, start, complete, bits, std::nullopt});
       s.submitted = true;
       s.measurements.clear();
     }
     requests_.pop_front();
+  }
+  if (rx_available_ <= now) {
+    auto ready = jobs_.end();
+    for (auto it = jobs_.begin(); it != jobs_.end(); ++it)
+      if (it->completed && !it->arrival &&
+          (ready == jobs_.end() || it->completion < ready->completion ||
+           (it->completion == ready->completion && it->id < ready->id)))
+        ready = it;
+    if (ready != jobs_.end()) {
+      const auto bytes =
+          checked_add(config_.packet_overhead, (decoder(ready->decoder).outputs + 7ULL) / 8);
+      const auto duration =
+          std::max<Tick>(1, (bytes + config_.bytes_per_tick - 1) / config_.bytes_per_tick);
+      const auto end = checked_add(now, duration);
+      ready->arrival = checked_add(end, config_.link_latency);
+      rx_available_ = end;
+    }
   }
 }
 void DecoderSystem::reset() {
@@ -217,7 +229,10 @@ std::optional<Tick> DecoderSystem::next_boundary(Tick now) const {
   for (const auto &j : jobs_) {
     include(j.start);
     include(j.completion);
-    include(j.arrival);
+    if (j.arrival)
+      include(*j.arrival);
+    else if (j.completed)
+      include(rx_available_);
   }
   return next;
 }

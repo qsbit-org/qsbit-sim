@@ -50,8 +50,9 @@ private:
   struct Job {
     Id id;
     std::uint32_t core, decoder;
-    Tick start, completion, arrival;
+    Tick start, completion;
     std::uint64_t result;
+    std::optional<Tick> arrival;
     bool started = false, completed = false;
   };
   const DecoderConfig &decoder(std::uint32_t id) const;

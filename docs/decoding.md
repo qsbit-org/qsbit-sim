@@ -79,9 +79,11 @@ responses use `ceil(outputs / 8)` bytes; reset packets have no payload.
 
 The decoder starts a job no earlier than one nanosecond after admission and no
 earlier than `initiation_interval` after the previous start on that decoder ID.
-Completion occurs `latency` later. Response link reservations follow job
-admission order. Different cores share these resources but keep separate input
-windows and correction bits.
+Completion occurs `latency` later. An idle response link sends the completed
+job with the earliest completion time, breaking ties by request ID. Transmission
+is nonpreemptive. The next response can start when transmission ends, while the
+previous response is still propagating. Different cores share these resources
+but keep separate input windows and correction bits.
 
 A full request queue holds the CPU's memory write pending. A full result queue
 holds the final packet of a window at the request queue head. The simulator
@@ -112,7 +114,9 @@ must be aligned 32-bit data loads or stores.
 Command 1 snapshots the selected ID, count, payload and tag. The least
 significant payload bit is the first measurement. Command 2 travels through
 the request link and clears that session's input, active job and corrections
-when it arrives. It leaves existing link and decoder start reservations intact.
+when it arrives. A cancelled job cannot return corrections. A response that has
+already started transmitting occupies the link until its transmission ends.
+Request link and decoder start reservations remain intact.
 Command 3 clears completed corrections locally. Consuming an unfinished result
 or reading corrections before any result has returned is a protocol error.
 

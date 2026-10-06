@@ -2,8 +2,143 @@
 #include "test.hpp"
 
 using namespace qsbit;
+namespace {
+class Responses {
+public:
+  Responses(std::vector<Tick> latencies, std::uint32_t outputs = 1, Tick link_latency = 1)
+      : config_(configuration(latencies, outputs, link_latency)), device_(config_, trace_) {}
+
+  void submit(std::uint32_t core) {
+    write(core, 0, core);
+    write(core, 4, 1);
+    command(core, 1);
+  }
+  void command(std::uint32_t core, std::uint32_t value) {
+    write(core, 20, value);
+    device_.step(now_, 1);
+  }
+  void advance(Tick target) {
+    CHECK(target >= now_);
+    while (auto next = device_.next_boundary(now_)) {
+      if (*next > target)
+        break;
+      now_ = *next;
+      device_.step(now_, 1);
+    }
+    if (now_ < target) {
+      now_ = target;
+      device_.step(now_, 1);
+    }
+  }
+  std::uint32_t status(std::uint32_t core) {
+    return device_.access(core, {1, config_.base + 20}, now_, 1).value();
+  }
+  void expect_returns(const std::vector<std::pair<std::uint32_t, Tick>> &expected) const {
+    std::vector<std::pair<std::uint32_t, Tick>> returned;
+    for (const auto &event : trace_.events())
+      if (event.kind == "DecoderResultReturned")
+        returned.emplace_back(event.core.value(), event.tick);
+    CHECK(returned == expected);
+  }
+  void reset() { device_.reset(); }
+
+private:
+  static DecoderSystemConfig configuration(const std::vector<Tick> &latencies,
+                                           std::uint32_t outputs, Tick link_latency) {
+    DecoderSystemConfig config;
+    config.request_capacity = 4;
+    config.result_capacity = 2;
+    config.link_latency = link_latency;
+    config.packet_overhead = 0;
+    for (std::uint32_t id = 0; id < latencies.size(); ++id)
+      config.decoders.push_back({id, 1, outputs, latencies[id], 1,
+                                 [outputs](auto) { return std::vector<bool>(outputs, true); }});
+    return config;
+  }
+  void write(std::uint32_t core, unsigned offset, std::uint32_t value) {
+    CHECK(device_.access(core, {1, config_.base + offset, value, 4, true, false}, now_, 1));
+  }
+  Trace trace_;
+  DecoderSystemConfig config_;
+  DecoderSystem device_;
+  Tick now_ = 0;
+};
+
+void response_order() {
+  Responses responses({100, 1});
+  responses.submit(0);
+  responses.advance(2);
+  responses.submit(1);
+  responses.advance(7);
+  CHECK(responses.status(1) == 2);
+  responses.advance(8);
+  CHECK(responses.status(1) == 1 && responses.status(0) == 2);
+  responses.advance(104);
+  CHECK(responses.status(0) == 2);
+  responses.advance(105);
+  CHECK(responses.status(0) == 1);
+  responses.expect_returns({{1, 8}, {0, 105}});
+}
+
+void response_contention() {
+  // The first two jobs complete at 22; each response takes 8 ns plus 10 ns propagation.
+  Responses responses({10, 9, 1}, 64, 10);
+  responses.submit(0);
+  responses.submit(1);
+  responses.submit(2);
+  responses.advance(39);
+  CHECK(responses.status(0) == 2 && responses.status(1) == 2);
+  responses.advance(40);
+  CHECK(responses.status(0) == 1);
+  responses.advance(47);
+  CHECK(responses.status(1) == 2);
+  responses.advance(48);
+  CHECK(responses.status(1) == 1);
+  responses.advance(60);
+  CHECK(responses.status(2) == 2);
+  responses.command(0, 3);
+  responses.advance(79);
+  CHECK(responses.status(2) == 2);
+  responses.advance(80);
+  CHECK(responses.status(2) == 1);
+  responses.expect_returns({{0, 40}, {1, 48}, {2, 80}});
+}
+
+void response_cancellation() {
+  for (auto cancelled : {0U, 1U}) {
+    // At 13, core 0 starts transmitting while core 1 waits. Reset arrives at 15.
+    Responses responses({10, 9}, 64);
+    responses.submit(0);
+    responses.submit(1);
+    responses.advance(13);
+    responses.command(cancelled, 2);
+    responses.advance(15);
+    CHECK(responses.status(cancelled) == 0);
+    responses.submit(cancelled);
+    const Tick returned = cancelled == 0 ? 38 : 36;
+    responses.advance(returned - 1);
+    CHECK(responses.status(cancelled) == 2);
+    responses.advance(returned);
+    CHECK(responses.status(cancelled) == 1);
+    responses.expect_returns({{1 - cancelled, cancelled == 0 ? 30 : 22}, {cancelled, returned}});
+  }
+  Responses responses({1, 1}, 64);
+  responses.submit(0);
+  responses.advance(5);
+  responses.reset();
+  responses.submit(1);
+  responses.advance(17);
+  CHECK(responses.status(1) == 2);
+  responses.advance(18);
+  CHECK(responses.status(1) == 1 && responses.status(0) == 0);
+  responses.expect_returns({{1, 18}});
+}
+} // namespace
 int main() {
   try {
+    response_order();
+    response_contention();
+    response_cancellation();
     Trace trace;
     unsigned calls = 0;
     DecoderSystemConfig config;
