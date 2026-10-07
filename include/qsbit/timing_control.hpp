@@ -60,5 +60,6 @@ private:
   Tick time_point_ = 0, last_enqueued_time_ = 0;
   Id last_label_ = 0, next_event_ = 1;
   bool pending_point_ = false, enqueued_ = false, closed_ = false;
+  bool wait_zero_pending_ = false, allow_same_time_ = false;
 };
 } // namespace qsbit

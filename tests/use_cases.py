@@ -143,7 +143,6 @@ same_group = compile_case(
 wait.r t0
 li t1, 1
 cw.r.r x0, t1
-wait.r x0
 cw.r.r t1, t1
 sim_exit""",
 )
@@ -168,6 +167,47 @@ invalid_flush = compile_case(
     "cw_after_fmr", "wait.i 8\ncw.i.i 0, 1\nfmr t2, 1\ncw.i.i 1, 1\nsim_exit"
 )
 run(invalid_flush, fault="Protocol")
+
+feedback_wait = compile_case(
+    "feedback_wait",
+    """wait.i 8
+cw.i.i 0, 4
+wait.i 0
+fmr t0, 0
+li t1, 200
+compute:
+addi t1, t1, -1
+bne t1, x0, compute
+beq t0, x0, zero
+cw.i.i 1, 1
+jal x0, follow
+zero:
+cw.i.i 1, 3
+follow:
+wait.i 4
+cw.i.i 0, 1
+sim_exit""",
+)
+for bit in (0, 1):
+    args = ["--outcomes", str(bit)]
+    s, e = run(feedback_wait, f"bit{bit}", args=args)
+    starts = kinds(e, "OperationStart")
+    assert [x["operation"] for x in starts] == ["measure", "x" if bit else "z", "x"]
+    assert starts[0]["tick"] == 1160 and starts[1]["tick"] > 5000
+    pauses = kinds(e, "TimerPaused")
+    resumes = kinds(e, "TimerResumed")
+    idle = sum(
+        resume["tick"] - pause["tick"]
+        for pause, resume in zip(pauses, resumes, strict=True)
+        if pause["tick"] > starts[1]["tick"]
+    )
+    assert starts[2]["tick"] - starts[1]["tick"] == 80 + idle
+    assert kinds(e, "TimerPaused") and kinds(e, "WaitZeroExecuted")
+    reverse, re = run(feedback_wait, f"reverse{bit}", args=[*args, "--reverse-registration"])
+    assert e == re and s == reverse
+s, e = run(feedback_wait, "reset-paused", args=["--reset", "2000"])
+assert kinds(e, "TimerPaused")[0]["tick"] < 2000
+assert len([x for x in kinds(e, "OperationStart") if x["epoch"] == 2]) == 3
 
 for cpu, tcu in [(7, 20), (5, 13), (11, 17)]:
     profile = {

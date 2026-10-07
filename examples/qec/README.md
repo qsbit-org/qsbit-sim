@@ -58,6 +58,20 @@ latency in nanoseconds. Its default is 1000; the target also sets a 100 ns
 one-way link delay, one byte per nanosecond, and four request and result slots.
 All generated settings are saved in `target.json`.
 
+The compiler inserts `wait 0` before measurement reads and decoder calls.
+When the timing queue empties, the TCU pauses until subsequent work arrives.
+The CPU continues polling and branching. To exercise a longer decoder delay:
+
+```sh
+.venv/bin/python examples/qec/run.py \
+  --compiler ../qsbit-compiler/build-clang/qsbitc \
+  --sim build-clang/qsbit-sim --output build-clang/qec-delayed \
+  --rounds 3 --shots 1 --decoder-latency 100000
+```
+
+The correction checks remain unchanged. The trace records `WaitZeroExecuted`,
+`TimerPaused` and `TimerResumed`, and the longer delay increases the stop tick.
+
 ## Correct data qubits during a loop
 
 The compiler's [repetition-code example](https://github.com/qsbit-org/qsbit-compiler/tree/main/examples/qec)

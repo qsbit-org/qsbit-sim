@@ -100,6 +100,7 @@ private:
   std::size_t sync_capacity_ = 8, sync_size_ = 0;
   Id last_label_ = 0;
   bool closed_ = false;
+  bool accept_wait_ = false, allow_underflow_ = false, paused_ = false;
 };
 ```
 <!-- /source -->
@@ -138,6 +139,7 @@ struct TimingPoint {
   Tick interval = 0;
   std::vector<Id> manifest;
   std::vector<std::uint32_t> synchronizations = {};
+  bool wait_for_next = false;
 };
 // One enqueue request: a timing point and its associated operation events.
 struct TimingEvents {

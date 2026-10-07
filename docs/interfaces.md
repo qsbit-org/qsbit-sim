@@ -119,13 +119,22 @@ no GPR and retires once, advancing the PC by four bytes.
 a GPR. A measurement increments the target qubit's pending count.
 
 A positive `wait` enqueues the pending time point and its events, waits for
-acknowledgment, then advances the time point in TCU cycles. A zero interval
-leaves the time point and pending events unchanged.
+acknowledgment, then advances the time point in TCU cycles.
+
+`wait.i 0` and `wait.r x0` enqueue the current time point with permission to
+wait for subsequent work. The instruction completes on enqueue acknowledgment.
+After that point triggers, an empty timing queue pauses the TCU logical timer.
+The CPU, measurement delivery, decoder and physical device continue running.
+New work resumes the timer on the TCU edge after enqueue; consecutive points
+with zero interval trigger at least one TCU cycle apart. A point with a positive
+interval restores strict deadlines when it triggers, unless it also contains
+`wait 0`. An exit ECALL closes the stream and releases an empty-queue wait.
 
 `fmr` enqueues pending events and waits for all accepted measurements of the
 selected qubit to complete. It copies the latest result into rd without
 changing the measurement register. Further `cw` instructions require a
-positive `wait` after `fmr`.
+`wait` after the submitted point, or a preceding `wait 0` that left the
+current point open for subsequent codewords.
 
 The exit ECALL enqueues pending events and halts the CPU after acknowledgment.
 The simulation completes when pending events and result deliveries finish.
@@ -349,15 +358,16 @@ according to `kind` rather than treating zero as a missing value.
 | `InstructionRetired` | Instruction ID, CPU cycle, PC, word, destination, next PC, result and all registers. |
 | `CpuPipelineUpdated` | CPU cycle and `pipeline` snapshot after a CPU edge; emitted when the snapshot changes. |
 | `CpuStalled` and `PipelineFlushed` | Held instruction and reason, or younger instructions discarded on a branch or exit, respectively. |
-| `CodewordQueued` | Instruction ID, planned time point in `cycle`, source port and codeword. |
-| `TimingPointSubmitted` | Label and planned time point. |
+| `CodewordQueued` | Instruction ID, accumulated positive wait intervals in `cycle`, source port and codeword. |
+| `TimingPointSubmitted` | Label and accumulated positive wait intervals in `cycle`. |
 | `TimingPointEnqueued` | Label, current TCU cycle and post-enqueue timing occupancy in `value`. |
 | `EnqueueAcknowledged` | Enqueue label acknowledged to the CPU. |
 | `TimingPointTriggered` | Label and TCU cycle. |
 | `SyncBooked` | Requesting `core`, target core in `targets`, and local countdown deadline tick in `value`. |
 | `SyncReceived` | Receiving `core`, peer core in `targets`, and signal arrival tick in `value`. |
 | `SyncCompleted` | Requesting `core` and peer core in `targets`; both the countdown and received-signal conditions are satisfied. |
-| `TimerPaused` and `TimerResumed` | `core` whose TCU timer pauses or resumes at this tick. |
+| `WaitZeroExecuted` | `label` and logical `cycle` of the point enabling an empty-queue wait. |
+| `TimerPaused` and `TimerResumed` | TCU logical `cycle`; `detail` on pause identifies synchronization, instruction supply, or both. `core` identifies the controller in multicore runs. |
 | `ConditionCancelled` | Suppressed event ID and label. |
 | `CodewordTriggered` | Event ID, label, resolved port, codeword, operation and targets. |
 | `OperationStart` | Event identity and duration in `value`. |
@@ -382,7 +392,7 @@ The `cycle` field is a dimensionless index, not nanoseconds:
 | Trace kind | `cycle` meaning | Selected other fields |
 | --- | --- | --- |
 | `InstructionRetired`, `CpuPipelineUpdated` | CPU edge index relative to CPU phase | Retirement `id`: instruction; `value`: instruction result |
-| `CodewordQueued`, `TimingPointSubmitted` | Planned current time point | `CodewordQueued.port` and `codeword`: mapping key |
+| `CodewordQueued`, `TimingPointSubmitted` | Accumulated positive wait intervals; excludes the TCU's one-cycle spacing for zero-interval points | `CodewordQueued.port` and `codeword`: mapping key |
 | `TimingPointEnqueued`, `TimingPointTriggered` | Current logical TCU cycle in this epoch | `TimingPointEnqueued.value`: queue occupancy after enqueue |
 | `ConditionCancelled`, `ExecutionFlagsUpdated` | Current logical TCU cycle in this epoch | `id`: canceled event or delivered measurement, respectively |
 | Other kinds | Interpret only where explicitly defined; otherwise zero | `id` and `value` depend on `kind` |

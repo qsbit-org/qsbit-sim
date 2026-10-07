@@ -27,3 +27,24 @@ Aer returns one for this preparation, yielding `|11>`. Its outputs are
 X on qubit 0 starts at 360 ns and acquisition at 440 ns. The CPU receives the
 result at 505 ns. `wait` advances the time point from cycle 12 to cycle 26.
 Both branches enqueue the selected event at 700 ns for output at 720 ns.
+
+## Wait for variable feedback latency
+
+Use `wait 0` before FMR to let the TCU wait for result-dependent work:
+
+```asm
+wait.i 8
+cw.i.i 0, 4
+wait.i 0
+fmr t0, 0
+beq t0, x0, done
+cw.i.i 1, 1
+done:
+sim_exit
+```
+
+Codeword 4 measures qubit 0. Result one selects X on qubit 1; result zero
+ends the program without that gate. The empty timing queue pauses the TCU
+while the CPU reads the result and selects the branch. After the selected
+events are enqueued, the next TCU edge resumes execution. Measurement,
+classical computation and submission delays all contribute to physical time.

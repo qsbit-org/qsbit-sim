@@ -122,7 +122,8 @@ offset from time zero. Edges occur at `phase + k * period`.
 When the TCU is not paused, cycle n occurs at
 `epoch_start + n * tcu.period + paused_ticks`, where `paused_ticks` is the
 accumulated pause duration. Each paused edge shifts subsequent logical cycles
-by one TCU period. Initially, `epoch_start` is `profile.start` and `paused_ticks`
+by one TCU period. Synchronization and an empty queue after `wait 0` can pause
+the timer. Initially, `epoch_start` is `profile.start` and `paused_ticks`
 is zero; reset calculates a [new start](module-architecture.md#session-reset).
 
 ### Arrival time

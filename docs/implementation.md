@@ -91,13 +91,16 @@ preserves committed bytes.
 ## Timing control and TCU
 
 `cw` resolves a mapping and prepares events for the current time point.
-It completes on local acceptance. Positive `wait`, `fmr` and the exit ECALL
+It completes on local acceptance. `wait`, `fmr` and the exit ECALL
 enqueue pending events; only one request can await a reply.
-`wait` with interval zero changes neither the time point nor its events.
+`wait 0` marks its time point to permit waiting for subsequent queue entries.
 
 TCU enqueue inserts the time point and all event members together.
 It checks capacity before triggering removes any old entries. The timer selects
-due time points using cumulative intervals, including across empty-queue gaps.
+due time points using cumulative intervals. After `wait 0` triggers, an empty
+queue pauses the logical timer until work arrives or the stream closes.
+A positive-interval point restores strict deadlines when it triggers unless
+it also carries `wait 0`.
 Conditional operations use their target qubit's execution flags from earlier TCU edges.
 
 The TCU validates the entire transition before committing triggering and enqueue.

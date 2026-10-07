@@ -109,6 +109,7 @@ struct TimingPoint {
   Tick interval = 0;
   std::vector<Id> manifest;
   std::vector<std::uint32_t> synchronizations = {};
+  bool wait_for_next = false;
 };
 // One enqueue request: a timing point and its associated operation events.
 struct TimingEvents {

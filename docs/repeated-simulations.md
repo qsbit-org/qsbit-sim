@@ -61,7 +61,7 @@ repetitions: .word 1
 
 The codeword numbers must match the configured mappings. The runner verifies the
 load, loop suffix and exit instructions. The region accepts only `cw.i.i`,
-`wait.i` and `fmr zero`; classical instructions, branches and measurement-result
+positive `wait.i` and `fmr zero`; classical instructions, branches and measurement-result
 registers are rejected. This prevents measurement outcomes and loop-carried CPU
 data from changing the schedule.
 

@@ -39,14 +39,16 @@ Each subsequent time point enters the timing queue, even if it has no events.
 | --- | --- | --- |
 | `cw` | Events are validated and stored. | Adds events at the current time point; measurement increments the target's pending count. |
 | `sync` | The connected target is validated and stored. | Adds a synchronization event at the current time point. |
-| `wait` with zero interval | Immediate. | No changes. |
+| `wait` with zero interval | Current point is enqueued and acknowledged. | Permits the TCU to pause when its timing queue empties after this point triggers. |
 | `wait` with positive interval d | Pending events are enqueued and acknowledged. | Advances the time point by d TCU cycles. |
 | `fmr` | Required enqueue completes and the target register's pending count reaches zero. | Copies the bit into a GPR. |
 | Exit ECALL | Required enqueue completes and closure is published. | Halts the CPU; simulation continues until drain. |
 
 `cw` may retire before queue insertion. Two codewords at time point 4 followed
 by `wait.i 3` enqueue both events for cycle 4, then advance the time point to 7.
-After `fmr` enqueues a point, a positive `wait` is required before another `cw`.
+After `fmr` enqueues a point, `wait` is required before another `cw`.
+With `wait 0` before `fmr`, the result-dependent codewords can follow the read
+without another wait.
 
 Only one enqueue request may await a reply. A blocked instruction retains its
 identity and operands across retries, preventing duplicate requests.
@@ -103,7 +105,7 @@ TCU transition; they do not each consume a clock cycle.
 
 ## Start, deadlines and empty queues
 
-Without synchronization pauses, effective epoch start S and period P place
+Without pauses, effective epoch start S and period P place
 logical cycle n at `S + n * P`. Each paused TCU edge delays subsequent logical
 cycles by P without delaying physical device evolution. A pending cycle triggers
 on its resume edge. Admission deadlines include elapsed pauses.
@@ -119,6 +121,18 @@ rebase it.
 An empty timing queue does not stop the timer or cause an immediate fault.
 The timing control can still submit a future point before its deadline. A point due
 at cycle zero must be enqueued before start. Late arrival raises `LateAdmission`.
+
+After an explicit `wait 0` triggers, an empty queue instead freezes the next
+logical cycle. An entry due at that frozen cycle can be enqueued there and
+triggers on the following edge. Other entries retain their relative intervals.
+Zero-interval entries after the first point consume one TCU cycle each.
+The next positive-interval point restores strict deadlines when it triggers,
+unless it also carries `wait 0`. The initial `wait 0` must itself arrive before
+its deadline; it cannot recover a missed time point.
+
+Synchronization and instruction supply can both pause a core. The timer resumes
+only when neither requires a pause. A paused edge counts once even if both
+reasons apply. Physical device evolution and result delivery continue.
 
 The time point's manifest lists exact event IDs. A missing or extra member
 faults the complete time point. A port absent from the manifest remains idle.

@@ -36,17 +36,18 @@ void timing_test() {
   CHECK(control.pending());
   control.receive(25, 1, links);
   CHECK(control.execute(advance, 25, 1, links) == 0 && control.time_point() == 11);
-  CHECK(control.execute({6, ControlKind::Wait, 0}, 30, 1, links) == 0);
+  CHECK(!control.execute({6, ControlKind::Wait, 0}, 30, 1, links));
   CHECK(control.time_point() == 11);
-  CHECK(!control.execute({7, ControlKind::Halt}, 35, 1, links));
   auto final = links.timing_events.take(40);
   CHECK(final && final->value.events.empty() && final->value.point.interval == 3);
+  CHECK(final->value.point.wait_for_next);
   links.replies.publish(40, 1, {2});
   control.receive(45, 1, links);
-  CHECK(control.execute({7, ControlKind::Halt}, 45, 1, links) == 0);
+  CHECK(control.execute({6, ControlKind::Wait, 0}, 45, 1, links) == 0);
+  CHECK(control.execute({7, ControlKind::Halt}, 50, 1, links) == 0);
   CHECK(control.closed() && links.closure.take(60)->value.last_label == 2);
   faults(ErrorCode::Protocol,
-         [&] { (void)control.execute({8, ControlKind::Wait, 1}, 50, 1, links); });
+         [&] { (void)control.execute({8, ControlKind::Wait, 1}, 55, 1, links); });
 }
 void capacity_test() {
   auto p = default_profile();

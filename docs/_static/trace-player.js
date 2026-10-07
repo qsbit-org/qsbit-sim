@@ -61,7 +61,7 @@
     if (['CpuPipelineUpdated', 'InstructionRetired', 'CpuStalled', 'PipelineFlushed'].includes(kind)) return 'cpu';
     if (['CodewordQueued', 'TimingPointSubmitted', 'EnqueueAcknowledged'].includes(kind)) return 'reserve';
     if (kind === 'TimingPointEnqueued') return 'timing';
-    if (['TimingPointTriggered', 'ConditionCancelled', 'ExecutionFlagsUpdated', 'TimerPaused', 'TimerResumed', 'SyncBooked', 'SyncReceived', 'SyncCompleted'].includes(kind)) return 'trigger';
+    if (['TimingPointTriggered', 'WaitZeroExecuted', 'ConditionCancelled', 'ExecutionFlagsUpdated', 'TimerPaused', 'TimerResumed', 'SyncBooked', 'SyncReceived', 'SyncCompleted'].includes(kind)) return 'trigger';
     if (['MeasurementSampled', 'ResultReady'].includes(kind)) return 'measurement';
     if (['MeasurementRegisterRead', 'MeasurementRegisterUpdated'].includes(kind)) return 'registers';
     if (['OperationStart', 'OperationEnd', 'CodewordTriggered', 'GateApplied'].includes(kind)) return 'output';
@@ -208,6 +208,7 @@
     }
     hint(events, !profile ? 'Port mapping unavailable.' : ports.size ? 'Mapped events · local port · time point' : 'No queued events observed.');
     const trigger = $('state-trigger'); row(trigger, 'Timer', c?.paused ? 'Paused' : c?.cycle ? 'Running' : 'Not recorded');
+    if (c?.paused?.detail) row(trigger, 'Pause reason', c.paused.detail);
     row(trigger, 'Last trigger cycle', c?.triggered?.cycle ?? '—');
     for (const [q, flag] of Object.entries(c?.flags ?? {})) {
       row(trigger, `q${q} · last_one`, Number(flag.last_one)); row(trigger, `q${q} · last_zero`, Number(flag.last_zero)); hint(trigger, `Flags committed at ${flag.tick} ns`);

@@ -15,9 +15,11 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
   require(profile_.tcu.edge(now), ErrorCode::Protocol, "TCU invoked off-edge");
   const bool running = now >= start_;
   const Tick cycle = running ? (now - start_ - paused_ticks_) / profile_.tcu.period : 0;
+  const bool waiting = running && allow_underflow_ && timing_.empty() && !closed_;
+  const bool timer_paused = running && (paused || waiting);
   TcuOutput output;
   std::vector<OperationEvent> cancelled;
-  const bool fire = running && !paused && !timing_.empty() && timing_.front().due <= cycle;
+  const bool fire = running && !timer_paused && !timing_.empty() && timing_.front().due <= cycle;
   if (fire) {
     const auto &point = timing_.front();
     require(point.due == cycle, ErrorCode::LateAdmission, "queued point missed its firing edge");
@@ -61,13 +63,16 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
     require(candidate->point.epoch == epoch &&
                 candidate->point.label == checked_add(last_label_, 1),
             ErrorCode::Protocol, "request identity is stale, repeated or out of order");
-    require(last_label_ == 0 || candidate->point.interval > 0, ErrorCode::Protocol,
-            "duplicate logical time point");
-    new_due = checked_add(last_due_, candidate->point.interval);
+    require(last_label_ == 0 || candidate->point.interval > 0 || accept_wait_ ||
+                candidate->point.wait_for_next,
+            ErrorCode::Protocol, "duplicate logical time point");
+    const auto interval =
+        last_label_ == 0 ? candidate->point.interval : std::max<Tick>(1, candidate->point.interval);
+    new_due = checked_add(last_due_, interval);
     const auto due_tick =
         checked_add(checked_add(start_, paused_ticks_), checked_mul(new_due, profile_.tcu.period));
-    require(now < due_tick, ErrorCode::LateAdmission,
-            "request arrived on or after its original deadline");
+    require(now < due_tick || (accept_wait_ && waiting && now == due_tick),
+            ErrorCode::LateAdmission, "request arrived on or after its original deadline");
     bool space = timing_.size() < profile_.timing_capacity;
     require(candidate->point.synchronizations.size() <= sync_capacity_, ErrorCode::Capacity,
             "time point exceeds synchronization queue capacity");
@@ -84,6 +89,13 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
   for (const auto &result : results)
     next_flags.commit(result, epoch);
   if (fire) {
+    const auto &point = timing_.front().point;
+    if (point.wait_for_next)
+      allow_underflow_ = true;
+    else if (point.interval > 0)
+      allow_underflow_ = false;
+    if (point.wait_for_next)
+      trace_.emit({now, epoch, "WaitZeroExecuted", 0, point.label, cycle});
     const auto label = timing_.front().point.label;
     sync_size_ -= timing_.front().point.synchronizations.size();
     for (auto &queue : events_)
@@ -100,6 +112,10 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
     }
   }
   if (output.admitted) {
+    if (candidate->point.wait_for_next)
+      accept_wait_ = true;
+    else if (candidate->point.interval > 0)
+      accept_wait_ = false;
     sync_size_ += candidate->point.synchronizations.size();
     timing_.push_back({candidate->point, new_due});
     for (const auto &event : candidate->events)
@@ -122,7 +138,16 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       trace_.emit(std::move(record));
     }
   }
-  if (running && paused)
+  if (timer_paused != paused_) {
+    TraceEvent event{now, epoch, timer_paused ? "TimerPaused" : "TimerResumed", 0, 0, cycle};
+    event.detail = paused && waiting ? "synchronization and instruction supply"
+                   : paused          ? "synchronization"
+                   : waiting         ? "instruction supply"
+                                     : "";
+    trace_.emit(std::move(event));
+  }
+  paused_ = timer_paused;
+  if (timer_paused)
     paused_ticks_ = checked_add(paused_ticks_, profile_.tcu.period);
   return output;
 }
@@ -144,6 +169,9 @@ void TcuCycleModel::reset(Tick epoch_origin) {
   last_due_ = 0;
   last_label_ = 0;
   closed_ = false;
+  accept_wait_ = false;
+  allow_underflow_ = false;
+  paused_ = false;
   paused_ticks_ = 0;
   sync_size_ = 0;
   const auto proposed = checked_add(epoch_origin, profile_.start);

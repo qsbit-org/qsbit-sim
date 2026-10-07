@@ -57,6 +57,5 @@ private:
   SyncNetwork &network_;
   Trace &trace_;
   std::optional<Booking> pending_;
-  bool paused_ = false;
 };
 } // namespace qsbit

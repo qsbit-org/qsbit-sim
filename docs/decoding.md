@@ -12,7 +12,7 @@ routing, accumulated corrections, 64-bit payloads, reset under backpressure and
 invalid accesses.
 Optional `decoder.pymatching` checks matrix configuration and correction masks.
 Cross-project `integration.qec` executes compiled measurement and correction
-loops and checks late feedback failure.
+loops with decoder latency exceeding the original fixed timing budget.
 
 ## Configure a decoder
 
@@ -98,9 +98,11 @@ discard packets or replace unread results. Core memory edges run before
 decoder progress at the same tick, so a result returned at that tick becomes
 readable on a later memory edge.
 
-Quantum operation deadlines remain the TCU's scheduled time points. Waiting
-for a decoder consumes CPU time without advancing those time points. A late
-codeword fails with `LateAdmission`.
+Place `wait 0` before decoder polling to let the TCU pause when its queue
+empties. CPU polling, request transport and decoder processing continue in
+physical time. Submitted work resumes the TCU; the next positive-interval point
+restores strict deadlines when it triggers. Without `wait 0`, a late codeword
+still fails with `LateAdmission`.
 
 ## Registers
 

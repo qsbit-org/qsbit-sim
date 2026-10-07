@@ -102,13 +102,7 @@ bool SyncUnit::step(Tick now, Epoch epoch) {
       paused = now >= pending_->deadline;
     }
   }
-  if (paused != paused_)
-    trace_.emit({now, epoch, paused ? "TimerPaused" : "TimerResumed"});
-  paused_ = paused;
   return paused;
 }
-void SyncUnit::reset() {
-  pending_.reset();
-  paused_ = false;
-}
+void SyncUnit::reset() { pending_.reset(); }
 } // namespace qsbit

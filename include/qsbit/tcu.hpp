@@ -47,5 +47,6 @@ private:
   std::size_t sync_capacity_ = 8, sync_size_ = 0;
   Id last_label_ = 0;
   bool closed_ = false;
+  bool accept_wait_ = false, allow_underflow_ = false, paused_ = false;
 };
 } // namespace qsbit

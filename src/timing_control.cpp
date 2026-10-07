@@ -83,13 +83,14 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   if (enqueue_request_)
     return false;
   if (!pending_point_) {
-    enqueued_ = true;
+    enqueued_ = !allow_same_time_;
     return true;
   }
   TimingEvents request;
   request.point = {epoch, checked_add(last_label_, 1), time_point_ - last_enqueued_time_, {}};
   request.events = pending_events_;
   request.point.synchronizations = pending_sync_;
+  request.point.wait_for_next = wait_zero_pending_;
   request.configuration = profile_.fingerprint();
   for (auto &event : request.events) {
     event.label = request.point.label;
@@ -105,7 +106,7 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
 std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &operation, Tick now,
                                                      Epoch epoch) {
   require(!enqueued_ && !enqueue_request_, ErrorCode::Protocol,
-          "cw requires a positive wait after FMR");
+          "cw requires wait after a submitted time point");
   const auto &map = profile_.mapping(operation.first, operation.second);
   std::optional<std::uint32_t> measurement_target;
   for (const auto &action : map.actions) {
@@ -159,6 +160,15 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
     break;
   case ControlKind::Wait:
     if (operation.first == 0) {
+      if (!wait_zero_pending_) {
+        wait_zero_pending_ = true;
+        pending_point_ = true;
+      }
+      if (!enqueue(now, epoch, links))
+        break;
+      wait_zero_pending_ = false;
+      allow_same_time_ = true;
+      enqueued_ = false;
       result = 0;
       break;
     }
@@ -167,6 +177,7 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
       if (!enqueue(now, epoch, links))
         break;
       time_point_ = destination;
+      allow_same_time_ = false;
       pending_point_ = true;
       enqueued_ = false;
       result = 0;
@@ -197,7 +208,7 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
     require(bool(validate_sync_), ErrorCode::UnsupportedSynchronization,
             "sync requires a connected controller");
     require(!enqueued_ && !enqueue_request_, ErrorCode::Protocol,
-            "sync requires a positive wait after FMR");
+            "sync requires wait after a submitted time point");
     validate_sync_(operation.first);
     require(pending_sync_.empty(), ErrorCode::InvalidOperand,
             "only one sync is allowed at a time point");
@@ -222,5 +233,7 @@ void TimingControl::reset() {
   pending_point_ = false;
   enqueued_ = false;
   closed_ = false;
+  wait_zero_pending_ = false;
+  allow_same_time_ = false;
 }
 } // namespace qsbit

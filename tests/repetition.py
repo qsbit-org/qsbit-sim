@@ -17,7 +17,7 @@ for option in ("simulator", "source", "build", "assembler", "linker"):
     parser.add_argument("--" + option, type=Path, required=True)
 args = parser.parse_args()
 sys.path.insert(0, str(args.source / "python"))
-from qsbit_backend.simulation import inspect_program, run_config  # noqa: E402
+from qsbit_backend.simulation import inspect_program, run_config, validate_mappings  # noqa: E402
 
 output = (args.build / "repetition-test").resolve()
 output.mkdir(exist_ok=True)
@@ -89,6 +89,11 @@ config = {
 }
 data = Path(config["program"]).read_bytes()
 program = inspect_program(data, config["simulation"])
+try:
+    validate_mappings({"words": [0x200B]}, dict(config["profile"], fast_feedback=False))
+    raise AssertionError("accepted wait 0 in a fixed-repeat program")
+except ValueError as error:
+    assert "positive wait intervals" in str(error), str(error)
 text_offset = ELFFile(io.BytesIO(data)).get_section_by_name(".text")["sh_offset"]
 for invalid in (0x00000063, 0x00100513, 0x0000308B):
     changed = bytearray(data)

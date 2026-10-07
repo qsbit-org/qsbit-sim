@@ -80,12 +80,12 @@ describes what those tests establish.
 When changing a protocol, check the boundary case that distinguishes the old
 and new behavior. The existing suite includes:
 
-- Two `cw` instructions separated by `wait.i 0` at one time point, followed by one complete enqueue.
+- `wait 0` before measurement feedback, with delayed CPU submission and reset while paused.
 - Requests published exactly on a receiver edge, and enqueue while a full
   queue releases events. Neither the new request nor the newly freed space
   can be used on that edge.
-- Empty timing queues during CPU result waits. The timer continues and
-  late time points fail without shifting their deadlines.
+- Empty timing queues with and without `wait 0`. Only explicit zero waits
+  permit a pause; strict deadlines still reject late time points.
 - Taken branches and older faults that discard younger control instructions.
 - Overlapping resource intervals, adjacent intervals and same-target sampling
   collisions. Invalid batches must not partially change device state.

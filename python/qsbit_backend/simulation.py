@@ -131,6 +131,8 @@ def validate_mappings(program, profile):
     for word in program["words"]:
         f3 = (word >> 12) & 7
         if f3 == 2:
+            if word >> 15 == 0:
+                raise ValueError("fixed-repeat simulation requires positive wait intervals")
             if pending:
                 raise ValueError("read all pending measurements before advancing time")
             interval += word >> 15

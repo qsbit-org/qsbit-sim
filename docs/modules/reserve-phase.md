@@ -1,8 +1,8 @@
 # Reserve phase implementation
 
 `TimingControl` prepares codeword events at the current time point and requests
-their insertion into the timing and event queues. The current time point is a
-planned TCU cycle, independent of the running timer.
+their insertion into the timing and event queues. The current time point
+accumulates requested positive wait intervals independently of the running timer.
 
 ## Connections
 
@@ -33,7 +33,10 @@ measurement register's pending count and reserves result delivery capacity.
 Several codewords can contribute events to one time point.
 
 A positive `wait` enqueues the pending time point, waits for acknowledgment,
-then advances by the requested number of TCU cycles. A zero interval does nothing.
+then advances by the requested number of TCU cycles. `wait 0` enqueues the
+current point with permission to wait for subsequent queue entries and opens
+a new point without adding a requested interval. The TCU separates consecutive
+zero-interval points by one logical cycle.
 
 For example, two `cw` instructions at cycle 4 followed by `wait.i 3`
 enqueue both events for cycle 4. The current time point becomes 7 after
@@ -53,8 +56,9 @@ are added. See [instruction completion](../module-architecture.md#reserve-phase-
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `time_point_, last_enqueued_time_` | Logical TCU cycles | Planned cycle and last acknowledged due cycle; their difference is the next interval. |
+| `time_point_, last_enqueued_time_` | Accumulated wait intervals | Their difference is the next requested interval; the TCU resolves the due cycle. |
 | `pending_events_, pending_point_, enqueued_` | Pending events and status | Retain events and track whether more may be added at this time point. |
+| `wait_zero_pending_, allow_same_time_` | Zero-wait status | Retain a zero wait across enqueue retries and permit subsequent codewords without a positive interval. |
 | `enqueue_request_` | Optional TimingEvents | Fixed request awaiting acknowledgment. |
 | `held_` | Optional ControlOperation | Retains the blocked instruction and operands. |
 | `last_label_, next_event_, closed_` | Identifiers and status | Allocate timing labels and event IDs and record completion. |
@@ -77,5 +81,5 @@ Source: [timing_control.cpp](../../src/timing_control.cpp) and [timing_control.h
 **CTest:** `protocol.timing`, `protocol.capacity`, `systemc.use_cases`.
 
 Tests check stable instruction identity across retries, exactly one enqueue,
-time point advancement after acknowledgment, bounded storage, and multiple
-`cw` instructions separated by `wait.i 0` at the same time point.
+time point advancement after acknowledgment, bounded storage, and measurement
+feedback through `wait 0` with delayed CPU submission.

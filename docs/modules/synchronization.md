@@ -12,7 +12,8 @@ a countdown equal to the configured outgoing link delay. The timer continues
 while this countdown runs.
 
 At the countdown deadline, the timer pauses if the peer's signal has not
-arrived. It resumes when the signal arrives. A signal received before the
+arrived. Synchronization releases its pause when the signal arrives; an empty
+queue after `wait 0` can keep the TCU paused. A signal received before the
 deadline is retained until the countdown completes. Each signal satisfies one
 synchronization request.
 
