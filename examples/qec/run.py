@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile and run a surface-code memory experiment with decoder feedback."""
+"""Compile and run a surface-code memory experiment with logical decoding."""
 
 import argparse
 import json
@@ -97,7 +97,7 @@ def generate(directory, rounds, error_qubit, latency):
     operations, qubits, count, logical, options, reference = experiment(rounds, error_qubit)
     pairs = sorted({tuple(q) for name, q, _ in operations if name == "cx"})
     mappings = []
-    for q in range(qubits + 1):
+    for q in range(qubits):
         for code, name in enumerate(("x", "h", "z", "measure"), 1):
             mappings.append(
                 {
@@ -140,8 +140,8 @@ def generate(directory, rounds, error_qubit, latency):
     target = {
         "schema": 1,
         "name": "qec-surface-3",
-        "qubits": qubits + 1,
-        "ports": qubits + 1,
+        "qubits": qubits,
+        "ports": qubits,
         "start_ns": 10000,
         "block_cycles": 1000,
         "mappings": mappings,
@@ -217,16 +217,10 @@ def generate(directory, rounds, error_qubit, latency):
         [
             f"%corrected = xor i1 {value}, %flip",
             "call void @__quantum__rt__bool_record_output(i1 %corrected, ptr null)",
-            "br i1 %flip, label %feedback, label %readout",
-            "feedback:",
-            f"call void @__quantum__qis__x__body({pointer(qubits)})",
-            "br label %readout",
-            "readout:",
-            f"call void @__quantum__qis__mz__body({pointer(qubits)}, {pointer(count)})",
-            f"call void @__quantum__rt__result_record_output({pointer(count)}, ptr null)",
+            "call void @__quantum__rt__bool_record_output(i1 %flip, ptr null)",
             "ret void",
             "}",
-            f'attributes #0 = {{ "entry_point" "qir_profiles"="adaptive_profile" "required_num_qubits"="{qubits + 1}" "required_num_results"="{count + 1}" }}',
+            f'attributes #0 = {{ "entry_point" "qir_profiles"="adaptive_profile" "required_num_qubits"="{qubits}" "required_num_results"="{count}" }}',
         ]
     )
     (directory / "memory.ll").write_text("\n".join(lines) + "\n")
@@ -295,9 +289,10 @@ def main():
         bits = np.array([values[:count]], dtype=np.bool_)
         detectors, observables = converter.convert(measurements=bits, separate_observables=True)
         predicted = int(matching.decode(detectors[0])[0])
-        expected = int(observables[0, 0]) ^ predicted
+        raw_logical = int(observables[0, 0])
+        expected = raw_logical ^ predicted
         if values[-2] != expected or values[-1] != predicted:
-            raise AssertionError("decoder result or conditional feedback differs from reference")
+            raise AssertionError("decoder flip or corrected logical result differs from reference")
         if expected:
             raise AssertionError("known single-qubit error was not corrected")
         events = [json.loads(line) for line in (directory / run["trace"]).read_text().splitlines()]
@@ -309,8 +304,9 @@ def main():
         records.append(
             {
                 "shot": shot,
-                "logical_error": expected,
-                "feedback_bit": values[-1],
+                "raw_logical_result": raw_logical,
+                "decoder_flip": values[-1],
+                "corrected_logical_result": values[-2],
                 "stop_tick": summary["stop_tick"],
                 **selected,
             }

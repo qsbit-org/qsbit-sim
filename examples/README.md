@@ -7,7 +7,7 @@ to create `build-clang/qsbit-sim` and assemble the Bell-state and measurement-fe
 | --- | --- | --- |
 | [bell-state](bell-state/README.md) | Prepare and measure a Bell pair. | Aer |
 | [measurement-feedback](measurement-feedback/README.md) | Select a gate using a measurement result. | Mock or Aer |
-| [qec](qec/README.md) | Compile QIR, decode surface-code measurements and execute conditional feedback. | Stim and PyMatching |
+| [qec](qec/README.md) | Compile QIR, decode surface-code measurements and correct the logical result. | Stim and PyMatching |
 | [qutip](qutip/README.md) | Run pulse calibration, relaxation, feedback, readout and tunable-coupler experiments. | QuTiP |
 | [quma](quma/README.md) | Reproduce the QuMA AllXY sequence and measurement probabilities. | Aer |
 | [eqasm](eqasm/README.md) | Run the eQASM Figure 3 gate sequence and compare scalar and VLIW issue rates. | Aer, Stim or mock |

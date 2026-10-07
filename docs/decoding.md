@@ -4,8 +4,10 @@ The decoder receives measurement bits through memory-mapped I/O (MMIO)
 registers and returns correction bits to the controller. A session is identified
 by core ID and decoder ID. A run configuration specifies the
 decoder algorithm, transfer bandwidth, link delay, processing latency and
-queue capacities. The [QEC example](../examples/qec/README.md) compiles QIR
-programs that use these registers.
+queue capacities. The [surface-code memory example](../examples/qec/README.md)
+uses these registers to obtain a logical observable flip bit and correct the
+recorded logical result. The [repetition-code loop](../examples/qec/README.md#correct-data-qubits-during-a-loop)
+uses the decoder's correction mask to apply X to data qubits before the next round.
 
 **CTest:** `decoder.transport` checks bounded queues, transfer timing, result
 routing, accumulated corrections, 64-bit payloads, reset under backpressure and
