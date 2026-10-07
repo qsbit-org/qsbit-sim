@@ -74,7 +74,7 @@ public:
   TcuCycleModel(const Profile &profile, Trace &trace, std::size_t sync_capacity = 8);
   TcuOutput step(Tick now, Epoch epoch, const TimingEvents *candidate,
                  const std::vector<Completion> &results, const Preflight &preflight,
-                 bool paused = false, const SyncPreflight &sync_preflight = {});
+                 bool synchronization_paused = false, const SyncPreflight &sync_preflight = {});
   void close(const EndOfStream &end);
   void reset(Tick epoch_origin = 0);
   [[nodiscard]] bool drained() const;
@@ -85,10 +85,42 @@ public:
   [[nodiscard]] const ExecutionFlags &execution_flags() const { return execution_flags_; }
 
 private:
+  enum class UnderflowPolicy { Strict, PauseWhenEmpty };
+  struct PauseState {
+    bool instruction_supply = false;
+    bool synchronization = false;
+    [[nodiscard]] bool paused() const { return instruction_supply || synchronization; }
+  };
+  struct TimingState {
+    bool running;
+    Tick cycle;
+    PauseState pause;
+  };
   struct Point {
     TimingPoint point;
     Tick due;
   };
+  struct Trigger {
+    TriggeredEvents batch;
+    std::vector<OperationEvent> cancelled;
+    std::vector<std::uint32_t> synchronizations;
+  };
+  static UnderflowPolicy policy_after(const TimingPoint &point, UnderflowPolicy previous);
+  [[nodiscard]] TimingState current_timing_state(Tick now, bool synchronization_paused) const;
+  [[nodiscard]] bool meets_deadline(Tick now, Tick due_tick, const PauseState &pause) const;
+  [[nodiscard]] std::optional<Trigger> prepare_trigger(Tick now, Epoch epoch,
+                                                       const TimingState &state,
+                                                       const Preflight &preflight,
+                                                       const SyncPreflight &sync_preflight) const;
+  [[nodiscard]] std::optional<Tick> prepare_admission(Tick now, Epoch epoch,
+                                                      const TimingEvents &candidate,
+                                                      const PauseState &pause) const;
+  void commit_trigger(Tick now, Epoch epoch, Tick cycle, const Trigger &trigger);
+  void commit_admission(Tick now, Epoch epoch, Tick cycle, const TimingEvents &candidate, Tick due);
+  void commit_fast_results(Tick now, Epoch epoch, Tick cycle,
+                           const std::vector<Completion> &results, ExecutionFlags next_flags,
+                           TcuOutput &output);
+  void update_pause_state(Tick now, Epoch epoch, const TimingState &state, Tick paused_ticks);
   const Profile &profile_;
   Trace &trace_;
   std::deque<Point> timing_;
@@ -100,7 +132,9 @@ private:
   std::size_t sync_capacity_ = 8, sync_size_ = 0;
   Id last_label_ = 0;
   bool closed_ = false;
-  bool accept_wait_ = false, allow_underflow_ = false, paused_ = false;
+  UnderflowPolicy admitted_policy_ = UnderflowPolicy::Strict;
+  UnderflowPolicy triggered_policy_ = UnderflowPolicy::Strict;
+  PauseState pause_;
 };
 ```
 <!-- /source -->

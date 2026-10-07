@@ -49,8 +49,37 @@ int main() {
       faults(ErrorCode::LateAdmission, [&] { (void)tcu.step(100, 1, &strict, {}, ok); });
       faults(ErrorCode::LateAdmission, [&] { (void)tcu.step(100, 1, &zero, {}, ok); });
     }
-    // Prefetched work does not pause. Repeated zero waits each consume one edge.
     p.timing_capacity = 4;
+    for (bool zero_first : {false, true}) {
+      Trace trace;
+      TcuCycleModel tcu(p, trace);
+      TimingEvents first{{1, 1, 0, {}, {}, zero_first}, {}, p.fingerprint()};
+      TimingEvents second{{1, 2, 2, {}, {}, !zero_first}, {}, p.fingerprint()};
+      TimingEvents third{{1, 3, 0, {}}, {}, p.fingerprint()};
+      CHECK(tcu.step(20, 1, &first, {}, ok).admitted);
+      CHECK(tcu.step(40, 1, &second, {}, ok).admitted);
+      CHECK(tcu.step(100, 1, nullptr, {}, ok).launch);
+      if (zero_first) {
+        // The queued positive interval disallows another zero interval before it triggers.
+        faults(ErrorCode::Protocol, [&] { (void)tcu.step(120, 1, &third, {}, ok); });
+        CHECK(!tcu.step(120, 1, nullptr, {}, ok).launch);
+      } else {
+        // The queued zero wait allows admission before it permits a pause.
+        CHECK(tcu.step(120, 1, &third, {}, ok).admitted);
+      }
+      CHECK(std::none_of(trace.events().begin(), trace.events().end(),
+                         [](const auto &e) { return e.kind == "TimerPaused"; }));
+      CHECK(tcu.step(140, 1, nullptr, {}, ok).launch->label == 2);
+      if (!zero_first) {
+        CHECK(tcu.step(160, 1, nullptr, {}, ok).launch->label == 3);
+        CHECK(!tcu.step(180, 1, nullptr, {}, ok).launch);
+        CHECK(trace.events().back().kind == "TimerPaused");
+        tcu.close({3});
+        CHECK(!tcu.step(200, 1, nullptr, {}, ok).launch);
+        CHECK(tcu.drained() && trace.events().back().kind == "TimerResumed");
+      }
+    }
+    // Prefetched work does not pause. Repeated zero waits each consume one edge.
     Trace trace;
     TcuCycleModel tcu(p, trace);
     for (Id label = 1; label <= 3; ++label) {

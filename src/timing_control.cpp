@@ -90,7 +90,7 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   request.point = {epoch, checked_add(last_label_, 1), time_point_ - last_enqueued_time_, {}};
   request.events = pending_events_;
   request.point.synchronizations = pending_sync_;
-  request.point.wait_for_next = wait_zero_pending_;
+  request.point.wait_for_next = pending_wait_for_next_;
   request.configuration = profile_.fingerprint();
   for (auto &event : request.events) {
     event.label = request.point.label;
@@ -102,6 +102,30 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   links.timing_events.publish(now, epoch, std::move(request));
   trace_.emit({now, epoch, "TimingPointSubmitted", 0, enqueue_request_->point.label, time_point_});
   return false;
+}
+std::optional<std::uint32_t> TimingControl::execute_zero_wait(Tick now, Epoch epoch,
+                                                              ControlLinks &links) {
+  if (!pending_wait_for_next_) {
+    pending_wait_for_next_ = true;
+    pending_point_ = true;
+  }
+  if (!enqueue(now, epoch, links))
+    return std::nullopt;
+  pending_wait_for_next_ = false;
+  allow_same_time_ = true;
+  enqueued_ = false;
+  return 0;
+}
+std::optional<std::uint32_t> TimingControl::advance_time(Tick interval, Tick now, Epoch epoch,
+                                                         ControlLinks &links) {
+  const auto destination = checked_add(time_point_, interval);
+  if (!enqueue(now, epoch, links))
+    return std::nullopt;
+  time_point_ = destination;
+  allow_same_time_ = false;
+  pending_point_ = true;
+  enqueued_ = false;
+  return 0;
 }
 std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &operation, Tick now,
                                                      Epoch epoch) {
@@ -159,29 +183,8 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
     result = codeword(operation, now, epoch);
     break;
   case ControlKind::Wait:
-    if (operation.first == 0) {
-      if (!wait_zero_pending_) {
-        wait_zero_pending_ = true;
-        pending_point_ = true;
-      }
-      if (!enqueue(now, epoch, links))
-        break;
-      wait_zero_pending_ = false;
-      allow_same_time_ = true;
-      enqueued_ = false;
-      result = 0;
-      break;
-    }
-    {
-      const auto destination = checked_add(time_point_, operation.first);
-      if (!enqueue(now, epoch, links))
-        break;
-      time_point_ = destination;
-      allow_same_time_ = false;
-      pending_point_ = true;
-      enqueued_ = false;
-      result = 0;
-    }
+    result = operation.first == 0 ? execute_zero_wait(now, epoch, links)
+                                  : advance_time(operation.first, now, epoch, links);
     break;
   case ControlKind::FetchMeasurement:
     require(operation.first < profile_.qubits, ErrorCode::InvalidOperand,
@@ -233,7 +236,7 @@ void TimingControl::reset() {
   pending_point_ = false;
   enqueued_ = false;
   closed_ = false;
-  wait_zero_pending_ = false;
+  pending_wait_for_next_ = false;
   allow_same_time_ = false;
 }
 } // namespace qsbit

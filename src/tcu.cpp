@@ -1,7 +1,7 @@
 #include "qsbit/tcu.hpp"
 #include <algorithm>
 #include <map>
-#include <set>
+#include <utility>
 
 namespace qsbit {
 TcuCycleModel::TcuCycleModel(const Profile &profile, Trace &trace, std::size_t sync_capacity)
@@ -11,124 +11,163 @@ TcuCycleModel::TcuCycleModel(const Profile &profile, Trace &trace, std::size_t s
 }
 TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candidate,
                               const std::vector<Completion> &results, const Preflight &preflight,
-                              bool paused, const SyncPreflight &sync_preflight) {
+                              bool synchronization_paused, const SyncPreflight &sync_preflight) {
   require(profile_.tcu.edge(now), ErrorCode::Protocol, "TCU invoked off-edge");
-  const bool running = now >= start_;
-  const Tick cycle = running ? (now - start_ - paused_ticks_) / profile_.tcu.period : 0;
-  const bool waiting = running && allow_underflow_ && timing_.empty() && !closed_;
-  const bool timer_paused = running && (paused || waiting);
-  TcuOutput output;
-  std::vector<OperationEvent> cancelled;
-  const bool fire = running && !timer_paused && !timing_.empty() && timing_.front().due <= cycle;
-  if (fire) {
-    const auto &point = timing_.front();
-    require(point.due == cycle, ErrorCode::LateAdmission, "queued point missed its firing edge");
-    std::map<Id, OperationEvent> gathered;
-    for (const auto &queue : events_) {
-      require(queue.empty() || queue.front().label >= point.point.label,
-              ErrorCode::ManifestMismatch, "orphan event precedes timing head");
-      for (const auto &event : queue) {
-        if (event.label != point.point.label)
-          break;
-        require(event.epoch == epoch && gathered.emplace(event.id, event).second,
-                ErrorCode::ManifestMismatch, "duplicate or stale port event");
-      }
-    }
-    require(gathered.size() == point.point.manifest.size(), ErrorCode::ManifestMismatch,
-            "timing manifest and port queues differ");
-    TriggeredEvents batch{epoch, point.point.label, now, {}};
-    for (auto id : point.point.manifest) {
-      const auto it = gathered.find(id);
-      require(it != gathered.end(), ErrorCode::ManifestMismatch, "manifested event is missing");
-      const auto &event = it->second;
-      if (event.action.execution_flag() != ExecutionFlag::Always &&
-          !execution_flags_.evaluate(event.action.targets().front(), event.action.execution_flag()))
-        cancelled.push_back(event);
-      else
-        batch.events.push_back(event);
-    }
-    preflight(batch);
-    if (!point.point.synchronizations.empty()) {
-      require(bool(sync_preflight), ErrorCode::UnsupportedSynchronization,
-              "TCU has no synchronization unit");
-      sync_preflight(point.point.synchronizations);
-      output.synchronizations = point.point.synchronizations;
-    }
-    output.launch = std::move(batch);
-  }
-  Tick new_due = last_due_;
-  if (candidate != nullptr) {
-    require(!closed_, ErrorCode::Protocol, "request follows stream closure");
-    validate_timing_events(*candidate, profile_);
-    require(candidate->point.epoch == epoch &&
-                candidate->point.label == checked_add(last_label_, 1),
-            ErrorCode::Protocol, "request identity is stale, repeated or out of order");
-    require(last_label_ == 0 || candidate->point.interval > 0 || accept_wait_ ||
-                candidate->point.wait_for_next,
-            ErrorCode::Protocol, "duplicate logical time point");
-    const auto interval =
-        last_label_ == 0 ? candidate->point.interval : std::max<Tick>(1, candidate->point.interval);
-    new_due = checked_add(last_due_, interval);
-    const auto due_tick =
-        checked_add(checked_add(start_, paused_ticks_), checked_mul(new_due, profile_.tcu.period));
-    require(now < due_tick || (accept_wait_ && waiting && now == due_tick),
-            ErrorCode::LateAdmission, "request arrived on or after its original deadline");
-    bool space = timing_.size() < profile_.timing_capacity;
-    require(candidate->point.synchronizations.size() <= sync_capacity_, ErrorCode::Capacity,
-            "time point exceeds synchronization queue capacity");
-    space = space && candidate->point.synchronizations.size() <= sync_capacity_ - sync_size_;
-    std::vector<std::size_t> needed(profile_.ports, 0);
-    for (const auto &event : candidate->events)
-      ++needed[event.action.port];
-    for (std::size_t p = 0; p < events_.size(); ++p)
-      space = space && events_[p].size() + needed[p] <= profile_.event_capacity;
-    output.admitted = space;
-  }
-  // Validate all incoming results before committing any launch or admission.
+  const auto state = current_timing_state(now, synchronization_paused);
+  auto trigger = prepare_trigger(now, epoch, state, preflight, sync_preflight);
+  const auto due =
+      candidate ? prepare_admission(now, epoch, *candidate, state.pause) : std::nullopt;
   auto next_flags = execution_flags_;
   for (const auto &result : results)
     next_flags.commit(result, epoch);
-  if (fire) {
-    const auto &point = timing_.front().point;
-    if (point.wait_for_next)
-      allow_underflow_ = true;
-    else if (point.interval > 0)
-      allow_underflow_ = false;
-    if (point.wait_for_next)
-      trace_.emit({now, epoch, "WaitZeroExecuted", 0, point.label, cycle});
-    const auto label = timing_.front().point.label;
-    sync_size_ -= timing_.front().point.synchronizations.size();
-    for (auto &queue : events_)
-      while (!queue.empty() && queue.front().label == label)
-        queue.pop_front();
-    timing_.pop_front();
-    trace_.emit({now, epoch, "TimingPointTriggered", 0, label, cycle});
-    for (const auto &event : cancelled) {
-      TraceEvent record{now, epoch, "ConditionCancelled", event.id, label, cycle};
-      record.port = event.action.port;
-      record.operation = event.action.operation();
-      record.targets = event.action.targets();
-      trace_.emit(std::move(record));
+  const Tick next_paused_ticks =
+      state.pause.paused() ? checked_add(paused_ticks_, profile_.tcu.period) : paused_ticks_;
+
+  TcuOutput output;
+  if (trigger) {
+    commit_trigger(now, epoch, state.cycle, *trigger);
+    output.launch = std::move(trigger->batch);
+    output.synchronizations = std::move(trigger->synchronizations);
+  }
+  if (due) {
+    commit_admission(now, epoch, state.cycle, *candidate, *due);
+    output.admitted = true;
+  }
+  commit_fast_results(now, epoch, state.cycle, results, std::move(next_flags), output);
+  update_pause_state(now, epoch, state, next_paused_ticks);
+  return output;
+}
+TcuCycleModel::UnderflowPolicy TcuCycleModel::policy_after(const TimingPoint &point,
+                                                           UnderflowPolicy previous) {
+  if (point.wait_for_next)
+    return UnderflowPolicy::PauseWhenEmpty;
+  if (point.interval > 0)
+    return UnderflowPolicy::Strict;
+  return previous;
+}
+TcuCycleModel::TimingState TcuCycleModel::current_timing_state(Tick now,
+                                                               bool synchronization_paused) const {
+  const bool running = now >= start_;
+  const Tick cycle = running ? (now - start_ - paused_ticks_) / profile_.tcu.period : 0;
+  const PauseState pause{running && triggered_policy_ == UnderflowPolicy::PauseWhenEmpty &&
+                             timing_.empty() && !closed_,
+                         running && synchronization_paused};
+  return {running, cycle, pause};
+}
+bool TcuCycleModel::meets_deadline(Tick now, Tick due_tick, const PauseState &pause) const {
+  if (now < due_tick)
+    return true;
+  return admitted_policy_ == UnderflowPolicy::PauseWhenEmpty && pause.instruction_supply &&
+         now == due_tick;
+}
+std::optional<TcuCycleModel::Trigger>
+TcuCycleModel::prepare_trigger(Tick now, Epoch epoch, const TimingState &state,
+                               const Preflight &preflight,
+                               const SyncPreflight &sync_preflight) const {
+  if (!state.running || state.pause.paused() || timing_.empty() ||
+      timing_.front().due > state.cycle)
+    return std::nullopt;
+  const auto &point = timing_.front();
+  require(point.due == state.cycle, ErrorCode::LateAdmission,
+          "queued point missed its firing edge");
+  std::map<Id, OperationEvent> gathered;
+  for (const auto &queue : events_) {
+    require(queue.empty() || queue.front().label >= point.point.label, ErrorCode::ManifestMismatch,
+            "orphan event precedes timing head");
+    for (const auto &event : queue) {
+      if (event.label != point.point.label)
+        break;
+      require(event.epoch == epoch && gathered.emplace(event.id, event).second,
+              ErrorCode::ManifestMismatch, "duplicate or stale port event");
     }
   }
-  if (output.admitted) {
-    if (candidate->point.wait_for_next)
-      accept_wait_ = true;
-    else if (candidate->point.interval > 0)
-      accept_wait_ = false;
-    sync_size_ += candidate->point.synchronizations.size();
-    timing_.push_back({candidate->point, new_due});
-    for (const auto &event : candidate->events)
-      events_[event.action.port].push_back(event);
-    last_label_ = candidate->point.label;
-    last_due_ = new_due;
-    TraceEvent record{now, epoch, "TimingPointEnqueued", 0, last_label_, cycle};
-    record.value = timing_.size();
+  require(gathered.size() == point.point.manifest.size(), ErrorCode::ManifestMismatch,
+          "timing manifest and port queues differ");
+  Trigger trigger{{epoch, point.point.label, now, {}}, {}, point.point.synchronizations};
+  for (auto id : point.point.manifest) {
+    const auto it = gathered.find(id);
+    require(it != gathered.end(), ErrorCode::ManifestMismatch, "manifested event is missing");
+    const auto &event = it->second;
+    if (event.action.execution_flag() != ExecutionFlag::Always &&
+        !execution_flags_.evaluate(event.action.targets().front(), event.action.execution_flag()))
+      trigger.cancelled.push_back(event);
+    else
+      trigger.batch.events.push_back(event);
+  }
+  preflight(trigger.batch);
+  if (!trigger.synchronizations.empty()) {
+    require(bool(sync_preflight), ErrorCode::UnsupportedSynchronization,
+            "TCU has no synchronization unit");
+    sync_preflight(trigger.synchronizations);
+  }
+  return trigger;
+}
+std::optional<Tick> TcuCycleModel::prepare_admission(Tick now, Epoch epoch,
+                                                     const TimingEvents &candidate,
+                                                     const PauseState &pause) const {
+  require(!closed_, ErrorCode::Protocol, "request follows stream closure");
+  validate_timing_events(candidate, profile_);
+  require(candidate.point.epoch == epoch && candidate.point.label == checked_add(last_label_, 1),
+          ErrorCode::Protocol, "request identity is stale, repeated or out of order");
+  require(last_label_ == 0 || candidate.point.interval > 0 ||
+              admitted_policy_ == UnderflowPolicy::PauseWhenEmpty || candidate.point.wait_for_next,
+          ErrorCode::Protocol, "duplicate logical time point");
+  const auto interval =
+      last_label_ == 0 ? candidate.point.interval : std::max<Tick>(1, candidate.point.interval);
+  const auto due = checked_add(last_due_, interval);
+  const auto due_tick =
+      checked_add(checked_add(start_, paused_ticks_), checked_mul(due, profile_.tcu.period));
+  require(meets_deadline(now, due_tick, pause), ErrorCode::LateAdmission,
+          "request arrived on or after its original deadline");
+  bool space = timing_.size() < profile_.timing_capacity;
+  require(candidate.point.synchronizations.size() <= sync_capacity_, ErrorCode::Capacity,
+          "time point exceeds synchronization queue capacity");
+  space = space && candidate.point.synchronizations.size() <= sync_capacity_ - sync_size_;
+  std::vector<std::size_t> needed(profile_.ports, 0);
+  for (const auto &event : candidate.events)
+    ++needed[event.action.port];
+  for (std::size_t p = 0; p < events_.size(); ++p)
+    space = space && events_[p].size() + needed[p] <= profile_.event_capacity;
+  return space ? std::optional<Tick>{due} : std::nullopt;
+}
+void TcuCycleModel::commit_trigger(Tick now, Epoch epoch, Tick cycle, const Trigger &trigger) {
+  const auto &point = timing_.front().point;
+  triggered_policy_ = policy_after(point, triggered_policy_);
+  if (point.wait_for_next)
+    trace_.emit({now, epoch, "WaitZeroExecuted", 0, point.label, cycle});
+  const auto label = point.label;
+  sync_size_ -= point.synchronizations.size();
+  for (auto &queue : events_)
+    while (!queue.empty() && queue.front().label == label)
+      queue.pop_front();
+  timing_.pop_front();
+  trace_.emit({now, epoch, "TimingPointTriggered", 0, label, cycle});
+  for (const auto &event : trigger.cancelled) {
+    TraceEvent record{now, epoch, "ConditionCancelled", event.id, label, cycle};
+    record.port = event.action.port;
+    record.operation = event.action.operation();
+    record.targets = event.action.targets();
     trace_.emit(std::move(record));
   }
-  // Fast results received on this edge cannot affect a condition evaluated above.
+}
+void TcuCycleModel::commit_admission(Tick now, Epoch epoch, Tick cycle,
+                                     const TimingEvents &candidate, Tick due) {
+  admitted_policy_ = policy_after(candidate.point, admitted_policy_);
+  sync_size_ += candidate.point.synchronizations.size();
+  timing_.push_back({candidate.point, due});
+  for (const auto &event : candidate.events)
+    events_[event.action.port].push_back(event);
+  last_label_ = candidate.point.label;
+  last_due_ = due;
+  TraceEvent record{now, epoch, "TimingPointEnqueued", 0, last_label_, cycle};
+  record.value = timing_.size();
+  trace_.emit(std::move(record));
+}
+void TcuCycleModel::commit_fast_results(Tick now, Epoch epoch, Tick cycle,
+                                        const std::vector<Completion> &results,
+                                        ExecutionFlags next_flags, TcuOutput &output) {
+  execution_flags_ = std::move(next_flags);
   for (const auto &result : results) {
-    execution_flags_.commit(result, epoch);
     if (result.reference.epoch == epoch) {
       output.fast_delivered.push_back(result.reference);
       TraceEvent record{now, epoch, "ExecutionFlagsUpdated", result.reference.measurement,
@@ -138,18 +177,21 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
       trace_.emit(std::move(record));
     }
   }
-  if (timer_paused != paused_) {
-    TraceEvent event{now, epoch, timer_paused ? "TimerPaused" : "TimerResumed", 0, 0, cycle};
-    event.detail = paused && waiting ? "synchronization and instruction supply"
-                   : paused          ? "synchronization"
-                   : waiting         ? "instruction supply"
-                                     : "";
+}
+void TcuCycleModel::update_pause_state(Tick now, Epoch epoch, const TimingState &state,
+                                       Tick paused_ticks) {
+  if (state.pause.paused() != pause_.paused()) {
+    TraceEvent event{now, epoch, state.pause.paused() ? "TimerPaused" : "TimerResumed",
+                     0,   0,     state.cycle};
+    event.detail = state.pause.synchronization && state.pause.instruction_supply
+                       ? "synchronization and instruction supply"
+                   : state.pause.synchronization    ? "synchronization"
+                   : state.pause.instruction_supply ? "instruction supply"
+                                                    : "";
     trace_.emit(std::move(event));
   }
-  paused_ = timer_paused;
-  if (timer_paused)
-    paused_ticks_ = checked_add(paused_ticks_, profile_.tcu.period);
-  return output;
+  pause_ = state.pause;
+  paused_ticks_ = paused_ticks;
 }
 void TcuCycleModel::close(const EndOfStream &end) {
   require(!closed_ && end.last_label == last_label_, ErrorCode::Protocol,
@@ -169,9 +211,9 @@ void TcuCycleModel::reset(Tick epoch_origin) {
   last_due_ = 0;
   last_label_ = 0;
   closed_ = false;
-  accept_wait_ = false;
-  allow_underflow_ = false;
-  paused_ = false;
+  admitted_policy_ = UnderflowPolicy::Strict;
+  triggered_policy_ = UnderflowPolicy::Strict;
+  pause_ = {};
   paused_ticks_ = 0;
   sync_size_ = 0;
   const auto proposed = checked_add(epoch_origin, profile_.start);

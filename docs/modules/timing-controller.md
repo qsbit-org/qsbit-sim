@@ -36,6 +36,11 @@ The TCU checks the head's event IDs, evaluates conditions and validates
 selected events before removing anything from the queues. New results
 are committed after condition evaluation and become usable on later edges.
 
+`prepare_trigger()` and `prepare_admission()` validate work against the state
+at the start of the edge. `meets_deadline()` checks the admission deadline.
+`step()` validates incoming results and pause-duration arithmetic before
+committing queue changes, results and pause state.
+
 The timer continues through empty queues and CPU stalls unless an executed
 `wait 0` permits waiting for more work. In that case, the next empty-queue
 edge freezes the logical cycle; the edge after enqueue resumes it.
@@ -51,8 +56,9 @@ it also carries `wait 0`.
 | Local variable `cycle` | derived logical cycle | Calculated from current tick, epoch start, period and elapsed pauses. |
 | `timing_.front().due` | next due cycle | Selects the time point already queued when the edge begins. |
 | `closed_` | closure state | Input closed after validated EndOfStream; queues may still drain. |
-| `accept_wait_, allow_underflow_` | Zero-wait state | Track permission after the last admitted point and the last triggered point, respectively. |
-| `paused_` | Timer status | Records the combined synchronization and instruction-supply pause for trace transitions. |
+| `admitted_policy_` | `UnderflowPolicy` | Policy after the last admitted point; controls admission of subsequent zero intervals. |
+| `triggered_policy_` | `UnderflowPolicy` | Policy after the last triggered point; controls whether an empty queue pauses the timer. |
+| `pause_` | `PauseState` | Records instruction-supply and synchronization pauses separately; either pauses the timer. |
 
 [C++ API](../api.md#tcuhpp).
 
@@ -70,9 +76,11 @@ the timer. Reset clears its pending requests and the accumulated pause duration.
 
 Source: [tcu.cpp](../../src/tcu.cpp) and [tcu.hpp](../../include/qsbit/tcu.hpp).
 
-**CTest:** `control.empty`, `control.wait_zero`, `systemc.tcu_trace`.
+**CTest:** `control.empty`, `control.wait_zero`, `control.atomic`, `systemc.tcu_trace`.
 
 `control.empty` checks cumulative trigger ticks across empty gaps and
 late-enqueue rejection. `systemc.tcu_trace` checks completion and label output
-in a clocked harness. `control.wait_zero` checks delayed admission, overlapping
-pause reasons, return to strict deadlines, closure and reset.
+in a clocked harness. `control.wait_zero` checks admission before a zero wait
+triggers, delayed admission, overlapping pause reasons, return to strict
+deadlines, closure and reset. `control.atomic` checks that rejected requests
+and results leave queued work and execution flags unchanged.

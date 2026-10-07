@@ -47,6 +47,9 @@ public:
 
 private:
   bool enqueue(Tick now, Epoch epoch, ControlLinks &links);
+  std::optional<std::uint32_t> execute_zero_wait(Tick now, Epoch epoch, ControlLinks &links);
+  std::optional<std::uint32_t> advance_time(Tick interval, Tick now, Epoch epoch,
+                                            ControlLinks &links);
   std::optional<std::uint32_t> codeword(const ControlOperation &operation, Tick now, Epoch epoch);
   const Profile &profile_;
   MeasurementRegisters &measurement_registers_;
@@ -60,6 +63,6 @@ private:
   Tick time_point_ = 0, last_enqueued_time_ = 0;
   Id last_label_ = 0, next_event_ = 1;
   bool pending_point_ = false, enqueued_ = false, closed_ = false;
-  bool wait_zero_pending_ = false, allow_same_time_ = false;
+  bool pending_wait_for_next_ = false, allow_same_time_ = false;
 };
 } // namespace qsbit

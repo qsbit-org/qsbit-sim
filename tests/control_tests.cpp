@@ -57,6 +57,8 @@ void admission_test() {
 }
 void atomic_test() {
   auto p = profile();
+  p.timing_capacity = 2;
+  p.event_capacity = 2;
   Trace trace;
   TcuCycleModel tcu(p, trace);
   auto first = group(p, 1, 0, {0, 1});
@@ -77,6 +79,18 @@ void atomic_test() {
   auto late = group(p, 2, 0, {0});
   faults(ErrorCode::Protocol, [&] { (void)tcu.step(100, 1, &late, {}, ok); });
   CHECK(tcu.timing_size() == 1 && trace.events().size() == 1);
+  auto second = group(p, 2, 2, {0});
+  const Completion result{{1, 1, 0}, true};
+  const Completion invalid{{1, 2, p.qubits}, true};
+  faults(ErrorCode::InvalidMeasurement,
+         [&] { (void)tcu.step(100, 1, &second, {result, invalid}, ok); });
+  CHECK(tcu.timing_size() == 1 && tcu.port_size(0) == 1 && tcu.port_size(1) == 1);
+  CHECK(tcu.last_label() == 1 && trace.events().size() == 1);
+  CHECK(!tcu.execution_flags().evaluate(0, ExecutionFlag::LastOne));
+  const auto out = tcu.step(100, 1, &second, {result}, ok);
+  CHECK(out.launch && out.launch->events.size() == 2 && out.admitted);
+  CHECK(out.fast_delivered.size() == 1);
+  CHECK(tcu.step(140, 1, nullptr, {}, ok).launch->label == 2);
 }
 void empty_test() {
   auto p = profile();

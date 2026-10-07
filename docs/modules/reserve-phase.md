@@ -38,6 +38,9 @@ current point with permission to wait for subsequent queue entries and opens
 a new point without adding a requested interval. The TCU separates consecutive
 zero-interval points by one logical cycle.
 
+`execute()` dispatches zero waits to `execute_zero_wait()` and positive waits
+to `advance_time()`. Both retain the pending request until acknowledgment.
+
 For example, two `cw` instructions at cycle 4 followed by `wait.i 3`
 enqueue both events for cycle 4. The current time point becomes 7 after
 acknowledgment. The TCU timer continues independently.
@@ -58,7 +61,7 @@ are added. See [instruction completion](../module-architecture.md#reserve-phase-
 | --- | --- | --- |
 | `time_point_, last_enqueued_time_` | Accumulated wait intervals | Their difference is the next requested interval; the TCU resolves the due cycle. |
 | `pending_events_, pending_point_, enqueued_` | Pending events and status | Retain events and track whether more may be added at this time point. |
-| `wait_zero_pending_, allow_same_time_` | Zero-wait status | Retain a zero wait across enqueue retries and permit subsequent codewords without a positive interval. |
+| `pending_wait_for_next_, allow_same_time_` | Zero-wait status | Retain a zero wait across enqueue retries and permit subsequent codewords without a positive interval. |
 | `enqueue_request_` | Optional TimingEvents | Fixed request awaiting acknowledgment. |
 | `held_` | Optional ControlOperation | Retains the blocked instruction and operands. |
 | `last_label_, next_event_, closed_` | Identifiers and status | Allocate timing labels and event IDs and record completion. |
