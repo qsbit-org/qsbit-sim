@@ -60,6 +60,8 @@ struct TimingHarness : sc_module {
       for (auto interval : intervals) {
         TimingEvents group;
         group.point = {1, ++label, interval, {}};
+        group.point.underflow_policy =
+            interval > 0 ? UnderflowPolicy::Strict : UnderflowPolicy::Inherit;
         group.configuration = profile.fingerprint();
         requests.publish(sc_time_stamp().value(), 1, group);
         do {

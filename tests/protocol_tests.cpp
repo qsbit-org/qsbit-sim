@@ -40,7 +40,7 @@ void timing_test() {
   CHECK(control.time_point() == 11);
   auto final = links.timing_events.take(40);
   CHECK(final && final->value.events.empty() && final->value.point.interval == 3);
-  CHECK(final->value.point.wait_for_next);
+  CHECK(final->value.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty);
   links.replies.publish(40, 1, {2});
   control.receive(45, 1, links);
   CHECK(control.execute({6, ControlKind::Wait, 0}, 45, 1, links) == 0);

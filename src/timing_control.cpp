@@ -90,7 +90,9 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   request.point = {epoch, checked_add(last_label_, 1), time_point_ - last_enqueued_time_, {}};
   request.events = pending_events_;
   request.point.synchronizations = pending_sync_;
-  request.point.wait_for_next = pending_wait_for_next_;
+  request.point.underflow_policy = pending_wait_for_next_       ? UnderflowPolicy::PauseWhenEmpty
+                                   : request.point.interval > 0 ? UnderflowPolicy::Strict
+                                                                : UnderflowPolicy::Inherit;
   request.configuration = profile_.fingerprint();
   for (auto &event : request.events) {
     event.label = request.point.label;

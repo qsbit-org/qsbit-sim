@@ -11,12 +11,16 @@ int main() {
     p.start = 100;
     p.timing_capacity = 1;
     const auto ok = [](const TriggeredEvents &) {};
+    for (auto policy : {UnderflowPolicy::Inherit, static_cast<UnderflowPolicy>(99)}) {
+      TimingEvents invalid{{1, 1, 1, {}, {}, policy}, {}, p.fingerprint()};
+      faults(ErrorCode::Protocol, [&] { validate_timing_events(invalid, p); });
+    }
     for (bool synchronization : {false, true}) {
       Trace trace;
       TcuCycleModel tcu(p, trace);
-      TimingEvents zero{{1, 1, 0, {}, {}, true}, {}, p.fingerprint()};
+      TimingEvents zero{{1, 1, 0, {}, {}, UnderflowPolicy::PauseWhenEmpty}, {}, p.fingerprint()};
       TimingEvents first{{1, 2, 0, {}}, {}, p.fingerprint()};
-      TimingEvents next{{1, 3, 2, {}}, {}, p.fingerprint()};
+      TimingEvents next{{1, 3, 2, {}, {}, UnderflowPolicy::Strict}, {}, p.fingerprint()};
       CHECK(tcu.step(20, 1, &zero, {}, ok).admitted);
       CHECK(!tcu.step(40, 1, &first, {}, ok).admitted);
       CHECK(tcu.step(100, 1, nullptr, {}, ok).launch);
@@ -30,7 +34,7 @@ int main() {
       CHECK(tcu.step(resume + 20, 1, &next, {}, ok).admitted);
       CHECK(!tcu.step(resume + 40, 1, nullptr, {}, ok).launch);
       CHECK(tcu.step(resume + 60, 1, nullptr, {}, ok).launch);
-      TimingEvents late{{1, 4, 1, {}}, {}, p.fingerprint()};
+      TimingEvents late{{1, 4, 1, {}, {}, UnderflowPolicy::Strict}, {}, p.fingerprint()};
       faults(ErrorCode::LateAdmission, [&] { (void)tcu.step(resume + 80, 1, &late, {}, ok); });
       CHECK(std::count_if(trace.events().begin(), trace.events().end(),
                           [](const auto &e) { return e.kind == "TimerPaused"; }) == 2);
@@ -53,8 +57,18 @@ int main() {
     for (bool zero_first : {false, true}) {
       Trace trace;
       TcuCycleModel tcu(p, trace);
-      TimingEvents first{{1, 1, 0, {}, {}, zero_first}, {}, p.fingerprint()};
-      TimingEvents second{{1, 2, 2, {}, {}, !zero_first}, {}, p.fingerprint()};
+      TimingEvents first{{1,
+                          1,
+                          0,
+                          {},
+                          {},
+                          zero_first ? UnderflowPolicy::PauseWhenEmpty : UnderflowPolicy::Inherit},
+                         {},
+                         p.fingerprint()};
+      TimingEvents second{
+          {1, 2, 2, {}, {}, zero_first ? UnderflowPolicy::Strict : UnderflowPolicy::PauseWhenEmpty},
+          {},
+          p.fingerprint()};
       TimingEvents third{{1, 3, 0, {}}, {}, p.fingerprint()};
       CHECK(tcu.step(20, 1, &first, {}, ok).admitted);
       CHECK(tcu.step(40, 1, &second, {}, ok).admitted);
@@ -83,7 +97,8 @@ int main() {
     Trace trace;
     TcuCycleModel tcu(p, trace);
     for (Id label = 1; label <= 3; ++label) {
-      TimingEvents zero{{1, label, 0, {}, {}, true}, {}, p.fingerprint()};
+      TimingEvents zero{
+          {1, label, 0, {}, {}, UnderflowPolicy::PauseWhenEmpty}, {}, p.fingerprint()};
       CHECK(tcu.step(label * 20, 1, &zero, {}, ok).admitted);
     }
     tcu.close({3});

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "qsbit/control.hpp"
+#include "qsbit/control_protocol.hpp"
 #include "qsbit/feedback.hpp"
 #include "qsbit/isa.hpp"
 #include "qsbit/mailbox.hpp"

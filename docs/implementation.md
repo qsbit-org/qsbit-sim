@@ -95,6 +95,12 @@ It completes on local acceptance. `wait`, `fmr` and the exit ECALL
 enqueue pending events; only one request can await a reply.
 `wait 0` marks its time point to permit waiting for subsequent queue entries.
 
+`profile.hpp` defines device events and configuration. `control_protocol.hpp`
+defines the records exchanged with the TCU. Each timing point carries an
+`UnderflowPolicy`: `Inherit` retains the previous policy, `Strict` restores
+strict deadlines, and `PauseWhenEmpty` permits an empty queue to pause the timer.
+Timing control assigns an explicit policy to every positive-interval point.
+
 TCU enqueue inserts the time point and all event members together.
 It checks capacity before triggering removes any old entries. The timer selects
 due time points using cumulative intervals. After `wait 0` triggers, an empty

@@ -1,5 +1,5 @@
 #pragma once
-#include "qsbit/control.hpp"
+#include "qsbit/profile.hpp"
 
 namespace qsbit {
 [[nodiscard]] Profile default_profile();

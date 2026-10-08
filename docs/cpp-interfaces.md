@@ -85,7 +85,6 @@ public:
   [[nodiscard]] const ExecutionFlags &execution_flags() const { return execution_flags_; }
 
 private:
-  enum class UnderflowPolicy { Strict, PauseWhenEmpty };
   struct PauseState {
     bool instruction_supply = false;
     bool synchronization = false;
@@ -149,9 +148,9 @@ are computed from the event list.
 label, with zero for an empty stream. Mailbox envelopes supply epoch and
 visibility timing; each core has one control stream.
 
-Source: [include/qsbit/control.hpp](../include/qsbit/control.hpp).
+Source: [include/qsbit/control_protocol.hpp](../include/qsbit/control_protocol.hpp).
 
-<!-- source: {"path": "include/qsbit/control.hpp", "start": "struct MeasurementReference {", "end": "struct ScheduledEvent {"} -->
+<!-- source: {"path": "include/qsbit/control_protocol.hpp", "start": "struct MeasurementReference {", "end": "struct ScheduledEvent {"} -->
 ```cpp
 struct MeasurementReference {
   Epoch epoch = 0;
@@ -173,7 +172,7 @@ struct TimingPoint {
   Tick interval = 0;
   std::vector<Id> manifest;
   std::vector<std::uint32_t> synchronizations = {};
-  bool wait_for_next = false;
+  UnderflowPolicy underflow_policy = UnderflowPolicy::Inherit;
 };
 // One enqueue request: a timing point and its associated operation events.
 struct TimingEvents {

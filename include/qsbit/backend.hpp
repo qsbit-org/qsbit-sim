@@ -1,6 +1,6 @@
 #pragma once
 
-#include "qsbit/control.hpp"
+#include "qsbit/control_protocol.hpp"
 #include <complex>
 #include <span>
 #include <vector>

@@ -59,7 +59,7 @@ See [waveform configuration](../qutip.md#waveforms).
 | `Mapping::actions` | `vector<EventSpec>` | IdealGate, Pulse, Acquire, DiscriminatorArm or GateOutput descriptors. |
 | `EventSpec` | port and timing with a typed payload | Holds one of `GateSpec`, `PulseSpec`, `AcquireSpec`, `ArmSpec` or `GateOutputSpec`. |
 
-[C++ API](../api.md#controlhpp).
+[C++ API](../api.md#profilehpp).
 
 ## Reset and errors
 
@@ -72,7 +72,7 @@ simulator to change these definitions.
 
 ## Implementation and tests
 
-Source: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
+Source: [profile.cpp](../../src/profile.cpp) and [profile.hpp](../../include/qsbit/profile.hpp).
 
 **CTest:** `config.profile`, `control.mapping`, `protocol.readout`.
 

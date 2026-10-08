@@ -50,7 +50,7 @@ queue insertion. Device validation checks acquisition and arm pairing.
 | `OperationEvent` | output values | Resolved event plus epoch, event and instruction IDs and optional measurement references. |
 | `TimingEvents` | timing control-owned aggregate | Time point, ordered manifest, events and profile fingerprint. |
 
-[C++ API](../api.md#controlhpp).
+[C++ API](../api.md#control_protocolhpp).
 
 ## Reset and errors
 
@@ -63,7 +63,7 @@ One codeword expands into events at one time point.
 
 ## Implementation and tests
 
-Source: [control.cpp](../../src/control.cpp) and [control.hpp](../../include/qsbit/control.hpp).
+Source: [control_protocol.cpp](../../src/control_protocol.cpp) and [control_protocol.hpp](../../include/qsbit/control_protocol.hpp).
 
 **CTest:** `control.mapping`, `protocol.capacity`.
 

@@ -9,11 +9,17 @@ The headers below define the simulator's public interfaces. See
 
 Quantum backend operations and the mock implementation. [Open header](../include/qsbit/backend.hpp).
 
-(control_8hpp)=
-## control.hpp
+(profile_8hpp)=
+## profile.hpp
 
-Configuration and control-protocol value types: profiles, mappings, timing-point
-records, events and measurement references. [Open header](../include/qsbit/control.hpp).
+Profiles, event specifications, codeword mappings and paired two-qubit gates.
+[Open header](../include/qsbit/profile.hpp).
+
+(control__protocol_8hpp)=
+## control_protocol.hpp
+
+Timing-point requests, underflow policies, events, measurement references and
+completion records. [Open header](../include/qsbit/control_protocol.hpp).
 
 (cpu_8hpp)=
 ## cpu.hpp

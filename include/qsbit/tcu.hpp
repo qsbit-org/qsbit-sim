@@ -1,6 +1,6 @@
 #pragma once
 
-#include "qsbit/control.hpp"
+#include "qsbit/control_protocol.hpp"
 #include "qsbit/feedback.hpp"
 #include "qsbit/trace.hpp"
 #include <deque>
@@ -32,7 +32,6 @@ public:
   [[nodiscard]] const ExecutionFlags &execution_flags() const { return execution_flags_; }
 
 private:
-  enum class UnderflowPolicy { Strict, PauseWhenEmpty };
   struct PauseState {
     bool instruction_supply = false;
     bool synchronization = false;

@@ -28,6 +28,7 @@ TimingEvents group(const Profile &p, Id label, Tick interval,
                    std::initializer_list<std::uint32_t> ports) {
   TimingEvents g;
   g.point = {1, label, interval, {}};
+  g.point.underflow_policy = interval > 0 ? UnderflowPolicy::Strict : UnderflowPolicy::Inherit;
   g.configuration = p.fingerprint();
   for (auto port : ports) {
     auto e = decode_codeword(p, port, 1, 1, label, label * 100 + port).front();

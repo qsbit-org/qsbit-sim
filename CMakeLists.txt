@@ -54,7 +54,7 @@ endif()
 
 # No SystemC or Python dependency is attached to the pure transition library.
 add_library(qsbit_core STATIC src/error.cpp src/isa.cpp src/image.cpp src/memory.cpp src/decoder.cpp
-  src/control.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/timing_control.cpp src/cpu/rv32.cpp
+  src/profile.cpp src/control_protocol.cpp src/trace.cpp src/feedback.cpp src/tcu.cpp src/timing_control.cpp src/cpu/rv32.cpp
   src/backend.cpp src/device.cpp src/defaults.cpp src/cpu/vliw.cpp src/core.cpp src/sync.cpp)
 target_include_directories(qsbit_core PUBLIC include)
 target_link_libraries(qsbit_core PUBLIC qsbit_warnings)

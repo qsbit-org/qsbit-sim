@@ -37,13 +37,8 @@ TcuOutput TcuCycleModel::step(Tick now, Epoch epoch, const TimingEvents *candida
   update_pause_state(now, epoch, state, next_paused_ticks);
   return output;
 }
-TcuCycleModel::UnderflowPolicy TcuCycleModel::policy_after(const TimingPoint &point,
-                                                           UnderflowPolicy previous) {
-  if (point.wait_for_next)
-    return UnderflowPolicy::PauseWhenEmpty;
-  if (point.interval > 0)
-    return UnderflowPolicy::Strict;
-  return previous;
+UnderflowPolicy TcuCycleModel::policy_after(const TimingPoint &point, UnderflowPolicy previous) {
+  return point.underflow_policy == UnderflowPolicy::Inherit ? previous : point.underflow_policy;
 }
 TcuCycleModel::TimingState TcuCycleModel::current_timing_state(Tick now,
                                                                bool synchronization_paused) const {
@@ -110,7 +105,8 @@ std::optional<Tick> TcuCycleModel::prepare_admission(Tick now, Epoch epoch,
   require(candidate.point.epoch == epoch && candidate.point.label == checked_add(last_label_, 1),
           ErrorCode::Protocol, "request identity is stale, repeated or out of order");
   require(last_label_ == 0 || candidate.point.interval > 0 ||
-              admitted_policy_ == UnderflowPolicy::PauseWhenEmpty || candidate.point.wait_for_next,
+              admitted_policy_ == UnderflowPolicy::PauseWhenEmpty ||
+              candidate.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty,
           ErrorCode::Protocol, "duplicate logical time point");
   const auto interval =
       last_label_ == 0 ? candidate.point.interval : std::max<Tick>(1, candidate.point.interval);
@@ -133,7 +129,7 @@ std::optional<Tick> TcuCycleModel::prepare_admission(Tick now, Epoch epoch,
 void TcuCycleModel::commit_trigger(Tick now, Epoch epoch, Tick cycle, const Trigger &trigger) {
   const auto &point = timing_.front().point;
   triggered_policy_ = policy_after(point, triggered_policy_);
-  if (point.wait_for_next)
+  if (point.underflow_policy == UnderflowPolicy::PauseWhenEmpty)
     trace_.emit({now, epoch, "WaitZeroExecuted", 0, point.label, cycle});
   const auto label = point.label;
   sync_size_ -= point.synchronizations.size();
