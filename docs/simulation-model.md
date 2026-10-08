@@ -106,6 +106,10 @@ queues, device events, memory requests and enabled result deliveries have
 completed, and the decoder system and synchronization connections have drained.
 A fault or watchdog expiry stops the run with failure.
 
+If a core closes its instruction stream while its timer is paused and all
+remaining work has drained, simulation can complete on that edge without a
+`TimerResumed` event. Completion does not require another TCU edge.
+
 Session reset starts a new epoch and resets all cores, `SyncNetwork`,
 `DecoderSystem`, the device and the backend, while preserving memory and
 profiles. Simulation time continues.

@@ -209,6 +209,25 @@ s, e = run(feedback_wait, "reset-paused", args=["--reset", "2000"])
 assert kinds(e, "TimerPaused")[0]["tick"] < 2000
 assert len([x for x in kinds(e, "OperationStart") if x["epoch"] == 2]) == 3
 
+close_paused = compile_case(
+    "close_paused",
+    """wait.i 0
+li t0, 200
+compute:
+addi t0, t0, -1
+bne t0, x0, compute
+sim_exit""",
+)
+s, e = run(close_paused)
+pause = kinds(e, "TimerPaused")
+closure = kinds(e, "EndOfStreamVisible")
+completed = kinds(e, "SimulationCompleted")
+assert len(pause) == len(closure) == len(completed) == 1
+assert pause[0]["tick"] < closure[0]["tick"] == completed[0]["tick"] == s["stop_tick"]
+assert not kinds(e, "TimerResumed") and not kinds(e, "OperationStart")
+reverse, re = run(close_paused, "reverse", args=["--reverse-registration"])
+assert s == reverse and e == re
+
 for cpu, tcu in [(7, 20), (5, 13), (11, 17)]:
     profile = {
         "cpu": {"period": cpu, "phase": 2},
