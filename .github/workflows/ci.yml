@@ -105,7 +105,7 @@ jobs:
             bridge: 'ON'
             aer: 'OFF'
             qutip: 'OFF'
-            extras: '--extra stim'
+            extras: '--extra qec'
             sanitizers: 'OFF'
     name: ${{ matrix.name }}
     steps:
@@ -121,6 +121,7 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
       - name: Provision architecture tests
+        if: matrix.name == 'core-sanitizers' || matrix.name == 'bridge-only'
         run: |
           git init build/riscv-arch-test
           git -C build/riscv-arch-test fetch --depth 1 https://github.com/riscv/riscv-arch-test.git 37e6e0022814d880375e4a310b4a9a10fb9b268a
@@ -146,9 +147,10 @@ jobs:
             -DQSBIT_TEST_AER=${{ matrix.aer }} \
             -DQSBIT_TEST_QUTIP=${{ matrix.qutip }} \
             -DQSBIT_TEST_STIM=${{ matrix.name == 'stim' && 'ON' || 'OFF' }} \
+            -DQSBIT_TEST_QEC=${{ matrix.name == 'stim' && 'ON' || 'OFF' }} \
             -DQSBIT_TEST_EXPERIMENTS=${{ matrix.name == 'aer' && 'ON' || 'OFF' }} \
-            -DQSBIT_ISA_REFERENCES=ON \
-            -DQSBIT_ARCH_TEST_SOURCE="$PWD/build/riscv-arch-test"
+            -DQSBIT_ISA_REFERENCES=${{ (matrix.name == 'core-sanitizers' || matrix.name == 'bridge-only') && 'ON' || 'OFF' }} \
+            -DQSBIT_ARCH_TEST_SOURCE="${{ (matrix.name == 'core-sanitizers' || matrix.name == 'bridge-only') && format('{0}/build/riscv-arch-test', github.workspace) || '' }}"
       - name: Check Stim dependency isolation
         if: matrix.name == 'stim'
         run: python -c "import importlib.util; import stim; assert importlib.util.find_spec('qiskit_aer') is None"
@@ -157,13 +159,6 @@ jobs:
         run: python -c "import importlib.util; import qutip; assert importlib.util.find_spec('qiskit_aer') is None"
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel 2
-      - name: Run mock example
-        env:
-          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
-          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: |
-          ./${{ matrix.build_dir }}/qsbit-sim --config ${{ matrix.build_dir }}/examples/measurement-feedback/mock.json
-          python -c "import json; from pathlib import Path; result = json.loads(Path('${{ matrix.build_dir }}/examples/measurement-feedback/mock-results.json').read_text()); assert result['success'] and result['memory']['4096'] == 1"
       - name: Test
         env:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
@@ -245,7 +240,7 @@ jobs:
             -DBUILD_TESTING=ON -DQSBIT_TEST_WEBSITE=ON
           cmake --build --preset gcc-ninja --parallel 2
       - name: Verify documentation and browser behavior
-        run: ctest --test-dir build-gcc -L 'fast|website' --output-on-failure
+        run: ctest --test-dir build-gcc -L 'documentation|website' --no-tests=error --output-on-failure
       - name: Preserve local website and browser captures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

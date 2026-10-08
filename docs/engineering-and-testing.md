@@ -159,6 +159,9 @@ The [CI workflow](../.github/workflows/ci.yml) runs a core sanitizer build, a
 bridge-only build, Aer tests, Stim tests, QuTiP tests and documentation checks. It checks
 formatting and optional-dependency isolation and preserves diagnostic artifacts.
 Compiler warnings are errors.
+Independent ISA references run in the Clang sanitizer and GCC bridge jobs.
+The Stim job enables `QSBIT_TEST_QEC` and runs `decoder.pymatching` through CTest.
+The documentation job runs the `documentation` and `website` test labels.
 
 Use the [sanitizer build](building.md#sanitizers) to check address and
 undefined-behavior errors. For line and branch coverage, use a separate build:

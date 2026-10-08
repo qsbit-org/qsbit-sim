@@ -56,10 +56,9 @@ jobs:
       - name: Test measurement results, Bell states and decoder feedback
         working-directory: qsbit-compiler
         run: ctest --preset clang-ninja --no-tests=error -R '^integration\.(mock|aer|qec)$'
-      - name: Validate decoder configuration and surface-code example
+      - name: Validate surface-code memory example
         working-directory: qsbit-sim
         run: |
-          python tests/decoding.py
           python examples/qec/run.py --compiler ../qsbit-compiler/build-clang/qsbitc \
             --sim build-clang/qsbit-sim --output build-clang/qec --shots 2
       - name: Upload test logs
