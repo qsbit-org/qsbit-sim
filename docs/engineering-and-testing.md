@@ -59,6 +59,7 @@ hooks on all tracked files and runs the complete configured CTest suites.
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
 | `config.profile` | Profile JSON round trips, typed event fields and invalid configurations. |
+| `config.run` | Run-file fields, relative paths, ordered CLI overrides and invalid configurations without SystemC. |
 | `cpu.vliw` | Dual-codeword operand modes, reserved encodings, blocked-operation progress and reset. |
 | `cpu.trace` | End-of-edge pipeline snapshots, stalls, branch flushes, reset and core identity. |
 | `backend.execution` | Batch limits, operation order, measurement boundaries, inspection, reset and failures. |

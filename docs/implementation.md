@@ -19,7 +19,8 @@ Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 | --- | --- | --- |
 | `qsbit_core` | ISA, memory, CPU models, Core, TCU, synchronization, feedback and devices. | C++20; no SystemC or Python link dependency. |
 | `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Core and SystemC. |
-| `qsbit_config` | JSON run and profile parsing. | Core and the configured JSON library. |
+| `qsbit_config` | Profile JSON parsing and serialization. | Core and the configured JSON library. |
+| `qsbit_app` | Run-file and CLI parsing, program loading and core configuration. | Core and profile JSON support; no SystemC or Python link dependency. |
 | `qsbit_python` | Calls to optional Python backend adapters. | Python development headers and library, plus pybind11; built only when enabled. |
 
 The [module reference](modules/README.md) maps logical responsibilities to their
