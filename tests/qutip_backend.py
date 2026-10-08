@@ -66,6 +66,31 @@ def pulse(start=0, end=20, **kwargs):
 
 
 class Dynamics(unittest.TestCase):
+    def test_measurement_records_restart_after_reset(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "measurements.jsonl"
+            backend = QutipBackend(dict(model(), measurements=str(path)))
+            for epoch in (1, 2):
+                previous = path.read_text() if path.exists() else None
+                backend.reset(1, 1)
+                self.assertEqual(path.read_text() if path.exists() else None, previous)
+                for measurement in (1, 2):
+                    backend.execute(
+                        epoch,
+                        [
+                            dict(
+                                kind="measure",
+                                tick=measurement,
+                                references=[dict(epoch=epoch, measurement=measurement, target=0)],
+                            )
+                        ],
+                    )
+                    records = [json.loads(line) for line in path.read_text().splitlines()]
+                    self.assertEqual(
+                        [r["measurement"] for r in records], list(range(1, measurement + 1))
+                    )
+                    self.assertTrue(all(r["epoch"] == epoch for r in records))
+
     def test_gaussian_and_drag_partition_preserves_envelope_origin(self):
         for shape in ("gaussian", "drag"):
             config = model()
@@ -290,6 +315,22 @@ class Dynamics(unittest.TestCase):
             )
             path = directory / "run.json"
             path.write_text(json.dumps(run))
+            diagnostics = Path(config["measurements"])
+            for existing in (False, True):
+                if existing:
+                    diagnostics.write_text("previous measurement records\n")
+                checked = subprocess.run(
+                    [str(args.simulator.resolve()), "--config", str(path), "--check-config"],
+                    capture_output=True,
+                    text=True,
+                    timeout=45,
+                )
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                self.assertEqual(diagnostics.exists(), existing)
+                if existing:
+                    self.assertEqual(diagnostics.read_text(), "previous measurement records\n")
+                self.assertFalse((directory / "summary.json").exists())
+                self.assertFalse((directory / "trace.jsonl").exists())
             result = subprocess.run(
                 [str(args.simulator.resolve()), "--config", str(path)],
                 capture_output=True,

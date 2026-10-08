@@ -87,8 +87,7 @@ class QutipBackend:
             [qt.Qobj(np.diag(item["initial_populations"])) for item in reversed(self.subsystems)]
         )
         self.acquisitions = {}
-        if self.diagnostics:
-            Path(self.diagnostics).write_text("", encoding="utf-8")
+        self.diagnostics_started = False
 
     def validate(self, action):
         targets = action["targets"]
@@ -232,8 +231,10 @@ class QutipBackend:
                     value=value,
                     **readout,
                 )
-                with Path(self.diagnostics).open("a", encoding="utf-8") as output:
+                mode = "a" if self.diagnostics_started else "w"
+                with Path(self.diagnostics).open(mode, encoding="utf-8") as output:
                     output.write(json.dumps(record) + "\n")
+                self.diagnostics_started = True
         return values
 
     def execute(self, epoch, operations):
