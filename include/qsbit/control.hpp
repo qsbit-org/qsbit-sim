@@ -50,7 +50,7 @@ struct EventSpec {
   std::variant<GateSpec, PulseSpec, AcquireSpec, ArmSpec, GateOutputSpec> spec = GateSpec{};
   template <typename T> T &get() { return std::get<T>(spec); }
   template <typename T> const T &get() const { return std::get<T>(spec); }
-  [[nodiscard]] ActionKind kind() const { return static_cast<ActionKind>(spec.index()); }
+  [[nodiscard]] ActionKind kind() const;
   [[nodiscard]] const std::vector<std::uint32_t> &targets() const;
   [[nodiscard]] const std::vector<ResourceUse> &resources() const;
   [[nodiscard]] std::string operation() const;

@@ -40,6 +40,17 @@ void configuration() {
 }
 
 void event_fields() {
+  EventSpec event;
+  event.spec = GateSpec{};
+  CHECK(event.kind() == ActionKind::IdealGate);
+  event.spec = PulseSpec{};
+  CHECK(event.kind() == ActionKind::Pulse);
+  event.spec = AcquireSpec{};
+  CHECK(event.kind() == ActionKind::Acquire);
+  event.spec = ArmSpec{};
+  CHECK(event.kind() == ActionKind::DiscriminatorArm);
+  event.spec = GateOutputSpec{};
+  CHECK(event.kind() == ActionKind::GateOutput);
   auto profile = default_profile();
   auto &mapping =
       *std::find_if(profile.mappings.begin(), profile.mappings.end(),
