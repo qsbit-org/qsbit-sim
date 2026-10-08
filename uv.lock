@@ -2085,21 +2085,6 @@ aer = [
     { name = "qiskit" },
     { name = "qiskit-aer" },
 ]
-dev = [
-    { name = "clang-format" },
-    { name = "pre-commit" },
-    { name = "ruff" },
-]
-docs = [
-    { name = "breathe" },
-    { name = "furo" },
-    { name = "myst-parser" },
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-]
-docs-test = [
-    { name = "playwright" },
-]
 experiments = [
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2134,48 +2119,69 @@ qutip = [
 stim = [
     { name = "stim" },
 ]
-verification = [
-    { name = "pyelftools" },
-    { name = "unicorn" },
-]
 
 [package.dev-dependencies]
 build = [
     { name = "conan" },
 ]
+dev = [
+    { name = "clang-format" },
+    { name = "pre-commit" },
+    { name = "ruff" },
+]
+docs = [
+    { name = "breathe" },
+    { name = "furo" },
+    { name = "myst-parser" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+docs-test = [
+    { name = "playwright" },
+]
+verification = [
+    { name = "pyelftools" },
+    { name = "unicorn" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "breathe", marker = "extra == 'docs'", specifier = ">=4.36,<5" },
-    { name = "clang-format", marker = "extra == 'dev'", specifier = "==18.1.8" },
-    { name = "furo", marker = "extra == 'docs'", specifier = ">=2024.8,<2026" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "matplotlib", marker = "extra == 'plots'", specifier = ">=3.9,<4" },
-    { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=4,<5" },
     { name = "numpy", marker = "extra == 'aer'", specifier = ">=1.26,<3" },
     { name = "numpy", marker = "extra == 'qec'", specifier = ">=1.26,<3" },
     { name = "numpy", marker = "extra == 'qutip'", specifier = ">=1.26,<3" },
-    { name = "playwright", marker = "extra == 'docs-test'", specifier = ">=1.51,<2" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4,<5" },
     { name = "pybind11", specifier = ">=3.0,<4" },
     { name = "pyelftools", marker = "extra == 'experiments'", specifier = "==0.32" },
-    { name = "pyelftools", marker = "extra == 'verification'", specifier = "==0.32" },
     { name = "pymatching", marker = "extra == 'qec'", specifier = ">=2.3,<3" },
     { name = "qiskit", marker = "extra == 'aer'", specifier = ">=2.1,<3" },
     { name = "qiskit-aer", marker = "extra == 'aer'", specifier = ">=0.17,<0.18" },
     { name = "qsbit-sim-backends", extras = ["aer", "plots"], marker = "extra == 'experiments'" },
     { name = "qutip", marker = "extra == 'qutip'", specifier = ">=5.2,<6" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.10" },
     { name = "scipy", marker = "extra == 'qutip'", specifier = ">=1.11,<2" },
-    { name = "sphinx", marker = "extra == 'docs'", specifier = ">=8.1,<9" },
     { name = "stim", marker = "extra == 'qec'", specifier = ">=1.15,<2" },
     { name = "stim", marker = "extra == 'stim'", specifier = ">=1.15,<2" },
-    { name = "unicorn", marker = "extra == 'verification'", specifier = "==2.1.4" },
 ]
-provides-extras = ["aer", "qutip", "stim", "qec", "plots", "experiments", "verification", "dev", "docs", "docs-test"]
+provides-extras = ["aer", "qutip", "stim", "qec", "plots", "experiments"]
 
 [package.metadata.requires-dev]
 build = [{ name = "conan", specifier = "==2.32.0" }]
+dev = [
+    { name = "clang-format", specifier = "==18.1.8" },
+    { name = "pre-commit", specifier = ">=4,<5" },
+    { name = "ruff", specifier = "==0.16.10" },
+]
+docs = [
+    { name = "breathe", specifier = ">=4.36,<5" },
+    { name = "furo", specifier = ">=2024.8,<2026" },
+    { name = "myst-parser", specifier = ">=4,<5" },
+    { name = "sphinx", specifier = ">=8.1,<9" },
+]
+docs-test = [{ name = "playwright", specifier = ">=1.51,<2" }]
+verification = [
+    { name = "pyelftools", specifier = "==0.32" },
+    { name = "unicorn", specifier = "==2.1.4" },
+]
 
 [[package]]
 name = "qutip"

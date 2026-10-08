@@ -29,7 +29,7 @@ Optional dependencies and build flags determine which tests are registered.
 Install the development tools and activate the local environment:
 
 ```sh
-uv sync --frozen --extra dev
+uv sync --frozen --group dev
 source .venv/bin/activate
 pre-commit install --install-hooks
 pre-commit run --all-files
@@ -39,7 +39,7 @@ The installation enables both `pre-commit` and `commit-msg` hooks. They check
 commit messages, C++ formatting, Python lint and formatting with Ruff,
 whitespace, merge markers, and YAML, JSON and
 TOML syntax. If a hook changes a file, review and stage the edit, then rerun
-the checks. With pip, install `.[dev]` into `.venv` instead of using uv.
+the checks. Development tools are defined in the `dev` dependency group.
 
 Build and run the fast suite before opening a pull request:
 

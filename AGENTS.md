@@ -44,7 +44,7 @@
 - Lead README with the shortest supported build and a runnable example. Put advanced options, backend contracts, and contributor workflows in linked documents.
 - Use ordinary CMake configure, build, and CTest commands. Keep custom provisioning scripts and machine-specific paths out of the normal user workflow.
 - Separate required build tools, test tools, and optional runtime backends. A default C++ build must not install or require Python quantum packages.
-- Use a local `.venv` for optional Python dependencies, created with Python venv or uv. Discover the user's interpreter; do not hard-code a Python minor version or temporary environment path.
+- Use a local `.venv` for optional Python dependencies, created with Python venv or uv. User commands must use the selected interpreter without hard-coded minor versions or temporary environment paths. CI may select explicit Python versions to test compatibility; dependency installation must use that selected interpreter.
 - Keep package requirements and compatibility constraints in dependency manifests, and reproducible resolutions in lock files. Link those files instead of duplicating dependency/version lists in prose.
 - Provide explicit opt-in installation for each backend. Import optional adapters lazily and allow external adapters through documented interfaces.
 - Keep examples copyable from a stated working directory, identify their output files and expected results, and verify them using the current build tree.

@@ -16,13 +16,12 @@ stim = ["stim>=1.15,<2"]
 qec = ["pymatching>=2.3,<3", "stim>=1.15,<2", "numpy>=1.26,<3"]
 plots = ["matplotlib>=3.9,<4"]
 experiments = ["qsbit-sim-backends[aer,plots]", "pyelftools==0.32"]
-verification = ["unicorn==2.1.4", "pyelftools==0.32"]
-dev = ["clang-format==18.1.8", "pre-commit>=4,<5", "ruff==0.16.10"]
-docs = ["sphinx>=8.1,<9", "myst-parser>=4,<5", "breathe>=4.36,<5", "furo>=2024.8,<2026"]
-docs-test = ["playwright>=1.51,<2"]
 
 [tool.setuptools.packages.find]
 where = ["python"]
+
+[tool.uv]
+default-groups = []
 
 [tool.ruff]
 target-version = "py310"
@@ -34,3 +33,7 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [dependency-groups]
 build = ["conan==2.32.0"]
+verification = ["unicorn==2.1.4", "pyelftools==0.32"]
+dev = ["clang-format==18.1.8", "pre-commit>=4,<5", "ruff==0.16.10"]
+docs = ["sphinx>=8.1,<9", "myst-parser>=4,<5", "breathe>=4.36,<5", "furo>=2024.8,<2026"]
+docs-test = ["playwright>=1.51,<2"]

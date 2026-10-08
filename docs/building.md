@@ -58,7 +58,7 @@ RISC-V binutils, but no numerical quantum packages. See the
 | `QSBIT_TEST_QEC` | OFF | Register PyMatching configuration tests for the `qec` extra. |
 | `QSBIT_TEST_EXPERIMENTS` | OFF | Register full execution and replay checks for the `experiments` extra. |
 | `QSBIT_TEST_WEBSITE` | OFF | Register strict website and browser tests; requires testing and the [website tools](website.md). |
-| `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests using the `verification` extra. |
+| `QSBIT_ISA_REFERENCES` | OFF | Register independent ISA tests using the `verification` dependency group. |
 | `QSBIT_ARCH_TEST_SOURCE` | empty | Select a pinned RISC-V architecture-test checkout. |
 | `QSBIT_SANITIZERS` | OFF | Enable address and undefined-behavior sanitizers. |
 | `QSBIT_COVERAGE` | OFF | Generate gcov coverage in a build separate from sanitizers. |
@@ -99,7 +99,7 @@ development headers and library for that interpreter.
 For a locked development environment with Aer, QuTiP and ISA tests:
 
 ```sh
-uv sync --frozen --extra aer --extra qutip --extra verification --extra dev
+uv sync --frozen --extra aer --extra qutip --group verification --group dev
 source .venv/bin/activate
 cmake --preset clang-ninja -B build-python \
   -DBUILD_TESTING=ON -DQSBIT_PYTHON_BACKENDS=ON \
@@ -108,10 +108,15 @@ cmake --build build-python --parallel
 ctest --test-dir build-python --output-on-failure
 ```
 
-For pip, create and activate `.venv`, then run
-`python -m pip install -e '.[aer,qutip,verification,dev]'`. pip resolves the ranges
-in [pyproject.toml](../pyproject.toml); uv uses [uv.lock](../uv.lock).
-Select only the extras your workflow needs.
+For a complete development environment with all backend extras and tool groups:
+
+```sh
+uv sync --frozen --all-extras --all-groups
+```
+
+Runtime backends and experiment dependencies are extras. Build, development,
+verification and documentation tools are dependency groups in
+[pyproject.toml](../pyproject.toml). uv installs the versions in [uv.lock](../uv.lock).
 
 ## Independent ISA tests
 

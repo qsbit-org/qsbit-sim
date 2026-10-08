@@ -16,15 +16,14 @@ From the repository root, create the documentation environment and build the
 example executables:
 
 ```sh
-uv sync --frozen --extra docs
+uv sync --frozen --group docs
 source .venv/bin/activate
 cmake --preset gcc-ninja -DBUILD_TESTING=ON
 cmake --build --preset gcc-ninja --parallel
 python -m sphinx -n -W --keep-going -b html -D qsbit_build=build-gcc docs out/documentation-preview/html
 ```
 
-For pip, create and activate `.venv`, then use
-`python -m pip install -e '.[docs]'`. Numerical backend packages are not needed.
+Numerical backend packages are not needed.
 Select another simulator build with `-D qsbit_build=BUILD_DIRECTORY`.
 
 Sphinx extracts declarations from the current headers and runs the compiled
@@ -72,7 +71,7 @@ the Markdown files continue to open local source files.
 ## Run website tests
 
 ```sh
-uv sync --frozen --extra docs --extra docs-test
+uv sync --frozen --group docs --group docs-test
 source .venv/bin/activate
 python -m playwright install chromium
 cmake --preset gcc-ninja \
