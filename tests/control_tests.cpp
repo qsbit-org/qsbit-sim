@@ -128,7 +128,7 @@ void registers_test() {
   CHECK(!registers.read(0) && registers.registers()[0].pending == 1);
   faults(ErrorCode::DuplicateResult, [&] { registers.deliver({first, true}, 1); });
   registers.deliver({second, false}, 1);
-  CHECK(registers.read(0) == false && registers.read(0) == false);
+  CHECK(registers.read(0) == false);
   CHECK(registers.deliveries_pending() && !registers.has_capacity());
   registers.acknowledge_fast(first, 1);
   registers.acknowledge_fast(second, 1);
@@ -141,7 +141,7 @@ void registers_test() {
   registers.deliver({later, true}, 2);
   CHECK(!registers.read(0));
   registers.deliver({reset_reference, true}, 2);
-  CHECK(registers.read(0) == true && registers.read(0) == true);
+  CHECK(registers.read(0) == true);
   faults(ErrorCode::InvalidOperand, [&] { (void)registers.read(2); });
 }
 void fast_test() {

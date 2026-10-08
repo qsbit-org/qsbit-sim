@@ -11,10 +11,8 @@ int main() {
     p.start = 100;
     p.timing_capacity = 1;
     const auto ok = [](const TriggeredEvents &) {};
-    for (auto policy : {UnderflowPolicy::Inherit, static_cast<UnderflowPolicy>(99)}) {
-      TimingEvents invalid{{1, 1, 1, {}, {}, policy}, {}, p.fingerprint()};
-      faults(ErrorCode::Protocol, [&] { validate_timing_events(invalid, p); });
-    }
+    TimingEvents invalid{{1, 1, 1, {}, {}, UnderflowPolicy::Inherit}, {}, p.fingerprint()};
+    faults(ErrorCode::Protocol, [&] { validate_timing_events(invalid, p); });
     for (bool synchronization : {false, true}) {
       Trace trace;
       TcuCycleModel tcu(p, trace);

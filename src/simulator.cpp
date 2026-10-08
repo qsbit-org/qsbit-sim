@@ -6,7 +6,8 @@
 namespace qsbit {
 namespace {
 Profile validated(const std::vector<CoreConfig> &cores, const std::vector<SyncConnection> &links) {
-  require(sc_core::sc_get_time_resolution().to_seconds() == 1e-9, ErrorCode::InvalidProfile,
+  const sc_core::sc_time_tuple resolution(sc_core::sc_get_time_resolution());
+  require(resolution.unit() == sc_core::SC_NS && resolution.value() == 1, ErrorCode::InvalidProfile,
           "SystemC time resolution must be 1 ns");
   require(!cores.empty(), ErrorCode::InvalidProfile, "at least one core is required");
   const auto &first = cores.front().profile;

@@ -114,8 +114,10 @@ the readout record. Quantum relaxation still acts through the acquisition interv
 before the final projective sample.
 
 `measurements` optionally names a JSONL diagnostics file, resolved from the process
-working directory. Reset clears the file. Each measurement records its tick,
-reference, pre-projection level probabilities, sampled level and returned bit.
+working directory. The first measurement after each reset creates or replaces
+the file; subsequent measurements append records. Configuration checks leave
+the file unchanged. Each measurement records its tick, reference,
+pre-projection level probabilities, sampled level and returned bit.
 Configured readout adds integrated IQ, bin-end timestamps and IQ samples.
 
 ## State output and reproducibility

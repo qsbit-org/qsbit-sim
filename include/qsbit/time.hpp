@@ -29,7 +29,7 @@ struct Clock {
   [[nodiscard]] bool edge(Tick t) const { return t >= phase && (t - phase) % period == 0; }
   [[nodiscard]] Tick after(Tick publication, std::uint32_t latency = 1) const {
     validate();
-    require(latency > 0, ErrorCode::InvalidProfile, "crossing latency must be positive");
+    require(latency > 0, ErrorCode::InvalidProfile, "receiver-edge latency must be positive");
     Tick first = phase;
     if (publication >= phase)
       first =
