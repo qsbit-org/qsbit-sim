@@ -153,7 +153,7 @@ def plot_issue(report, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", type=Path, default=Path("build-clang/eqasm/results.json"))
-    parser.add_argument("--output", type=Path, default=Path("examples/eqasm/figs"))
+    parser.add_argument("--output", type=Path, default=Path("build-clang/eqasm/figs"))
     args = parser.parse_args()
     report = json.loads(args.results.read_text())
     args.output.mkdir(parents=True, exist_ok=True)

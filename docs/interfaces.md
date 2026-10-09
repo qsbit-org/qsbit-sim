@@ -187,7 +187,7 @@ applied before inline `profile`. Unknown options and JSON keys are errors.
 
 | Exit status | Meaning |
 | --- | --- |
-| 0 | The run completed, or `--help` or `--dump-default-profile` succeeded. |
+| 0 | The run completed, or `--help`, `--dump-default-profile`, `--check-config`, `--list-backends`, `--help-backend`, `--backend-schema` or `--generate-config` succeeded. |
 | 1 | A fault occurred during simulation. |
 | 2 | Input, configuration or construction failed. |
 
@@ -442,3 +442,10 @@ registers and statevector entries as `[real, imaginary]` pairs.
 Backends without statevector inspection return an empty array. A backend may
 instead supply `density_matrix` as rows of `[real, imaginary]` entries.
 On successful completion, the quantum state includes evolution through `stop_tick`.
+
+For multicore runs, each entry in `cores` contains `id`, `cpu_model`,
+`configuration` (the resolved core profile), `registers`, `pc`,
+`measurement_registers` and `drained`. These per-core fields replace the
+single-core fields at the top level; `configuration_hash` is omitted.
+`sync_connections` records the synchronization links. Quantum state and
+`stop_tick` remain shared top-level fields.

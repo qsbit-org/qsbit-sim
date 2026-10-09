@@ -1,7 +1,7 @@
 # Timing queue
 
 The timing queue records when enqueued time points should trigger. Each entry contains
-an interval, label, zero-wait flag and list of expected event IDs. The TCU uses it alongside the
+an interval, label, underflow policy and list of expected event IDs. The TCU uses it alongside the
 per-port event queues to release all associated events at their planned cycle.
 
 ## Connections
@@ -45,9 +45,14 @@ timer running unless an executed `wait 0` permits it to pause. See
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Point::point` | `TimingPoint` | Epoch, label, interval, zero-wait flag, synchronization requests and exact event-ID manifest. |
+| `Point::point` | `TimingPoint` | Epoch, label, interval, `UnderflowPolicy`, synchronization requests and exact event-ID manifest. |
 | `Point::due` | logical TCU cycle | Cumulative due cycle calculated during enqueue. |
 | `last_due_` | logical TCU cycle | Last enqueued due cycle, retained even when the FIFO empties. |
+
+`UnderflowPolicy::Inherit` retains the preceding policy. `Strict` keeps the
+timer running when the queue empties. `PauseWhenEmpty` permits the timer to
+pause until new work arrives. Admission updates the permission for same-cycle
+enqueue; triggering updates the policy used to pause the timer.
 
 [C++ API](../api.md#tcuhpp).
 

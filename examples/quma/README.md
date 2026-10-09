@@ -1,8 +1,9 @@
 # QuMA AllXY
 
 Run the 42-point AllXY sequence from [QuMA, Figure 9 and Algorithm 3](https://arxiv.org/pdf/1708.07677).
-Each of the 21 gate pairs occurs twice consecutively. The experiment collects
-25,600 measurements per point, for 1,075,200 measurements in total.
+Each of the 21 gate pairs occurs twice consecutively. The default experiment
+uses control replay and transition-probability sampling to generate 25,600
+measurement outcomes per point from the configured model.
 
 ![AllXY simulation](figs/allxy.png)
 
@@ -21,13 +22,15 @@ python examples/quma/plot.py
 ```
 
 [allxy.S](allxy.S) uses `cw.i.i`, `wait.i` and `fmr`. FMR waits for each result
-without using its value to select later operations. The runner counts the backend's
-measurements. The backend's quantum state is not reset between trials.
+without using its value to select later operations. The sampler preserves the
+dependence on the preceding measurement outcome between trials.
 
 [run.json](run.json) selects the backend, physical parameters, clock periods and
 execution strategy. Results and control traces are written under
 `build-clang/quma/`. The plot command checks the numerical result and writes
-`figs/allxy.png` and its count data in `figs/allxy.json`.
+`build-clang/quma/figs/allxy.png` and its count data in
+`build-clang/quma/figs/allxy.json`. Pass `--output examples/quma/figs` to
+update the checked-in reference figure and data.
 
 ## Physical model
 

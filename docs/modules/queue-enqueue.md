@@ -31,15 +31,18 @@ plus any additional configured receiver periods. For TCU edges at 20 and
 
 The TCU checks the request's event IDs, profile fingerprint, label order,
 deadline and required capacity. When space is available, it inserts the
-time point and all its events together. `Simulator` removes the request
+time point and all its events together. `Core::tcu_edge()` removes the request
 from the mailbox and sends an `EnqueueReply` with its label.
 
 Capacity is checked before removing events triggered on that edge.
 Space freed on the edge becomes available on the next TCU edge. A request
 waiting for space retains its original deadline.
 
-Insertion must finish strictly before the due tick. A newly inserted time
-point cannot trigger on the same edge. See
+Insertion normally must finish strictly before the due tick. While an empty
+queue is paused after `wait 0`, a point due at the frozen cycle may be inserted
+on that cycle's current edge. A newly inserted time point cannot trigger on the
+same edge. See [pause and deadline rules](../module-architecture.md#start-deadlines-and-empty-queues)
+and
 [TCU edge order](../module-architecture.md#communication-latency-and-tcu-edge-order).
 
 ## Objects and state

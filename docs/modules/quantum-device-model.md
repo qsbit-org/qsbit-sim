@@ -16,7 +16,7 @@ digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Physical event batch and drives"];
-  owner [label="IQuantumBackend and ControlElectronics"];
+  owner [label="ControlElectronics → BackendExecution → IQuantumBackend"];
   state [label="IQuantumBackend\nMockBackend\nPythonBackend"];
   output [label="Evolution and sampled bits and state"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];

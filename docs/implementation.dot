@@ -3,15 +3,15 @@ digraph implementation {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=14, margin="0.12,0.08", target="_top"];
   edge [color="#607a83", fontname="sans-serif", fontsize=11];
   subgraph cluster_setup { label="Platform and program setup"; color="#bacdd2"; style="rounded";
-    m0 [label="Platform and clocks", href="modules/platform-and-clock-adapter.html", id="module-platform-and-clock-adapter"];
+    m0 [label="Simulator\nPlatform and clocks", href="modules/platform-and-clocks.html", id="module-platform-and-clocks"];
     m1 [label="ELF Loader and Program\nImage", href="modules/elf-loader-and-program-image.html", id="module-elf-loader-and-program-image"];
   }
   subgraph cluster_cpu { label="CPU domain: ICpuCycleModel and TimingControl"; color="#bacdd2"; style="rounded";
     m2 [label="ISA Decoder and Semantics", href="modules/isa-decoder-and-semantics.html", id="module-isa-decoder-and-semantics"];
     m3 [label="CPU Cycle Model", href="modules/cpu-cycle-model.html", id="module-cpu-cycle-model"];
-    m4 [label="Memory requests and responses", href="modules/memory-and-response-model.html", id="module-memory-and-response-model"];
+    m4 [label="MemoryModel\nRequests and responses", href="modules/memory-and-response-model.html", id="module-memory-and-response-model"];
     m5 [label="Quantum Instruction\nAdapter", href="modules/quantum-instruction-adapter.html", id="module-quantum-instruction-adapter"];
-    m13 [label="Port and codeword mapping", href="modules/port-codeword-and-waveform-map.html", id="module-port-codeword-and-waveform-map"];
+    m13 [label="Port and codeword mapping", href="modules/port-codeword-mapping.html", id="module-port-codeword-mapping"];
     m6 [label="Codeword decoding", href="modules/codeword-decoding.html", id="module-codeword-decoding"];
     m7 [label="Reserve phase\nTimingControl", href="modules/reserve-phase.html", id="module-reserve-phase"];
     m17 [label="MeasurementRegisters\nCPU result storage", href="modules/measurement-registers.html", id="module-measurement-registers"];
@@ -23,19 +23,25 @@ digraph implementation {
     m11 [label="Timing controller\nand event trigger", href="modules/timing-controller.html", id="module-timing-controller"];
     m12 [label="Conditional execution\nand event validation", href="modules/conditional-execution.html", id="module-conditional-execution"];
     m18 [label="ExecutionFlags", href="modules/execution-flags.html", id="module-execution-flags"];
-    m20 [label="SyncU\nNeighbor synchronization", href="modules/synchronization.html", id="module-synchronization"];
+    m20 [label="SyncUnit\nNeighbor synchronization", href="modules/synchronization.html", id="module-synchronization"];
   }
-  subgraph cluster_device { label="ControlElectronics: scheduled simulation events"; color="#bacdd2"; style="rounded";
-    m14 [label="Control output\nand resource checks", href="modules/control-output.html", id="module-control-output"];
-    m15 [label="Quantum\nBackends", href="modules/quantum-device-model.html", id="module-quantum-device-model"];
+  subgraph cluster_decoder { label="Shared decoder transport and processing"; color="#bacdd2"; style="rounded";
+    m22 [label="DecoderSystem\nRequests, jobs and results", href="modules/decoder-transport-and-processing.html", id="module-decoder-transport-and-processing"];
+  }
+  subgraph cluster_device { label="Shared device scheduling and quantum-state evolution"; color="#bacdd2"; style="rounded";
+    m14 [label="ControlElectronics\nControl output and resource checks", href="modules/control-output.html", id="module-control-output"];
+    m21 [label="BackendExecution\nOperation batching", href="modules/quantum-device-model.html", id="backend-execution"];
+    m15 [label="IQuantumBackend\nQuantum-state evolution and sampling", href="modules/quantum-device-model.html", id="module-quantum-device-model"];
     m16 [label="Acquisition and\nDiscrimination", href="modules/acquisition-and-discrimination.html", id="module-acquisition-and-discrimination"];
   }
   subgraph cluster_lifecycle { label="Tracing and completion"; color="#bacdd2"; style="rounded";
-    m19 [label="Tracing and completion", href="modules/trace-recorder-and-stop-controller.html", id="module-trace-recorder-and-stop-controller"];
+    m19 [label="Tracing and completion", href="modules/tracing-and-completion.html", id="module-tracing-and-completion"];
   }
   m1 -> m4 [label="ProgramImage"];
   m4 -> m3 [constraint=false, label="MemoryResponse"];
   m3 -> m4 [label="MemoryRequest"];
+  m4 -> m22 [label="MMIO access"];
+  m22 -> m4 [constraint=false, label="status and correction bits"];
   m2 -> m3 [label="Decoded and Effect"];
   m3 -> m5 [label="decoded instruction"];
   m5 -> m7 [label="ControlOperation"];
@@ -50,8 +56,11 @@ digraph implementation {
   m10 -> m12 [label="associated events"];
   m18 -> m12 [label="execution flags"];
   m12 -> m14 [label="TriggeredEvents and preflight"];
-  m14 -> m15 [label="scheduled events"];
-  m15 -> m16 [label="sample bits"];
+  m14 -> m21 [label="committed operations"];
+  m16 -> m21 [label="measurement request"];
+  m21 -> m15 [label="execute batch"];
+  m15 -> m21 [constraint=false, label="measurement results"];
+  m21 -> m16 [constraint=false, label="sample bits"];
   m16 -> m17 [constraint=false, label="Completion and CPU mailbox"];
   m16 -> m18 [constraint=false, label="Completion and fast mailbox"];
   m17 -> m7 [constraint=false, label="measurement reference"];
@@ -60,6 +69,7 @@ digraph implementation {
   m0 -> m3 [style=dashed, constraint=false, label="activation"];
   m0 -> m11 [style=dashed, constraint=false, label="activation"];
   m0 -> m14 [style=dashed, constraint=false, label="activation"];
+  m0 -> m22 [style=dashed, constraint=false, label="decoder boundaries"];
   m3 -> m19 [style=dashed, constraint=false, label="TraceEvent"];
   m11 -> m19 [style=dashed, constraint=false, label="TraceEvent"];
   m14 -> m19 [style=dashed, constraint=false, label="TraceEvent"];

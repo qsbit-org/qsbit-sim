@@ -69,14 +69,17 @@ build-python/qsbit-sim --backend-schema > backend.schema.json
 
 These commands write JSON to standard output. Help includes supported operations,
 configuration fields, defaults, limits, missing dependencies and an installation
-command. The generated configuration uses no noise. Replace `program.elf` with
-your program path. Required adapter parameters without defaults appear as `null`
+command. The generated configuration uses no noise.
+Required adapter parameters without defaults appear as `null`
 and must be filled in.
 
 Add `"$schema": "backend.schema.json"` to the run file to enable editor completion.
 The exported schema selects `backend_options` according to `backend`. Export it
 again after installing or updating adapters. For a direct `module:Class` adapter,
 select it with `--backend` when exporting the schema.
+
+Before checking or running `stim.json`, replace its `program` value with the
+path to an existing ELF or raw program image, relative to `stim.json`.
 
 ```sh
 build-python/qsbit-sim --config stim.json --check-config

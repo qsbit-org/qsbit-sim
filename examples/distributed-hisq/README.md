@@ -27,18 +27,24 @@ Each generated configuration can also run directly:
 build-clang/qsbit-sim --config build-clang/distributed-hisq/boards/run.json
 ```
 
-Install the plotting dependencies and regenerate the figures:
+Install the plotting dependencies and write figures to
+`build-clang/distributed-hisq/figs/`:
 
 ```sh
 uv sync --frozen --extra experiments
 .venv/bin/python examples/distributed-hisq/plot.py
 ```
 
-## Dual-board experiment
+Pass `--output examples/distributed-hisq/figs` to update the checked-in
+reference figures.
+
+## Two-controller synchronization experiment
 
 The control program increases a register through 40, 80 and 120 and uses it
 as the `wait.r` interval before `sync`. The readout program repeats a fixed
 sequence. Both programs execute three outer repetitions and then exit.
+The two controllers run in one SystemC simulation, following the paper's
+dual-board timing scenario.
 
 [experiment.json](experiment.json) specifies a 5 ns CPU period, a 4 ns TCU
 period and a 10 µs initial TCU start. The two directional link delays are

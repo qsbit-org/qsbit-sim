@@ -53,7 +53,7 @@ other control instructions follow the
 [instruction completion rules](../module-architecture.md#reserve-phase-operations-and-progress).
 
 A taken branch discards younger instructions and changes the fetch
-generation to reject their pending replies. exit ECALL also discards younger
+generation to reject their pending replies. The exit ECALL also discards younger
 work and halts the CPU after publishing closure. The simulation continues
 until queued work and result deliveries finish.
 

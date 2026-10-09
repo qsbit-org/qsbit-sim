@@ -489,7 +489,7 @@ def main():
     parser.add_argument("--model", type=Path, default=HERE / "model.json")
     parser.add_argument("--settings", type=Path, default=HERE / "experiments.json")
     parser.add_argument("--output", type=Path, default=ROOT / "build/qutip")
-    parser.add_argument("--figures", type=Path, default=HERE / "figs")
+    parser.add_argument("--figures", type=Path, default=ROOT / "build/qutip/figs")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--only", nargs="+", choices=EXPERIMENTS, default=EXPERIMENTS)
     args = parser.parse_args()

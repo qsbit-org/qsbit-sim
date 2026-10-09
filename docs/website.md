@@ -77,7 +77,7 @@ python -m playwright install chromium
 cmake --preset gcc-ninja \
   -DBUILD_TESTING=ON -DQSBIT_TEST_WEBSITE=ON
 cmake --build --preset gcc-ninja --parallel
-ctest --test-dir build-gcc -L 'fast|website' --output-on-failure
+ctest --test-dir build-gcc -L 'documentation|website' --output-on-failure
 ```
 
 The suite builds with Sphinx warnings treated as errors. Browser tests check

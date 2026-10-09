@@ -57,7 +57,8 @@ integers. Architectural registers and addresses use 32 bits.
 | Outstanding measurements per delivery path | 8 |
 | Output width | 1 event per port per time point |
 
-The example run files set TCU start to 200 ns. To inspect all defaults:
+The Bell-state and measurement-feedback example configurations set the TCU
+start to 200 ns. To inspect all defaults:
 
 ```sh
 build-clang/qsbit-sim --dump-default-profile out/default-profile.json

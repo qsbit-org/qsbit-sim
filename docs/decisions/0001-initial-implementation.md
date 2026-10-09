@@ -4,9 +4,9 @@ Date: 2026-09-16. Updated: 2026-10-06. Status: accepted.
 
 ## Context
 
-The simulator needs an executable RV32I front end and a timed quantum control
-path. The control path follows the QuMA approach: the CPU prepares operations
-ahead of time, and a timing control unit releases them at their planned cycles.
+The simulator needs an executable RV32I front end and timed quantum-control
+scheduling. Following QuMA, the CPU prepares operations ahead of time, and the
+timing control unit triggers them at scheduled time points.
 The CPU and quantum backend must remain replaceable without changing that protocol.
 
 ## Decision

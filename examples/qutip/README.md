@@ -16,7 +16,7 @@ python examples/qutip/run.py --simulator build-qutip/qsbit-sim
 ```
 
 The runner assembles a program for each sweep point, executes it with
-`qsbit-sim`, checks the numerical results and writes PNGs to `examples/qutip/figs/`.
+`qsbit-sim`, checks the numerical results and writes PNGs to `build/qutip/figs/`.
 `build/qutip/` contains each generated `program.S`, ELF, `run.json`, trace,
 measurement records and summary. `results.json` collects the measurements,
 fitted parameters, package versions and source hashes.
@@ -30,7 +30,8 @@ build-qutip/qsbit-sim --config build/qutip-ramsey/ramsey-010/run.json
 ```
 
 Use `--jobs` to limit concurrent simulator processes. `--model` and `--settings`
-select alternative configuration files.
+select alternative configuration files. Pass `--figures examples/qutip/figs`
+to update the checked-in reference figures.
 
 ## Configuration
 

@@ -24,6 +24,38 @@ Add a `decoding` object to the run file. All fields below are required.
 Decoder feedback runs execute the complete program; repeated-simulation
 strategies are unsupported.
 
+This configuration decodes the two parity bits of a three-qubit repetition
+code into three X-correction bits. Its MMIO base is `0x40000000`; the program
+must use that address and keep its RAM outside the 32-byte register range.
+Transport and processing times are in nanoseconds.
+
+```json
+{
+  "decoding": {
+    "mmio_base": 1073741824,
+    "request_capacity": 2,
+    "result_capacity": 1,
+    "link_latency": 5,
+    "bytes_per_tick": 1,
+    "packet_overhead": 16,
+    "decoders": [{
+      "id": 0,
+      "measurements": 2,
+      "outputs": 3,
+      "latency": 100,
+      "initiation_interval": 20,
+      "backend": "pymatching",
+      "options": {
+        "check_matrix": [[1, 1, 0], [0, 1, 1]],
+        "observables": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        "measurement_to_detector": [[1, 0], [0, 1]],
+        "weights": [1, 1, 1]
+      }
+    }]
+  }
+}
+```
+
 | Field | Meaning |
 | --- | --- |
 | `mmio_base` | Aligned start address of 32 bytes outside every core's RAM. |
@@ -156,3 +188,6 @@ These records use `core` for the requesting controller, `value` for decoder ID,
 and `id` for request or job identity. Request records include the logging tag
 in `detail`; that field also reports syndrome request, pending reset and job
 counts. Ticks are nanoseconds. Result consumption uses ID zero.
+
+See [decoder transport and processing](modules/decoder-transport-and-processing.md)
+for C++ ownership, scheduling and tests.

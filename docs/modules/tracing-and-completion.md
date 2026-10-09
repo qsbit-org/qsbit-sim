@@ -17,7 +17,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="TraceEvent records"];
   owner [label="Trace and Simulator"];
-  state [label="Trace::events_\nSimulator::stopped_ and success_ and fault_\nComponent completion checks"];
+  state [label="Trace::events_\nSimulator::stopped_ and success_ and fault_\nCore::drained, ControlElectronics::drained\nSyncNetwork::empty, DecoderSystem::idle"];
   output [label="JSONL and success or typed fault"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -47,7 +47,7 @@ nondecreasing; several records can share one tick.
 | --- | --- | --- |
 | `Trace::events_` | `vector<TraceEvent>` | Append-only observation records, ordered by nondecreasing tick. |
 | `Simulator::stopped_ and success_ and fault_` | terminal state | Distinguishes full drain from fatal failure. |
-| Component completion checks | read-only checks | CPU, timing control, TCU, device, measurement result storage, links and memory completion. |
+| Component completion checks | read-only checks | Every core's CPU, timing control, TCU, measurement result storage, links and memory; shared `ControlElectronics`, `SyncNetwork` and `DecoderSystem`. |
 
 [C++ API](../api.md#tracehpp).
 

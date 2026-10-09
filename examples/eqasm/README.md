@@ -21,8 +21,9 @@ python examples/eqasm/plot.py
 
 The runner assembles the programs with GNU RISC-V binutils and checks their
 operation order, trigger times and quantum results. The plot command writes
-`figs/figure3.png`, `figs/issue_rate.png` and the underlying
-[result data](figs/results.json).
+`figure3.png`, `issue_rate.png` and `results.json` under `build-clang/eqasm/figs/`.
+Pass `--output examples/eqasm/figs` to update the checked-in figures and
+[reference result data](figs/results.json).
 
 [experiment.json](experiment.json) sets clocks, queue capacities, codeword
 mappings and backend options. The configured Aer backend uses ideal gates

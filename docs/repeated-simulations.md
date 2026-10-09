@@ -13,11 +13,13 @@ rounds or writing outputs. Strategy runs accept no other CLI overrides.
 
 ```json
 {
-  "execution": "replay",
-  "quantum_execution": "direct",
-  "region": {"begin": "round_begin", "end": "round_end"},
-  "repetition_count_symbol": "repetitions",
-  "repetitions": 1000
+  "simulation": {
+    "execution": "replay",
+    "quantum_execution": "direct",
+    "region": {"begin": "round_begin", "end": "round_end"},
+    "repetition_count_symbol": "repetitions",
+    "repetitions": 1000
+  }
 }
 ```
 
@@ -80,8 +82,9 @@ Direct replay evolves the final idle interval through the extrapolated controlle
 stop tick after the last round.
 
 The control checks run with fixed zero and one outcomes. The program restrictions
-exclude other control paths; the recorded instructions, queue events and quantum
-operations must agree. The final two rounds must also have the same operation
+exclude data-dependent control flow that could change the operation schedule.
+The recorded instructions, queue events and quantum operations must agree.
+The final two rounds must also have the same operation
 sequence after subtracting their time offset. Outstanding device operations at a
 region boundary cause an error.
 

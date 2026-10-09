@@ -9,7 +9,7 @@ and communication delays.
 
 | Module | What it does |
 | --- | --- |
-| [Platform and clocks](platform-and-clock-adapter.md) | Creates the simulation profile, clocks and scheduled wakeups. |
+| [Platform and clocks](platform-and-clocks.md) | Creates the simulation profile, clocks and scheduled wakeups. |
 | [ELF loader](elf-loader-and-program-image.md) | Loads executable bytes, segment permissions and entry PC. |
 | [ISA decoder](isa-decoder-and-semantics.md) | Decodes instructions and calculates architectural effects. |
 | [CPU cycle model](cpu-cycle-model.md) | Advances the pipeline, handles stalls and retires instructions. |
@@ -20,7 +20,7 @@ and communication delays.
 
 | Module | What it does |
 | --- | --- |
-| [Port and codeword mapping](port-codeword-and-waveform-map.md) | Selects device events from the simulation profile. |
+| [Port and codeword mapping](port-codeword-mapping.md) | Selects device events from the simulation profile. |
 | [Codeword decoding](codeword-decoding.md) | Expands commands into identified per-port events. |
 | [Reserve phase](reserve-phase.md) | Prepares events at a time point and requests queue insertion. |
 | [Communication latency and enqueue](queue-enqueue.md) | Transfers requests and inserts timing and event entries together. |
@@ -38,8 +38,9 @@ and communication delays.
 | [Acquisition and discrimination](acquisition-and-discrimination.md) | Samples measurements and schedules result readiness. |
 | [Measurement result registers](measurement-registers.md) | Stores per-qubit bits and pending measurement counts for FMR. |
 | [Execution flags](execution-flags.md) | Updates per-qubit flags used at the trigger edge. |
-| [Trace and stop](trace-recorder-and-stop-controller.md) | Record observations and distinguish complete drain from failure. |
-| [Synchronization](synchronization.md) | Books neighbor synchronization and pauses the TCU until the conditions of BISP, the booking-based synchronization protocol from Distributed-HISQ, are met. |
+| [Tracing and completion](tracing-and-completion.md) | Records observations and distinguishes complete drain from failure. |
+| [Synchronization](synchronization.md) | Synchronizes neighboring controllers using timed booking signals. |
+| [Decoder transport and processing](decoder-transport-and-processing.md) | Transfers syndrome bits, schedules decoding jobs and returns corrections through MMIO. |
 
 Run a component's named tests with `ctest --test-dir BUILD_DIRECTORY -R NAME`.
 Numerical tests require the corresponding [build options](../building.md#cmake-options).
@@ -47,7 +48,7 @@ Numerical tests require the corresponding [build options](../building.md#cmake-o
 ```{toctree}
 :hidden:
 
-platform-and-clock-adapter
+platform-and-clocks
 elf-loader-and-program-image
 isa-decoder-and-semantics
 cpu-cycle-model
@@ -60,12 +61,13 @@ timing-queue
 per-port-event-queues
 timing-controller
 conditional-execution
-port-codeword-and-waveform-map
+port-codeword-mapping
 control-output
 quantum-device-model
 acquisition-and-discrimination
 measurement-registers
 execution-flags
-trace-recorder-and-stop-controller
+tracing-and-completion
 synchronization
+decoder-transport-and-processing
 ```

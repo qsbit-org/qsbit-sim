@@ -7,7 +7,7 @@ must name a directly connected controller.
 
 ## Booking and completion
 
-When the TCU triggers the event, SyncU sends a signal to the target and starts
+When the TCU triggers the event, `SyncUnit` sends a signal to the target and starts
 a countdown equal to the configured outgoing link delay. The timer continues
 while this countdown runs.
 
@@ -28,7 +28,7 @@ The protocol follows [Distributed-HISQ, Section 4.1](https://arxiv.org/html/2509
 
 `Core` owns a `SyncUnit`. `Simulator` owns the shared `SyncNetwork`.
 The network stores signals with fixed arrival ticks in bounded directional
-queues. SyncU retains one active target, countdown deadline and received flag.
+queues. `SyncUnit` retains one active target, countdown deadline and received flag.
 It updates these before the TCU transition on each TCU edge. Subsequent sync
 events occupy the bounded TCU synchronization queue until their time points trigger.
 Starting another synchronization before the active one completes raises
@@ -60,4 +60,4 @@ requests, bounded queues, reset, unconnected targets and unmatched requests.
 Integration checks preserve output timestamps when process order is reversed.
 
 See [configuration](../distributed-simulation.md) and the
-[dual-board example](../../examples/distributed-hisq/README.md).
+[two-controller simulation example](../../examples/distributed-hisq/README.md).

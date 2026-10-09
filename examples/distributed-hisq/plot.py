@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
     "--results", type=Path, default=Path("build-clang/distributed-hisq/results.json")
 )
-parser.add_argument("--output", type=Path, default=Path(__file__).with_name("figs"))
+parser.add_argument("--output", type=Path, default=Path("build-clang/distributed-hisq/figs"))
 args = parser.parse_args()
 report = json.loads(args.results.read_text())
 trace = [

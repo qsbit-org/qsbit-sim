@@ -1,5 +1,5 @@
 digraph architecture {
-  graph [rankdir=TB, bgcolor="transparent", pad=0.2, nodesep=0.35, ranksep=0.5];
+  graph [label="Single-controller scheduling and measurement feedback", labelloc=t, fontname="sans-serif", fontsize=16, rankdir=TB, bgcolor="transparent", pad=0.2, nodesep=0.35, ranksep=0.5];
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=16, margin="0.18,0.12", target="_top"];
   edge [color="#607a83", fontname="sans-serif", fontsize=12];
   cpu [label="Classical processor\nRV32I, cw, wait, FMR", href="modules/cpu-cycle-model.html"];

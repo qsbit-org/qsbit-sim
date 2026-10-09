@@ -7,8 +7,9 @@ between clock edges.
 ## Time, clocks and precision
 
 One tick is 1 ns of simulation time. A clock with period 20 ns and phase
-3 ns has rising edges at 3, 23, 43 ns and so on. The CPU and memory share
-a clock; the TCU has its own. The TCU start tick selects logical cycle zero.
+3 ns has rising edges at 3, 23, 43 ns and so on. Each core's CPU and memory
+share a clock. All cores use the same TCU clock, while CPU clock settings may
+differ between cores. The TCU start tick selects logical cycle zero.
 
 SystemC runs processes scheduled at the current tick, then advances to
 the next scheduled event. Extra scheduling rounds at the same tick,

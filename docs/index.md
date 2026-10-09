@@ -12,11 +12,12 @@ Feedback and bug reports are welcome on [GitHub Issues](https://github.com/qsbit
 
 ## Start here
 
-[Run your first simulation](quickstart.md) to build the controller, execute a
+[Run your first simulation](quickstart.md) to build the simulator, execute a
 measurement-feedback program and inspect its result. The default mock backend
 requires no Python quantum packages.
 
-To understand the control path, read the [architecture overview](high-level-design.md)
+To understand how the simulator executes quantum-control instructions,
+read the [architecture overview](high-level-design.md)
 and [follow an execution](execution.md). The [component reference](modules/README.md)
 links each component to its source and tests.
 
