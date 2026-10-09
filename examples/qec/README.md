@@ -4,6 +4,9 @@ Run a distance-3 rotated surface-code memory experiment using qsbit-compiler,
 Stim and PyMatching. The compiler emits an RV32I program; the simulator executes
 its quantum-control instructions and decoder MMIO accesses.
 
+For a memory graph authored and compiled in Bloq, use the
+[Bloq-to-QIR example](../bloq-qir/README.md).
+
 ## Setup
 
 Build [qsbit-compiler](https://github.com/qsbit-org/qsbit-compiler#build) in a
