@@ -4,6 +4,12 @@ qsbit-sim executes RV32I programs with quantum-control instructions. It schedule
 quantum operations and returns measurement results to the program. Use it to
 study CPU timing, control queues and feedback with a mock or numerical backend.
 
+```{note}
+qsbit-sim is in early development and evolving rapidly. Its architecture and
+APIs may change at any time, with no guarantee of backward compatibility.
+Feedback and bug reports are welcome on [GitHub Issues](https://github.com/qsbit-org/qsbit-sim/issues).
+```
+
 ## Start here
 
 [Run your first simulation](quickstart.md) to build the controller, execute a

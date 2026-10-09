@@ -10,6 +10,11 @@ quantum-control instructions. It models CPU cycles, timed control output,
 measurement and feedback. Use the built-in mock backend to test control
 behavior, or a numerical backend for quantum-state evolution.
 
+> [!NOTE]
+> qsbit-sim is in early development and evolving rapidly. Its architecture and
+> APIs may change at any time, with no guarantee of backward compatibility.
+> Feedback and bug reports are welcome on [GitHub Issues](https://github.com/qsbit-org/qsbit-sim/issues).
+
 ## Build
 
 Install the [prerequisites](docs/prerequisites.md) and prepare the Conan
