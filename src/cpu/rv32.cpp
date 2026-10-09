@@ -72,7 +72,7 @@ void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
         value = *reply;
         completed = true;
       }
-    } else if (d.op == rv32::Op::Ecall && registers_[17] == 93 && registers_[10] == 0) {
+    } else if (d.op == rv32::Op::Ecall && registers_[17] == 93) {
       if (ports.control({frame.id, ControlKind::Halt})) {
         completed = true;
         halted_ = true;

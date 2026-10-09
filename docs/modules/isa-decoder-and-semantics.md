@@ -61,7 +61,8 @@ becomes oldest, so a taken branch can discard a wrong-path fault.
 
 Source: [isa.cpp](../../src/isa.cpp) and [isa.hpp](../../include/qsbit/isa.hpp).
 
-**CTest:** `core.isa_arithmetic`, `core.isa_control`, `core.isa_decode`.
+**CTest:** `core.isa_arithmetic`, `core.isa_control`, `core.isa_decode`, `cpu.trace`.
 
 The ISA tests check arithmetic results, branch and jump effects, and the
-acceptance or rejection of individual instruction encodings.
+acceptance or rejection of individual instruction encodings. `cpu.trace`
+checks pipeline visibility and exit statuses 0, 1, 2 and 63 in both CPU models.

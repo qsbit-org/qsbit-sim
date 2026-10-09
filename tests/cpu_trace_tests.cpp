@@ -5,11 +5,17 @@
 
 using namespace qsbit;
 namespace {
-template <typename Cpu> void pipeline() {
+template <typename Cpu> void pipeline(std::uint32_t exit_code) {
   const Clock clock{5, 2};
-  const std::array<std::uint32_t, 9> words{0x00100093, 0x0610000b, 0x00200113,
-                                           0x0080006f, 0x06300093, 0x00300193,
-                                           0x00000513, 0x05d00893, 0x00000073};
+  const std::array<std::uint32_t, 9> words{0x00100093,
+                                           0x0610000b,
+                                           0x00200113,
+                                           0x0080006f,
+                                           0x06300093,
+                                           0x00300193,
+                                           (exit_code << 20) | 0x00000513U,
+                                           0x05d00893,
+                                           0x00000073};
   std::vector<std::uint8_t> bytes;
   for (auto word : words)
     for (unsigned shift = 0; shift < 32; shift += 8)
@@ -33,6 +39,7 @@ template <typename Cpu> void pipeline() {
     memory.step(now, 1, fetch, data);
   }
   CHECK(cpu.halted() && cpu.registers()[1] == 1 && cpu.registers()[3] == 3);
+  CHECK(cpu.registers()[10] == exit_code);
   std::optional<CpuPipelineState> previous;
   std::array<bool, 4> occupied{};
   Tick decoded = 0, executed = 0, retired = 0;
@@ -99,8 +106,10 @@ template <typename Cpu> void pipeline() {
 } // namespace
 int main() {
   try {
-    pipeline<CpuCycleModel>();
-    pipeline<VliwCpuCycleModel>();
+    for (auto status : {0U, 1U, 2U, 63U}) {
+      pipeline<CpuCycleModel>(status);
+      pipeline<VliwCpuCycleModel>(status);
+    }
     return 0;
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

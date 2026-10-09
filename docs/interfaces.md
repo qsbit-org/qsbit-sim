@@ -18,9 +18,10 @@ accesses raise typed faults. Unmapped bytes within configured RAM can hold data,
 but instruction fetches require executable mappings.
 
 The ISA is RV32I with codeword, timing and measurement-register instructions.
-Registers and addresses are 32 bits. ECALL with `a7 = 93` and `a0 = 0`
-ends the program. Other ECALLs and EBREAK raise distinct traps. FENCE is
-supported; FENCE.I, privileged instructions and unselected extensions raise
+Registers and addresses are 32 bits. ECALL with `a7 = 93`
+ends the program; `a0` retains its 32-bit program exit status. A nonzero status
+is a program outcome and does not raise an architectural fault. Other ECALLs
+and EBREAK raise distinct traps. FENCE is supported; FENCE.I, privileged instructions and unselected extensions raise
 `IllegalInstruction`.
 
 ### CPU selection
@@ -435,7 +436,7 @@ on one target still applies. A consumer must reject unknown schema versions.
 
 The JSON summary contains success status, stop tick, `cpu_model`, backend,
 resolved backend options and execution settings, complete profile, fingerprint, final CPU registers
-and PC, requested memory words, measurement
+and PC, program `exit_code`, requested memory words, measurement
 registers and statevector entries as `[real, imaginary]` pairs.
 `measurement_registers` is indexed by qubit. Each entry contains `value`,
 `pending` and `valid`; `valid` is true when `pending` is zero.
@@ -443,8 +444,12 @@ Backends without statevector inspection return an empty array. A backend may
 instead supply `density_matrix` as rows of `[real, imaginary]` entries.
 On successful completion, the quantum state includes evolution through `stop_tick`.
 
+`exit_code` is the value of `a0` after an acknowledged exit ECALL, or null
+when the CPU has not halted. `success` describes simulator completion without
+a fault; consumers classify program success separately using the exit status.
+
 For multicore runs, each entry in `cores` contains `id`, `cpu_model`,
-`configuration` (the resolved core profile), `registers`, `pc`,
+`configuration` (the resolved core profile), `registers`, `pc`, `exit_code`,
 `measurement_registers` and `drained`. These per-core fields replace the
 single-core fields at the top level; `configuration_hash` is omitted.
 `sync_connections` records the synchronization links. Quantum state and

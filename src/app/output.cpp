@@ -11,6 +11,7 @@ Json core_summary(const Core &core, const std::string &model) {
           {"configuration", profile_json(core.profile())},
           {"registers", core.cpu().registers()},
           {"pc", core.cpu().pc()},
+          {"exit_code", core.cpu().halted() ? Json(core.cpu().registers()[10]) : Json(nullptr)},
           {"measurement_registers", std::move(registers)}};
 }
 } // namespace

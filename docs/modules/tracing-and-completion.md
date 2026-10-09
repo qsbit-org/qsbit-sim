@@ -30,7 +30,7 @@ output starts and ends, measurement sampling, result readiness and delivery.
 Each has a tick and event-specific IDs. See the
 [trace reference](../interfaces.md#jsonl-trace).
 
-The exit ECALL halts the CPU after its pending events have been enqueued and
+The exit ECALL preserves `a0` as the program exit status and halts the CPU after its pending events have been enqueued and
 acknowledged. The simulation continues until the TCU receives closure,
 all queued and device work finishes, memory is idle, and all enabled
 result deliveries and acknowledgments complete. Multicore runs require every
