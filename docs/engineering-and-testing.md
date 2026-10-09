@@ -116,6 +116,9 @@ runs a program from outside the checkout. Python-enabled builds also check
 backend discovery in the runtime environment and an invalid interpreter path.
 Cross-project CI installs both executables and the Python runner, then invokes
 `qsbitc` and `qsbit-run` through PATH before running QEC examples.
+It also builds the Bloq QIR exporter and runs the compiler's `integration.bloq`
+test. This executes conditional decoder waits, repeated correction queries,
+multibit masks and surface-code memory through the simulator.
 
 ## Optional backend tests
 
