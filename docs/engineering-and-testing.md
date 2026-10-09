@@ -116,9 +116,6 @@ runs a program from outside the checkout. Python-enabled builds also check
 backend discovery in the runtime environment and an invalid interpreter path.
 Cross-project CI installs both executables and the Python runner, then invokes
 `qsbitc` and `qsbit-run` through PATH before running QEC examples.
-It also builds the Bloq QIR exporter and runs the compiler's `integration.bloq`
-test. This executes conditional decoder waits, repeated correction queries,
-multibit masks and surface-code memory through the simulator.
 
 ## Optional backend tests
 
@@ -156,13 +153,43 @@ traces and reports remain in the build tree.
 The [integration workflow](../.github/workflows/integration.yml) builds this
 revision with `qsbit-compiler` main. The compiler repository also tests its
 own changes against qsbit-sim main. Both workflows run on pushes and pull
-requests and record the two Git revisions.
+requests and record the compiler, simulator and Bloq Git revisions.
 
 The tests compile QIR to ELF and execute it in the simulator. The mock test
 checks operation timing and measurement-result order. The Aer test checks
 Bell-state amplitudes and measurement correlations. The QEC test uses Stim
 and PyMatching to check adaptive loops, measurement-result reuse, conditional
 corrections and late decoder feedback.
+
+The compiler's `integration.bloq` test builds on Bloq exports to check LLVM
+text and bitcode input, conditional decoder waits, repeated correction queries,
+multibit masks and surface-code memory. Input-format and decoder-latency cases
+are maintained in the compiler repository.
+
+### Bloq example
+
+`example.bloq_qir` runs the [Bloq example](../examples/bloq-qir/README.md) for
+one shot with its default input format and decoder latency. It exercises the
+example runner, generated artifacts and result validation. Cross-project CI
+runs the same example command with the installed compiler and simulator.
+
+After completing the example's setup, configure the test from the repository
+root. Set `QSBIT_BLOQ_EXPORTER` to the built exporter; this command assumes a
+sibling Bloq checkout:
+
+```sh
+cmake --preset clang-ninja -DBUILD_TESTING=ON \
+  -DQSBIT_PYTHON_BACKENDS=ON -DQSBIT_TEST_QEC=ON \
+  -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
+  -DQSBIT_BLOQ_EXPORTER="$PWD/../bloq/target/debug/examples/export" \
+  -DQSBIT_QIR_COMPILER="$(command -v qsbitc)"
+cmake --build --preset clang-ninja --parallel
+ctest --test-dir build-clang -R '^example\.bloq_qir$' --no-tests=error --output-on-failure
+```
+
+`Python3_EXECUTABLE` selects the interpreter used by CTest. It must have the
+QEC dependencies installed, even if another Python environment is active when
+CTest runs.
 
 ## CI, sanitizers and coverage
 

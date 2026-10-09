@@ -79,23 +79,13 @@ if(QSBIT_TEST_QEC)
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/decoding.py")
   set_tests_properties(decoder.pymatching PROPERTIES TIMEOUT 30 LABELS "backend;component")
   if(QSBIT_BLOQ_EXPORTER AND QSBIT_QIR_COMPILER)
-    foreach(format bc ll)
-      if(format STREQUAL "bc")
-        set(bloq_test bitcode)
-        set(bloq_latency 1000)
-      else()
-        set(bloq_test text)
-        set(bloq_latency 100000)
-      endif()
-      add_test(NAME integration.bloq_${bloq_test} COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/examples/bloq-qir/run.py"
-        --exporter "${QSBIT_BLOQ_EXPORTER}" --compiler "${QSBIT_QIR_COMPILER}"
-        --sim "$<TARGET_FILE:qsbit_sim>"
-        --output "${CMAKE_CURRENT_BINARY_DIR}/bloq-qir-${bloq_test}"
-        --shots 1 --qir-format "${format}" --decoder-latency "${bloq_latency}")
-      set_tests_properties(integration.bloq_${bloq_test} PROPERTIES
-        TIMEOUT 180 LABELS "numerical;backend;integration")
-    endforeach()
+    add_test(NAME example.bloq_qir COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/examples/bloq-qir/run.py"
+      --exporter "${QSBIT_BLOQ_EXPORTER}" --compiler "${QSBIT_QIR_COMPILER}"
+      --sim "$<TARGET_FILE:qsbit_sim>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/bloq-qir" --shots 1)
+    set_tests_properties(example.bloq_qir PROPERTIES
+      TIMEOUT 180 LABELS "numerical;backend;integration")
   endif()
 endif()
 add_test(NAME systemc.vliw COMMAND "${Python3_EXECUTABLE}"

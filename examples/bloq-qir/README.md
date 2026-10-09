@@ -121,17 +121,5 @@ correction; it does not request extra protection rounds during that wait.
 
 ## Tests
 
-With `BUILD_TESTING` and `QSBIT_TEST_QEC` enabled, provide the external exporter
-and compiler to register both input-format checks:
-
-```sh
-cmake --preset clang-ninja -DBUILD_TESTING=ON \
-  -DQSBIT_PYTHON_BACKENDS=ON -DQSBIT_TEST_QEC=ON \
-  -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
-  -DQSBIT_BLOQ_EXPORTER="$PWD/../bloq/target/debug/examples/export" \
-  -DQSBIT_QIR_COMPILER="$(command -v qsbitc)"
-ctest --test-dir build-clang -R '^integration.bloq_' --output-on-failure
-```
-
-The tests execute this runner for LLVM bitcode and LLVM text. The text case uses
-a longer decoder delay; both validate numerical results and decoder timing.
+See [Bloq example testing](../../docs/engineering-and-testing.md#bloq-example)
+for CTest configuration and cross-project coverage.
