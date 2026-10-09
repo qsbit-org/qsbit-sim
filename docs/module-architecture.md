@@ -130,6 +130,11 @@ The next positive-interval point restores strict deadlines when it triggers,
 unless it also carries `wait 0`. The initial `wait 0` must itself arrive before
 its deadline; it cannot recover a missed time point.
 
+This behavior is modeled on [Qblox's `wait 0` underflow-guard mechanism](https://docs.qblox.com/en/main/products/architecture/sequencers/linq_based_feedback.html#data-receiving).
+Qblox suspends the RT queue underflow error until a nonzero-duration instruction
+executes. Its RT core checks for the next instruction after 4 ns; qsbit-sim uses
+the configured TCU clock period and the enqueue rules above.
+
 Synchronization and instruction supply can both pause a core. The timer resumes
 only when neither requires a pause. A paused edge counts once even if both
 reasons apply. Physical device evolution and result delivery continue.
