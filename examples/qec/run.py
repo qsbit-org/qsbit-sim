@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import shutil
 import struct
 import subprocess
 from pathlib import Path
@@ -231,14 +232,17 @@ def generate(directory, rounds, error_qubit, latency):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--compiler", type=Path, required=True)
-    parser.add_argument("--sim", type=Path, required=True)
+    parser.add_argument("--compiler", default="qsbitc", help="compiler command or path")
+    parser.add_argument("--sim", default="qsbit-sim", help="simulator command or path")
     parser.add_argument("--output", type=Path, default=Path("build/qec"))
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--shots", type=int, default=8)
     parser.add_argument("--error-qubit", type=int, default=1)
     parser.add_argument("--decoder-latency", type=int, default=1000)
     args = parser.parse_args()
+    for command in (args.compiler, args.sim):
+        if shutil.which(command) is None:
+            parser.error(f"executable not found: {command}; install it on PATH or pass its path")
     if args.rounds < 1 or args.shots < 1:
         parser.error("rounds and shots must be positive")
     directory = args.output.resolve()
@@ -248,7 +252,7 @@ def main():
     )
     subprocess.run(
         [
-            str(args.compiler.resolve()),
+            args.compiler,
             str(directory / "memory.ll"),
             "--target",
             str(directory / "target.json"),
@@ -273,9 +277,7 @@ def main():
         run["memory_dump"] = f"shot-{shot}.memory.bin"
         config = directory / f"shot-{shot}.json"
         config.write_text(json.dumps(run, indent=2) + "\n")
-        result = subprocess.run(
-            [str(args.sim.resolve()), "--config", str(config)], capture_output=True, text=True
-        )
+        result = subprocess.run([args.sim, "--config", str(config)], capture_output=True, text=True)
         summary = json.loads((directory / run["summary"]).read_text())
         if result.returncode:
             raise RuntimeError(

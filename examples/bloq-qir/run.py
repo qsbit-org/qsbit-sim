@@ -218,13 +218,16 @@ def simulate(directory, simulator, shots, reference, latency):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exporter", type=Path, required=True)
-    parser.add_argument("--compiler", type=Path, required=True)
-    parser.add_argument("--sim", type=Path, required=True)
+    parser.add_argument("--compiler", default="qsbitc", help="compiler command or path")
+    parser.add_argument("--sim", default="qsbit-sim", help="simulator command or path")
     parser.add_argument("--output", type=Path, default=Path("build-clang/bloq-qir"))
     parser.add_argument("--shots", type=int, default=4)
     parser.add_argument("--decoder-latency", type=int, default=1000)
     parser.add_argument("--qir-format", choices=("bc", "ll"), default="bc")
     args = parser.parse_args()
+    for command in (args.compiler, args.sim):
+        if shutil.which(command) is None:
+            parser.error(f"executable not found: {command}; install it on PATH or pass its path")
     if args.shots < 1 or args.shots > 0xFFFFFFFF or args.decoder_latency < 1:
         parser.error("shots must be in 1..4294967295 and decoder-latency must be positive")
     directory = args.output.resolve()
@@ -232,7 +235,7 @@ def main():
     reference = generate(directory, args.exporter.resolve(), args.decoder_latency)
     subprocess.run(
         [
-            str(args.compiler.resolve()),
+            args.compiler,
             str(directory / f"memory.{args.qir_format}"),
             "--target",
             str(directory / "target.json"),
@@ -241,7 +244,7 @@ def main():
         ],
         check=True,
     )
-    results = simulate(directory, args.sim.resolve(), args.shots, reference, args.decoder_latency)
+    results = simulate(directory, args.sim, args.shots, reference, args.decoder_latency)
     print(
         f"Validated {results['shots']} shots, distance 3, 17 qubits: {directory / 'results.json'}"
     )

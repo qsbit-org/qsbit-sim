@@ -13,7 +13,7 @@ int sc_main(int argc, char **argv) {
   try {
     sc_core::sc_set_time_resolution(1, sc_core::SC_NS);
     const std::vector<std::string> arguments(argv + 1, argv + argc);
-    auto run = parse_run_config(arguments, QSBIT_PYTHON_MODULE_DIRECTORY);
+    auto run = parse_run_config(arguments);
     if (run.help) {
       std::cout << usage();
       return 0;

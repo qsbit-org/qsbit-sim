@@ -109,6 +109,14 @@ Use deterministic inputs and seeds. Assert event times, required ordering,
 final registers or memory, and the stop reason. When a comparison fails, report
 the seed and first differing event so the run can be reproduced.
 
+## Installed executables
+
+`cli.install` installs the executable into a temporary prefix, relocates it and
+runs a program from outside the checkout. Python-enabled builds also check
+backend discovery in the runtime environment and an invalid interpreter path.
+Cross-project CI installs both executables and the Python runner, then invokes
+`qsbitc` and `qsbit-run` through PATH before running QEC examples.
+
 ## Optional backend tests
 
 Enable `QSBIT_PYTHON_BACKENDS` and the selected numerical test options described

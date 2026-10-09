@@ -8,14 +8,16 @@ The CPU and TCU schedule the events; QuTiP integrates the driven quantum system.
 From the repository root, after preparing the [build dependencies](../../docs/prerequisites.md):
 
 ```sh
-uv sync --frozen --group build --extra qutip --extra plots
-source .venv/bin/activate
-cmake --preset clang-ninja -B build-qutip -DQSBIT_PYTHON_BACKENDS=ON
+uv run --frozen --group build --extra qutip --extra plots \
+  cmake --preset clang-ninja -B build-qutip -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build-qutip --parallel
-python examples/qutip/run.py --simulator build-qutip/qsbit-sim
+cmake --install build-qutip --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+uv run --frozen --extra qutip --extra plots examples/qutip/run.py
 ```
 
-The runner assembles a program for each sweep point, executes it with
+The runner finds `qsbit-sim` on PATH; `--simulator PATH` selects another build.
+It assembles a program for each sweep point, executes it with
 `qsbit-sim`, checks the numerical results and writes PNGs to `build/qutip/figs/`.
 `build/qutip/` contains each generated `program.S`, ELF, `run.json`, trace,
 measurement records and summary. `results.json` collects the measurements,
@@ -24,9 +26,9 @@ fitted parameters, package versions and source hashes.
 Run one experiment or change the output directory:
 
 ```sh
-python examples/qutip/run.py --simulator build-qutip/qsbit-sim \
+uv run --frozen --extra qutip --extra plots examples/qutip/run.py \
   --only ramsey --output build/qutip-ramsey --figures build/qutip-ramsey/figs
-build-qutip/qsbit-sim --config build/qutip-ramsey/ramsey-010/run.json
+uv run --frozen --extra qutip qsbit-sim --config build/qutip-ramsey/ramsey-010/run.json
 ```
 
 Use `--jobs` to limit concurrent simulator processes. `--model` and `--settings`

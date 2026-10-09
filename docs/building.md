@@ -33,6 +33,24 @@ prepared dependencies, for example `cmake --preset clang-ninja -B build-custom`.
 Build that directory with `cmake --build build-custom`. Keep compiler and build
 type selections in the profiles and presets so they match the dependency binaries.
 
+## Install the executable
+
+```sh
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+qsbit-sim --help
+```
+
+Add the PATH setting to your shell configuration. `--prefix` selects the
+installation directory; CMake's `CMAKE_INSTALL_BINDIR` controls its binary
+subdirectory. Example programs and generated output remain in the build directory.
+The executable can run from any working directory. Run-file paths remain
+relative to the configuration file.
+
+Python-enabled builds also require an installed Python support package and
+the selected backend's dependencies. See [Python runtime selection](backends.md#python-runtime).
+The linked Python runtime and other shared libraries must remain installed.
+
 ## Enable tests
 
 ```sh

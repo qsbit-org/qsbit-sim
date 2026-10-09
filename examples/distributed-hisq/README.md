@@ -9,30 +9,30 @@ and measures synchronization overhead as deterministic work covers the link dela
 
 ## Run
 
-Build `qsbit-sim` with the [repository instructions](../../README.md#build).
+Build and install `qsbit-sim` with the [repository instructions](../../README.md#build).
 The experiment uses the mock backend and the RISC-V assembler and linker.
 Run from the repository root:
 
 ```sh
-python examples/distributed-hisq/run.py --simulator build-clang/qsbit-sim
+python3 examples/distributed-hisq/run.py
 ```
 
-The script assembles [control.S](control.S), [readout.S](readout.S) and
+The script finds `qsbit-sim` on PATH; `--simulator PATH` selects another build.
+It assembles [control.S](control.S), [readout.S](readout.S) and
 [booking.S](booking.S), runs each configuration and checks the observed
 timestamps against the program intervals and link delays. It writes ELF files,
 run configurations, traces and `results.json` under `build-clang/distributed-hisq/`.
 Each generated configuration can also run directly:
 
 ```sh
-build-clang/qsbit-sim --config build-clang/distributed-hisq/boards/run.json
+qsbit-sim --config build-clang/distributed-hisq/boards/run.json
 ```
 
 Install the plotting dependencies and write figures to
 `build-clang/distributed-hisq/figs/`:
 
 ```sh
-uv sync --frozen --extra experiments
-.venv/bin/python examples/distributed-hisq/plot.py
+uv run --frozen --extra plots examples/distributed-hisq/plot.py
 ```
 
 Pass `--output examples/distributed-hisq/figs` to update the checked-in

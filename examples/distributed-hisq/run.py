@@ -234,7 +234,7 @@ def booking_scan(args, settings):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--simulator", type=Path, default=Path("build-clang/qsbit-sim"))
+    parser.add_argument("--simulator", default="qsbit-sim", help="simulator command or path")
     parser.add_argument("--settings", type=Path, default=HERE / "experiment.json")
     parser.add_argument("--output", type=Path, default=Path("build-clang/distributed-hisq"))
     parser.add_argument(
@@ -247,7 +247,10 @@ def main():
     args = parser.parse_args()
     if not args.assembler or not args.linker:
         parser.error("RISC-V assembler and linker are required")
-    args.output, args.simulator = args.output.resolve(), args.simulator.resolve()
+    command = shutil.which(args.simulator)
+    if command is None:
+        parser.error("qsbit-sim not found; install it on PATH or pass --simulator PATH")
+    args.output, args.simulator = args.output.resolve(), Path(command).resolve()
     settings = json.loads(args.settings.read_text())
     report = {
         "settings": settings,

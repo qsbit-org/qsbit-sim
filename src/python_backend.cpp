@@ -1,4 +1,6 @@
 #include "qsbit/python_backend.hpp"
+#include <cstdlib>
+#include <filesystem>
 #include <pybind11/complex.h>
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
@@ -77,19 +79,28 @@ py::list activities(std::span<const BackendActivity> active) {
 struct PythonSession::Impl {
   std::unique_ptr<py::scoped_interpreter> interpreter;
   Impl() {
+    std::string executable =
+        "python" + std::to_string(PY_MAJOR_VERSION) + "." + std::to_string(PY_MINOR_VERSION);
+    if (const auto *selected = std::getenv("QSBIT_PYTHON"); selected && *selected)
+      executable = selected;
+    else if (const auto *environment = std::getenv("VIRTUAL_ENV"); environment && *environment)
+      executable = (std::filesystem::path(environment) / "bin/python").string();
+    if (std::filesystem::path(executable).has_parent_path())
+      require(std::filesystem::is_regular_file(executable), ErrorCode::BackendFailure,
+              "Python interpreter does not exist: " + executable);
     PyConfig config;
     PyConfig_InitPythonConfig(&config);
-    const auto status =
-        PyConfig_SetBytesString(&config, &config.program_name, QSBIT_PYTHON_EXECUTABLE);
+    const auto status = PyConfig_SetBytesString(&config, &config.program_name, executable.c_str());
     if (PyStatus_Exception(status)) {
       PyConfig_Clear(&config);
       throw Fault(ErrorCode::BackendFailure, "cannot configure Python executable");
     }
-    interpreter = std::make_unique<py::scoped_interpreter>(&config);
+    interpreter = std::make_unique<py::scoped_interpreter>(&config, 0, nullptr, false);
   }
 };
 PythonSession::PythonSession(const std::string &directory) : impl_(std::make_unique<Impl>()) {
-  py::module_::import("sys").attr("path").attr("insert")(0, directory);
+  if (!directory.empty())
+    py::module_::import("sys").attr("path").attr("insert")(0, directory);
 }
 PythonSession::~PythonSession() = default;
 struct PythonBackend::Impl {

@@ -13,12 +13,13 @@ From the repository root, install the experiment dependencies and build with the
 Python bridge. See [prerequisites](../../docs/prerequisites.md) for native build tools.
 
 ```sh
-uv sync --frozen --group build --extra experiments
-source .venv/bin/activate
-cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
+uv run --frozen --group build --extra experiments \
+  cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
-build-clang/qsbit-sim --config examples/quma/run.json
-python examples/quma/plot.py
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+uv run --frozen --extra experiments qsbit-sim --config examples/quma/run.json
+uv run --frozen --extra experiments examples/quma/plot.py
 ```
 
 [allxy.S](allxy.S) uses `cw.i.i`, `wait.i` and `fmr`. FMR waits for each result

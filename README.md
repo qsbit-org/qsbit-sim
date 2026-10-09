@@ -23,16 +23,19 @@ dependencies. Then run from the repository root:
 ```sh
 cmake --preset clang-ninja
 cmake --build --preset clang-ninja --parallel
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-This builds `build-clang/qsbit-sim` and the example programs. Use `gcc-ninja`
+This installs `qsbit-sim` on your PATH and builds the example programs. Add the
+PATH setting to your shell configuration. Use `gcc-ninja`
 for GCC after preparing its dependencies. Python quantum packages are optional.
 See [build options](docs/building.md) for tests, Release builds and sanitizers.
 
 ## Run an example
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
+qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
 The program measures qubit 0, reads the result and branches to select a gate
@@ -56,15 +59,17 @@ program's timing and shows how to test the other branch.
 To run the Bell example with Qiskit Aer:
 
 ```sh
-uv sync --frozen --group build --extra aer
-source .venv/bin/activate
-cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
+uv run --frozen --group build --extra aer cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
-build-clang/qsbit-sim --config build-clang/examples/bell-state/run.json
+cmake --install build-clang --prefix "$HOME/.local"
+uv run --frozen --extra aer qsbit-sim --config build-clang/examples/bell-state/run.json
 ```
 
 The Python bridge requires the [Python development headers and libraries](docs/prerequisites.md#optional-python-backends)
 for the interpreter used to build it.
+An installed Python-enabled executable uses the active Python environment;
+[runtime selection](docs/backends.md#python-runtime) also supports environments
+outside the source checkout.
 The Bell measurements at addresses 4096 and 4100 should agree.
 See [backend setup](docs/backends.md) for installation and configuration, QuTiP pulse models
 and custom adapters, and [examples](examples/README.md) for complete programs.

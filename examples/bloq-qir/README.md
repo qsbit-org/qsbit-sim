@@ -9,9 +9,9 @@ observable. PyMatching supplies the logical correction through decoder MMIO.
 
 Use a Bloq checkout containing the
 [`bloq_qir` exporter](https://github.com/Zhaoyilunnn/bloq/tree/experiment/bloq-qir/bloq_qir)
-and build [qsbit-compiler](https://github.com/qsbit-org/qsbit-compiler#build).
-The commands below assume both are in sibling directories. Change `--exporter`
-and `--compiler` when using a different checkout location.
+and install [qsbit-compiler](https://github.com/qsbit-org/qsbit-compiler#build)
+on PATH. The exporter build command below uses a sibling Bloq checkout;
+`--exporter` selects its executable.
 
 From the qsbit-sim repository root, build the exporter with Bloq's pinned
 Rust toolchain and LLVM 21's `opt-21` and `llvm-as-21` available on PATH:
@@ -25,10 +25,10 @@ From the qsbit-sim repository root, prepare the C++ dependencies using the
 [build instructions](../../README.md#build), then enable the QEC backend:
 
 ```sh
-uv sync --frozen --group build --extra qec
-cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON \
-  -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
+uv run --frozen --group build --extra qec cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Run the complete example
@@ -36,16 +36,16 @@ cmake --build --preset clang-ninja --parallel
 From the qsbit-sim repository root:
 
 ```sh
-.venv/bin/python examples/bloq-qir/run.py \
+uv run --frozen --extra qec examples/bloq-qir/run.py \
   --exporter ../bloq/target/debug/examples/export \
-  --compiler ../qsbit-compiler/build-clang/qsbitc \
-  --sim build-clang/qsbit-sim \
   --output build-clang/bloq-qir --shots 4
 ```
 
 [run.py](run.py) invokes the Rust exporter, builds the device target and decoder
 model from the exported QIR and reference circuit, compiles `memory.bc`, then
-runs one simulator process per shot. Target generation is part of this command.
+runs one simulator process per shot. It finds `qsbitc` and `qsbit-sim` on PATH;
+`--compiler PATH` and `--sim PATH` select other builds.
+Target generation is part of this command.
 The simulator executes the physical circuit from the exported Bloq VM program.
 
 Bloq compiles `GalleryItem::XMemory` at distance 3 and lowers it to a VM program.
@@ -94,11 +94,11 @@ After the complete command has generated the files, compile the readable LLVM
 text and execute the compiler's run configuration directly:
 
 ```sh
-../qsbit-compiler/build-clang/qsbitc \
+qsbitc \
   build-clang/bloq-qir/memory.ll \
   --target build-clang/bloq-qir/target.json \
   -o build-clang/bloq-qir/memory.elf
-build-clang/qsbit-sim --config build-clang/bloq-qir/memory.run.json --backend stim
+uv run --frozen --extra qec qsbit-sim --config build-clang/bloq-qir/memory.run.json --backend stim
 ```
 
 `memory.bc` is LLVM bitcode, not machine code. Both `.ll` and `.bc` are compiler
@@ -109,10 +109,8 @@ collect and validate the logical output buffer.
 To exercise LLVM text input and a longer terminal decoder wait:
 
 ```sh
-.venv/bin/python examples/bloq-qir/run.py \
+uv run --frozen --extra qec examples/bloq-qir/run.py \
   --exporter ../bloq/target/debug/examples/export \
-  --compiler ../qsbit-compiler/build-clang/qsbitc \
-  --sim build-clang/qsbit-sim \
   --output build-clang/bloq-qir-delayed --shots 1 \
   --qir-format ll --decoder-latency 100000
 ```
@@ -131,7 +129,7 @@ cmake --preset clang-ninja -DBUILD_TESTING=ON \
   -DQSBIT_PYTHON_BACKENDS=ON -DQSBIT_TEST_QEC=ON \
   -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
   -DQSBIT_BLOQ_EXPORTER="$PWD/../bloq/target/debug/examples/export" \
-  -DQSBIT_QIR_COMPILER="$PWD/../qsbit-compiler/build-clang/qsbitc"
+  -DQSBIT_QIR_COMPILER="$(command -v qsbitc)"
 ctest --test-dir build-clang -R '^integration.bloq_' --output-on-failure
 ```
 

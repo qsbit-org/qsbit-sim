@@ -14,6 +14,8 @@ Run these commands from the repository root:
 ```sh
 cmake --preset clang-ninja
 cmake --build --preset clang-ninja --parallel
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 CMake builds the simulator as `build-clang/qsbit-sim`. It also assembles the
@@ -28,7 +30,7 @@ enable tests.
 ## Run the feedback program
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
+qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
 The run configuration selects the feedback ELF, the mock backend and a
@@ -74,7 +76,7 @@ for cycle 26. The TCU enqueues it at 700 ns, then triggers it at
 Override the mock outcome and use separate output files:
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json \
+qsbit-sim --config build-clang/examples/measurement-feedback/mock.json \
   --outcomes 0 \
   --summary build-clang/examples/measurement-feedback/feedback-zero.json \
   --trace build-clang/examples/measurement-feedback/feedback-zero.jsonl

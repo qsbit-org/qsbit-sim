@@ -65,6 +65,15 @@ add_test(NAME systemc.tcu_trace COMMAND tcu_trace "${CMAKE_CURRENT_BINARY_DIR}/t
 set_tests_properties(systemc.tcu_trace PROPERTIES TIMEOUT 15 LABELS "fast;integration")
 find_program(RISCV_OBJDUMP NAMES riscv64-unknown-elf-objdump riscv64-elf-objdump REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(INSTALL_TEST_OPTIONS)
+if(QSBIT_PYTHON_BACKENDS)
+  list(APPEND INSTALL_TEST_OPTIONS --python)
+endif()
+add_test(NAME cli.install COMMAND "${Python3_EXECUTABLE}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/tests/install.py"
+  --build "${CMAKE_CURRENT_BINARY_DIR}" --bindir "${CMAKE_INSTALL_BINDIR}"
+  --program "${EXAMPLE_IMAGE_bell}" ${INSTALL_TEST_OPTIONS})
+set_tests_properties(cli.install PROPERTIES TIMEOUT 60 LABELS "fast;integration")
 if(QSBIT_TEST_QEC)
   add_test(NAME decoder.pymatching COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/decoding.py")

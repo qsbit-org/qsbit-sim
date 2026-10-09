@@ -11,16 +11,18 @@ From the repository root, prepare the [native dependencies](../../docs/prerequis
 and build with the Python bridge:
 
 ```sh
-uv sync --frozen --group build --extra experiments --inexact
-source .venv/bin/activate
-cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
+uv run --frozen --group build --extra experiments \
+  cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
-python examples/eqasm/run.py --backend aer
-python examples/eqasm/plot.py
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+uv run --frozen --extra experiments examples/eqasm/run.py --backend aer
+uv run --frozen --extra experiments examples/eqasm/plot.py
 ```
 
 The runner assembles the programs with GNU RISC-V binutils and checks their
-operation order, trigger times and quantum results. The plot command writes
+operation order using `qsbit-sim` from PATH; `--simulator PATH` selects another build.
+It also checks trigger times and quantum results. The plot command writes
 `figure3.png`, `issue_rate.png` and `results.json` under `build-clang/eqasm/figs/`.
 Pass `--output examples/eqasm/figs` to update the checked-in figures and
 [reference result data](figs/results.json).
@@ -86,15 +88,15 @@ intervals, retirement counts, operation counts and stop ticks.
 Rerun an individual case with:
 
 ```sh
-build-clang/qsbit-sim --config build-clang/eqasm/vliw-bundle-60ns/run.json
+uv run --frozen --extra experiments qsbit-sim --config build-clang/eqasm/vliw-bundle-60ns/run.json
 ```
 
 Use `--points` and `--intervals` to change the sweep:
 
 ```sh
-python examples/eqasm/run.py --backend aer --points 512 \
+uv run --frozen --extra experiments examples/eqasm/run.py --backend aer --points 512 \
   --intervals 40 60 80 100 --output build-clang/eqasm-512
-python examples/eqasm/plot.py --results build-clang/eqasm-512/results.json \
+uv run --frozen --extra experiments examples/eqasm/plot.py --results build-clang/eqasm-512/results.json \
   --output build-clang/eqasm-512/figs
 ```
 

@@ -145,7 +145,7 @@ def check_issue(summary, trace, settings, points, interval_ns):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--simulator", type=Path, default=Path("build-clang/qsbit-sim"))
+    parser.add_argument("--simulator", default="qsbit-sim", help="simulator command or path")
     parser.add_argument(
         "--settings", type=Path, default=Path(__file__).with_name("experiment.json")
     )
@@ -177,7 +177,10 @@ def main():
         parser.error("--points must be between 32 and 4096")
     if any(n <= 0 or n % period or n // period > 131071 for n in args.intervals):
         parser.error("intervals must be positive multiples of the TCU period and fit wait.i")
-    output, simulator = args.output.resolve(), args.simulator.resolve()
+    command = shutil.which(args.simulator)
+    if command is None:
+        parser.error("qsbit-sim not found; install it on PATH or pass --simulator PATH")
+    output, simulator = args.output.resolve(), Path(command).resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {
         "settings": settings,

@@ -25,7 +25,7 @@ With venv and pip:
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[aer]'
+python -m pip install '.[aer]'
 ```
 
 With uv:
@@ -36,7 +36,7 @@ source .venv/bin/activate
 ```
 
 Use the `qutip` or `stim` extra for those adapters. To install only the base
-Python package, without a numerical backend extra, use `python -m pip install -e .` or
+Python package, without a numerical backend extra, use `python -m pip install .` or
 `uv sync --frozen --group build`.
 Dependencies and compatibility ranges are defined in
 [pyproject.toml](../pyproject.toml).
@@ -47,7 +47,9 @@ With the environment active, build the bridge and run the Bell example:
 cmake --preset clang-ninja -B build-python \
   -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build-python --parallel
-build-python/qsbit-sim --config build-python/examples/bell-state/run.json
+cmake --install build-python --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+qsbit-sim --config build-python/examples/bell-state/run.json
 ```
 
 The simulated Bell measurements should agree: either 00 or 11. The summary and
@@ -55,16 +57,46 @@ trace are written under `build-python/examples/bell-state/`. See the
 [measurement-feedback example](../examples/measurement-feedback/README.md)
 and [QuTiP pulse examples](../examples/qutip/README.md) for other experiments.
 
+## Python runtime
+
+The Python support package is installed by `uv sync` or `pip install .`.
+The executable imports it from the runtime environment, without adding the
+source checkout to Python's module search path.
+
+Interpreter selection uses `QSBIT_PYTHON` when set, then the active environment's
+`VIRTUAL_ENV/bin/python`, then `pythonX.Y` on PATH, where X.Y is the Python
+version used to build the bridge. Runtime environments must use that same
+Python major and minor version. The linked Python library must remain available.
+
+From this repository, `uv run` selects the project environment:
+
+```sh
+uv run --frozen --extra aer qsbit-sim --config build-python/examples/bell-state/run.json
+```
+
+To use a separate environment, install the support package and backend there
+without editable mode, then select its interpreter:
+
+```sh
+uv pip install --python /path/to/environment/bin/python '.[aer]'
+export QSBIT_PYTHON=/path/to/environment/bin/python
+qsbit-sim --config /path/to/experiment/run.json
+```
+
+The package installation command runs from the source checkout. Subsequent runs
+need neither that checkout nor its build environment. `--python-path` adds a
+directory for custom adapters; it does not select an interpreter.
+
 ## Discover and configure backends
 
 With a Python-enabled build, inspect backends without installing their numerical
 dependencies:
 
 ```sh
-build-python/qsbit-sim --list-backends
-build-python/qsbit-sim --backend stim --help-backend
-build-python/qsbit-sim --backend stim --generate-config > stim.json
-build-python/qsbit-sim --backend-schema > backend.schema.json
+qsbit-sim --list-backends
+qsbit-sim --backend stim --help-backend
+qsbit-sim --backend stim --generate-config > stim.json
+qsbit-sim --backend-schema > backend.schema.json
 ```
 
 These commands write JSON to standard output. Help includes supported operations,
@@ -82,8 +114,8 @@ Before checking or running `stim.json`, replace its `program` value with the
 path to an existing ELF or raw program image, relative to `stim.json`.
 
 ```sh
-build-python/qsbit-sim --config stim.json --check-config
-build-python/qsbit-sim --config stim.json
+qsbit-sim --config stim.json --check-config
+qsbit-sim --config stim.json
 ```
 
 `--check-config` loads the program, validates the profile and backend options, checks

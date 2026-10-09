@@ -479,7 +479,7 @@ def plot(results, settings, directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--simulator", type=Path, default=ROOT / "build-clang/qsbit-sim")
+    parser.add_argument("--simulator", default="qsbit-sim", help="simulator command or path")
     parser.add_argument(
         "--assembler", default=shutil.which("riscv64-unknown-elf-as") or "riscv64-elf-as"
     )
@@ -493,7 +493,10 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--only", nargs="+", choices=EXPERIMENTS, default=EXPERIMENTS)
     args = parser.parse_args()
-    args.simulator, args.output = args.simulator.resolve(), args.output.resolve()
+    simulator = shutil.which(args.simulator)
+    if simulator is None:
+        parser.error("qsbit-sim not found; install it on PATH or pass --simulator PATH")
+    args.simulator, args.output = Path(simulator).resolve(), args.output.resolve()
     settings = json.loads(args.settings.read_text())
     tasks = cases(settings, json.loads(args.model.read_text()), args.only)
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:

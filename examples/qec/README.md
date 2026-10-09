@@ -9,14 +9,14 @@ For a memory graph authored and compiled in Bloq, use the
 
 ## Setup
 
-Build [qsbit-compiler](https://github.com/qsbit-org/qsbit-compiler#build) in a
-sibling directory. From the qsbit-sim repository root:
+Install [qsbit-compiler](https://github.com/qsbit-org/qsbit-compiler#build)
+on PATH. From the qsbit-sim repository root:
 
 ```sh
-uv sync --frozen --group build --extra qec
-cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON \
-  -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
+uv run --frozen --group build --extra qec cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 Prepare the C++ dependencies using the [build instructions](../../README.md#build)
@@ -25,11 +25,12 @@ before configuring a new checkout.
 ## Run the surface code
 
 ```sh
-.venv/bin/python examples/qec/run.py \
-  --compiler ../qsbit-compiler/build-clang/qsbitc \
-  --sim build-clang/qsbit-sim --output build-clang/qec \
+uv run --frozen --extra qec examples/qec/run.py --output build-clang/qec \
   --rounds 3 --shots 8
 ```
+
+The runner finds `qsbitc` and `qsbit-sim` on PATH. Use `--compiler PATH` or
+`--sim PATH` to select another build.
 
 The circuit has 17 qubits. It initializes a logical
 Z memory, injects X on Stim qubit 1, measures three rounds of stabilizers, and
@@ -68,9 +69,7 @@ When the timing queue empties, the TCU pauses until subsequent work arrives.
 The CPU continues polling the decoder. To exercise a longer decoder delay:
 
 ```sh
-.venv/bin/python examples/qec/run.py \
-  --compiler ../qsbit-compiler/build-clang/qsbitc \
-  --sim build-clang/qsbit-sim --output build-clang/qec-delayed \
+uv run --frozen --extra qec examples/qec/run.py --output build-clang/qec-delayed \
   --rounds 3 --shots 1 --decoder-latency 100000
 ```
 
@@ -85,13 +84,13 @@ It applies the decoder's physical correction before the next round and runs
 three rounds in an LLVM control-flow loop. From the qsbit-sim repository root:
 
 ```sh
-../qsbit-compiler/build-clang/qsbitc \
+qsbitc \
   ../qsbit-compiler/examples/qec/repetition.ll \
   --target ../qsbit-compiler/examples/qec/repetition.target.json \
   -o build-clang/qec-repetition/repetition.elf
-.venv/bin/python ../qsbit-compiler/tools/run.py \
+uv run --frozen --extra qec qsbit-run \
   build-clang/qec-repetition/repetition.elf \
-  --sim build-clang/qsbit-sim --backend stim --shots 1 \
+  --backend stim --shots 1 \
   --out-dir build-clang/qec-repetition/results
 ```
 
