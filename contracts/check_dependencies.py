@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 def violations(root, rules):
+    root = root.resolve()
     files = {}
     for module, spec in rules["modules"].items():
         for pattern in spec["files"]:
@@ -94,7 +95,8 @@ def main():
     args = parser.parse_args()
     if args.self_test:
         with tempfile.TemporaryDirectory() as directory:
-            probe = Path(directory)
+            probe = Path(directory) / "source"
+            probe.mkdir()
             (probe / "high.hpp").write_text("#pragma once\n")
             (probe / "low.cpp").write_text('#include "high.hpp"\n')
             rules = {
@@ -104,6 +106,9 @@ def main():
             assert violations(probe, rules)[1], "accepted a forbidden include"
             rules["modules"]["low"]["allows"] = ["high"]
             assert not violations(probe, rules)[1], "rejected a declared dependency"
+            alias = Path(directory) / "alias"
+            alias.symlink_to(probe, target_is_directory=True)
+            assert not violations(alias, rules)[1], "rejected a symlinked source directory"
         return
     root = args.root.resolve()
     rules = json.loads((root / "architecture.json").read_text())
