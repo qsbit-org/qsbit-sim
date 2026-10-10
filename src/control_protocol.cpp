@@ -1,9 +1,19 @@
 #include "qsbit/control_protocol.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/event.hpp"
+#include "qsbit/measurement.hpp"
+#include "qsbit/time.hpp"
+#include "qsbit/timing_config.hpp"
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <set>
+#include <utility>
+#include <vector>
 
 namespace qsbit {
-std::vector<OperationEvent> decode_codeword(const Profile &profile, std::uint32_t port,
+std::vector<OperationEvent> decode_codeword(const TimingConfig &profile, std::uint32_t port,
                                             std::uint32_t codeword, Epoch epoch, Id instruction,
                                             Id first_event,
                                             std::optional<MeasurementReference> reference) {
@@ -23,14 +33,14 @@ std::vector<OperationEvent> decode_codeword(const Profile &profile, std::uint32_
   }
   return events;
 }
-void validate_timing_events(const TimingEvents &request, const Profile &profile) {
+void validate_timing_events(const TimingEvents &request, const TimingConfig &profile) {
   require(request.point.underflow_policy == UnderflowPolicy::Inherit ||
               request.point.underflow_policy == UnderflowPolicy::Strict ||
               request.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty,
           ErrorCode::Protocol, "invalid timing-point underflow policy");
   require(request.point.interval == 0 || request.point.underflow_policy != UnderflowPolicy::Inherit,
           ErrorCode::Protocol, "positive intervals require an explicit underflow policy");
-  require(request.configuration == profile.fingerprint(), ErrorCode::Protocol,
+  require(request.configuration == profile.configuration, ErrorCode::Protocol,
           "request profile mismatch");
   require(request.events.size() == request.point.manifest.size(), ErrorCode::ManifestMismatch,
           "manifest count differs from event count");

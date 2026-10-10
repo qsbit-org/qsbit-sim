@@ -145,13 +145,13 @@ The simulation completes when pending events and result deliveries finish.
 
 ## Instruction and control operation names
 
-| Instruction | `ControlKind` |
+| Instruction | Command payload |
 | --- | --- |
-| `cw` | Codeword |
-| `wait` | Wait |
-| `fmr` | FetchMeasurement |
-| Exit ECALL | Halt |
-| `sync` | Synchronize |
+| `cw` | `CodewordCommand{port, codeword}` |
+| `wait` | `WaitCommand{cycles}` |
+| `fmr` | `FetchMeasurementCommand{qubit}` |
+| Exit ECALL | `HaltCommand{}` |
+| `sync` | `SynchronizeCommand{target}` |
 
 ## CLI and profile
 
@@ -378,8 +378,8 @@ according to `kind` rather than treating zero as a missing value.
 | `MeasurementRegisterUpdated` | Measurement ID, target and bit delivered before the CPU step; FMR can read it on this edge. |
 | `ExecutionFlagsUpdated` | Measurement ID, target and bit used to update execution flags after the triggering decision. |
 | `MeasurementRegisterRead` | Reading instruction ID, target qubit and returned bit. |
-| `DecoderRequestSubmitted`, `DecoderRequestSent`, `DecoderRequestArrived` | Request identity, requesting `core` and decoder ID in `value`; see [decoder traces](decoding.md#trace). |
-| `DecoderStarted`, `DecoderCompleted`, `DecoderResultReturned`, `DecoderReset`, `DecoderResultConsumed` | Decoder processing and result lifetime; decoder ID in `value`. |
+| `DecoderRequestSubmitted`, `DecoderRequestSent`, `DecoderRequestArrived` | Request identity, requesting `core` and decoder ID in `decoder.id`; see [decoder traces](decoding.md#trace). |
+| `DecoderStarted`, `DecoderCompleted`, `DecoderResultReturned`, `DecoderReset`, `DecoderResultConsumed` | Decoder processing and result lifetime; decoder ID in `decoder.id`. |
 | `EndOfStreamVisible` | Last enqueued label when the TCU receives closure. |
 | `SessionReset` and `ResetAborted` | New epoch and aborted event IDs where applicable. |
 | `StaleCompletionDiscarded` | An old-epoch completion was ignored. |

@@ -1,0 +1,18 @@
+#pragma once
+#include <cstdint>
+#include <string_view>
+namespace qsbit::contract::abi {
+inline constexpr std::string_view Isa = "@isa@";
+inline constexpr std::uint32_t Schema = @schema@, WordBytes = @word_bytes@;
+struct Layout {
+  std::string_view identifier;
+  std::uint32_t memory_size, output_count, output_data, output_capacity;
+  std::uint32_t data_start, stack_bottom, stack_pointer;
+};
+inline constexpr Layout Static{"@static_identifier@", @static_memory_size@, @static_output_count@,
+                               @static_output_data@, @static_output_capacity@, @static_data_start@,
+                               @static_stack_bottom@, @static_stack_pointer@};
+inline constexpr Layout Adaptive{"@adaptive_identifier@", @adaptive_memory_size@, @adaptive_output_count@,
+                                 @adaptive_output_data@, @adaptive_output_capacity@, @adaptive_data_start@,
+                                 @adaptive_stack_bottom@, @adaptive_stack_pointer@};
+} // namespace qsbit::contract::abi

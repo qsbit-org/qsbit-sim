@@ -1,6 +1,6 @@
 #pragma once
 
-#include "qsbit/control_protocol.hpp"
+#include "qsbit/measurement.hpp"
 #include <map>
 #include <optional>
 #include <vector>

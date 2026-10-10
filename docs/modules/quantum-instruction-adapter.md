@@ -23,7 +23,7 @@ digraph module {
 
 ## Mapping an instruction
 
-The `funct3` field selects a `ControlKind`. The `cw` mode selects immediate
+The `funct3` field selects a command payload in `ControlOperation`. The `cw` mode selects immediate
 or register operands for the port and codeword. `wait` supplies a cycle
 interval; `fmr` supplies a qubit index.
 

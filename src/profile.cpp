@@ -12,7 +12,9 @@ ActionKind EventSpec::kind() const {
     ActionKind operator()(const GateSpec &) const { return ActionKind::IdealGate; }
     ActionKind operator()(const PulseSpec &) const { return ActionKind::Pulse; }
     ActionKind operator()(const AcquireSpec &) const { return ActionKind::Acquire; }
-    ActionKind operator()(const ArmSpec &) const { return ActionKind::DiscriminatorArm; }
+    ActionKind operator()(const DiscriminatorArmSpec &) const {
+      return ActionKind::DiscriminatorArm;
+    }
     ActionKind operator()(const GateOutputSpec &) const { return ActionKind::GateOutput; }
   };
   return std::visit(Kind{}, spec);

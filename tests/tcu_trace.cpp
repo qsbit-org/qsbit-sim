@@ -1,5 +1,7 @@
 #include "qsbit/mailbox.hpp"
+#include "qsbit/profile.hpp"
 #include "qsbit/tcu.hpp"
+#include "qsbit/timing_config.hpp"
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -21,7 +23,7 @@ struct TimingHarness : sc_module {
   std::string failure;
   bool complete = false;
   TimingHarness(sc_module_name name, Tick start, std::vector<Tick> values)
-      : sc_module(name), profile(), tcu(profile, trace), requests(1, profile.tcu),
+      : sc_module(name), profile(), tcu(tcu_config(profile), trace), requests(1, profile.tcu),
         replies(1, profile.cpu), closure(1, profile.tcu), clock("tcu_clock", 20, SC_NS),
         intervals(std::move(values)) {
     profile.start = start;

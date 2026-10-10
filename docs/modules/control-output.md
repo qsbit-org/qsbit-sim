@@ -76,7 +76,8 @@ reset tick.
 
 ## Implementation and tests
 
-Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
+Source: [device.cpp](../../src/device.cpp), [device.hpp](../../include/qsbit/device.hpp)
+and [gates.cpp](../../src/device/gates.cpp).
 
 **CTest:** `protocol.resources`, `protocol.sample_collision`, `protocol.reset`, `device.two_qubit`.
 

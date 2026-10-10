@@ -151,6 +151,9 @@ jobs:
             -DQSBIT_TEST_EXPERIMENTS=${{ matrix.name == 'aer' && 'ON' || 'OFF' }} \
             -DQSBIT_ISA_REFERENCES=${{ (matrix.name == 'core-sanitizers' || matrix.name == 'bridge-only') && 'ON' || 'OFF' }} \
             -DQSBIT_ARCH_TEST_SOURCE="${{ (matrix.name == 'core-sanitizers' || matrix.name == 'bridge-only') && format('{0}/build/riscv-arch-test', github.workspace) || '' }}"
+      - name: Compile internal headers independently
+        if: matrix.name == 'core-sanitizers'
+        run: python contracts/check_dependencies.py . --headers build-clang/compile_commands.json
       - name: Check Stim dependency isolation
         if: matrix.name == 'stim'
         run: python -c "import importlib.util; import stim; assert importlib.util.find_spec('qiskit_aer') is None"

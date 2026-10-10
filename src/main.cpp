@@ -46,10 +46,10 @@ int sc_main(int argc, char **argv) {
                   "backend configuration discovery requires QSBIT_PYTHON_BACKENDS=ON");
 #endif
     }
-    auto [cores, models] = configure_cores(
-        run.profile, run.program, run.core_settings, run.cpu_model, run.config_base,
-        {run.memory_base, run.memory_size, run.raw ? std::optional{run.raw_base} : std::nullopt});
-    const auto connections = configure_connections(run.connection_settings);
+    auto [cores, models] =
+        configure_cores(run.cores, {run.memory_base, run.memory_size,
+                                    run.raw ? std::optional{run.raw_base} : std::nullopt});
+    const auto &connections = run.connections;
 #ifdef QSBIT_HAS_PYTHON
     std::unique_ptr<PythonSession> python;
 #endif
@@ -94,9 +94,9 @@ int sc_main(int argc, char **argv) {
       require(bool(trace), ErrorCode::InvalidOperand, "cannot open trace output");
       sim.trace().write_jsonl(trace);
     }
-    auto result = simulation_summary(sim, run.backend_name, run.backend_options,
-                                     run.backend_execution, models, run.connection_settings,
-                                     run.inspect, !run.core_settings.empty());
+    auto result =
+        simulation_summary(sim, run.backend_name, run.backend_options, run.backend_execution,
+                           models, run.connections, run.inspect, run.multicore);
     if (!run.decoder_options.empty())
       result["decoding"] = run.decoder_options;
     write_json(run.summary_path, result);

@@ -1,7 +1,14 @@
 #include "qsbit/trace.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/time.hpp"
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <iomanip>
+#include <ios>
 #include <ostream>
 #include <sstream>
+#include <string>
 #include <utility>
 
 namespace qsbit {
@@ -22,6 +29,41 @@ std::string quoted(const std::string &s) {
   return out.str();
 }
 } // namespace
+void Trace::emit_decoder(Tick tick, Epoch epoch, DecoderEventKind kind, Id request,
+                         std::uint32_t core, DecoderTrace state) {
+  const char *name = nullptr;
+  switch (kind) {
+  case DecoderEventKind::RequestSubmitted:
+    name = "DecoderRequestSubmitted";
+    break;
+  case DecoderEventKind::RequestSent:
+    name = "DecoderRequestSent";
+    break;
+  case DecoderEventKind::RequestArrived:
+    name = "DecoderRequestArrived";
+    break;
+  case DecoderEventKind::Started:
+    name = "DecoderStarted";
+    break;
+  case DecoderEventKind::Completed:
+    name = "DecoderCompleted";
+    break;
+  case DecoderEventKind::ResultReturned:
+    name = "DecoderResultReturned";
+    break;
+  case DecoderEventKind::Reset:
+    name = "DecoderReset";
+    break;
+  case DecoderEventKind::ResultConsumed:
+    name = "DecoderResultConsumed";
+    break;
+  }
+  require(name != nullptr, ErrorCode::Protocol, "invalid decoder trace kind");
+  TraceEvent event{tick, epoch, name, request};
+  event.core = core;
+  event.decoder = state;
+  emit(std::move(event));
+}
 void Trace::emit(TraceEvent event) {
   if (destination_) {
     event.core = core_;
@@ -56,6 +98,12 @@ void Trace::write_jsonl(std::ostream &out) const {
     out << ']';
     if (e.core)
       out << ",\"core\":" << *e.core;
+    if (e.decoder) {
+      const auto &d = *e.decoder;
+      out << ",\"decoder\":{\"id\":" << d.id << ",\"tag\":" << d.tag
+          << ",\"requests\":" << d.requests << ",\"resets\":" << d.resets << ",\"jobs\":" << d.jobs
+          << '}';
+    }
     if (e.pipeline) {
       out << ",\"pipeline\":{\"halted\":" << (e.pipeline->halted ? "true" : "false");
       const std::array names{"fetch", "fetched", "decode", "execute"};

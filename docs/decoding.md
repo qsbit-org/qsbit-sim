@@ -184,10 +184,10 @@ record the request path. `DecoderStarted`, `DecoderCompleted` and
 the ID of the packet that completes its measurement window.
 `DecoderReset` and `DecoderResultConsumed` record result lifetime changes.
 
-These records use `core` for the requesting controller, `value` for decoder ID,
-and `id` for request or job identity. Request records include the logging tag
-in `detail`; that field also reports syndrome request, pending reset and job
-counts. Ticks are nanoseconds. Result consumption uses ID zero.
+These records use `core` for the requesting controller and `id` for request or
+job identity. The `decoder` object contains `id`, `tag`, `requests`, `resets` and
+`jobs`: the decoder identifier, logging tag and current queue counts. Ticks are
+nanoseconds. Result consumption uses request ID zero.
 
 See [decoder transport and processing](modules/decoder-transport-and-processing.md)
 for C++ ownership, scheduling and tests.

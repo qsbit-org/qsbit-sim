@@ -17,7 +17,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="TCU atomic event enqueue"];
   owner [label="TcuCycleModel::events_"];
-  state [label="events_\nOperationEvent::label and id\nProfile::event_capacity and firing_width"];
+  state [label="events_\nOperationEvent::label and id\nTimingConfig::event_capacity and firing_width"];
   output [label="Matching-label event members"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
 }
@@ -43,7 +43,7 @@ occupancy at the start of the edge.
 | --- | --- | --- |
 | `events_` | `vector<deque<OperationEvent>>` | One FIFO per configured local output port. |
 | `OperationEvent::label and id` | time point and member identities | Matches queued members to the timing-head manifest. |
-| `Profile::event_capacity and firing_width` | bounds | Storage and same-point output limits per port. |
+| `TimingConfig::event_capacity and firing_width` | bounds | Storage and same-point output limits per port. |
 
 [C++ API](../api.md#tcuhpp).
 

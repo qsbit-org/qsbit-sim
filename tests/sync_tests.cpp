@@ -1,6 +1,8 @@
 #include "qsbit/defaults.hpp"
+#include "qsbit/profile.hpp"
 #include "qsbit/sync.hpp"
 #include "qsbit/tcu.hpp"
+#include "qsbit/timing_config.hpp"
 #include "test.hpp"
 #include <array>
 
@@ -60,7 +62,7 @@ int main() {
     CHECK(!unit.step(12, 1) && unit.drained());
     auto profile = default_profile();
     Trace tcu_trace;
-    TcuCycleModel tcu(profile, tcu_trace, 1);
+    TcuCycleModel tcu(tcu_config(profile), tcu_trace, 1);
     TimingEvents a{{1, 1, 8, {}, {1}, UnderflowPolicy::Strict}, {}, profile.fingerprint()};
     TimingEvents b{{1, 2, 8, {}, {1}, UnderflowPolicy::Strict}, {}, profile.fingerprint()};
     const auto check = [](const TriggeredEvents &) {};

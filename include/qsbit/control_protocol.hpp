@@ -1,15 +1,12 @@
 #pragma once
 
-#include "qsbit/profile.hpp"
+#include "qsbit/event.hpp"
+#include "qsbit/measurement.hpp"
+#include <optional>
 
 namespace qsbit {
+struct TimingConfig;
 enum class UnderflowPolicy { Inherit, Strict, PauseWhenEmpty };
-struct MeasurementReference {
-  Epoch epoch = 0;
-  Id measurement = 0;
-  std::uint32_t target = 0;
-  bool operator==(const MeasurementReference &) const = default;
-};
 struct OperationEvent {
   Epoch epoch = 0;
   Id id = 0, instruction = 0, label = 0;
@@ -38,10 +35,6 @@ struct EnqueueReply {
 struct EndOfStream {
   Id last_label = 0;
 };
-struct Completion {
-  MeasurementReference reference;
-  bool value = false;
-};
 struct TriggeredEvents {
   Epoch epoch = 0;
   Id label = 0;
@@ -55,8 +48,9 @@ struct ScheduledEvent {
 };
 
 [[nodiscard]] std::vector<OperationEvent>
-decode_codeword(const Profile &profile, std::uint32_t port, std::uint32_t codeword, Epoch epoch,
-                Id instruction, Id first_event, std::optional<MeasurementReference> reference = {});
-void validate_timing_events(const TimingEvents &events, const Profile &profile);
+decode_codeword(const TimingConfig &profile, std::uint32_t port, std::uint32_t codeword,
+                Epoch epoch, Id instruction, Id first_event,
+                std::optional<MeasurementReference> reference = {});
+void validate_timing_events(const TimingEvents &events, const TimingConfig &profile);
 
 } // namespace qsbit

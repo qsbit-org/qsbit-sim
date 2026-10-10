@@ -81,12 +81,14 @@ The correction checks remain unchanged. The trace records `WaitZeroExecuted`,
 The compiler's [repetition-code example](https://github.com/qsbit-org/qsbit-compiler/tree/main/examples/qec)
 uses two parity measurements to identify a bit flip on three data qubits.
 It applies the decoder's physical correction before the next round and runs
-three rounds in an LLVM control-flow loop. From the qsbit-sim repository root:
+three rounds in an LLVM control-flow loop. Set `QSBIT_COMPILER_SOURCE` to the
+compiler checkout, then run these commands from the qsbit-sim repository root:
 
 ```sh
+export QSBIT_COMPILER_SOURCE="/absolute/path/to/qsbit-compiler"
 qsbitc \
-  ../qsbit-compiler/examples/qec/repetition.ll \
-  --target ../qsbit-compiler/examples/qec/repetition.target.json \
+  "$QSBIT_COMPILER_SOURCE/examples/qec/repetition.ll" \
+  --target "$QSBIT_COMPILER_SOURCE/examples/qec/repetition.target.json" \
   -o build-clang/qec-repetition/repetition.elf
 uv run --frozen --extra qec qsbit-run \
   build-clang/qec-repetition/repetition.elf \

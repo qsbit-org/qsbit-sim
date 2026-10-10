@@ -31,7 +31,7 @@ digraph module {
 Timing control reserves the measurement reference and result-delivery
 capacity before queue insertion. A discriminator arm enables discrimination
 for that acquisition. With `separate_arm: true`, the mapping must include one
-`ArmSpec` event with the same measurement reference and target. Otherwise
+`DiscriminatorArmSpec` event with the same measurement reference and target. Otherwise
 arming occurs at acquisition start.
 
 For acquisition end E, arm start A and discriminator delay L, sampling
@@ -66,7 +66,8 @@ or discard stale completions according to their epoch checks.
 
 ## Implementation and tests
 
-Source: [device.cpp](../../src/device.cpp) and [device.hpp](../../include/qsbit/device.hpp).
+Source: [readouts.cpp](../../src/device/readouts.cpp),
+[readouts.hpp](../../include/qsbit/device/readouts.hpp) and [device.cpp](../../src/device.cpp).
 
 **CTest:** `protocol.readout`.
 

@@ -1,38 +1,30 @@
 #include "qsbit/device.hpp"
 #include "device/action_kind.hpp"
+#include "qsbit/backend.hpp"
+#include "qsbit/control_protocol.hpp"
+#include "qsbit/device/gates.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/event.hpp"
+#include "qsbit/time.hpp"
+#include "qsbit/trace.hpp"
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <optional>
 #include <set>
+#include <utility>
+#include <vector>
 
 namespace qsbit {
-DeviceProfile device_profile(const Profile &profile) {
-  DeviceProfile result{profile.qubits, profile.seed, {}};
-  for (const auto &gate : profile.two_qubit_gates)
-    require(result.gates.emplace(gate.name, gate).second, ErrorCode::InvalidProfile,
-            "duplicate two-qubit gate: " + gate.name);
-  return result;
-}
-const TwoQubitGate &DeviceProfile::gate(const std::string &name) const {
-  const auto found = gates.find(name);
-  require(found != gates.end(), ErrorCode::InvalidProfile, "unknown two-qubit gate: " + name);
-  return found->second;
-}
 ControlElectronics::ControlElectronics(DeviceProfile profile, IQuantumBackend &backend,
                                        Trace &trace, BackendExecutionConfig execution)
     : profile_(std::move(profile)), backend_(backend, execution), trace_(trace) {
   backend_.reset(profile_.qubits, profile_.seed, 1);
 }
-EventSpec ControlElectronics::gate_action(const std::string &name) const {
-  const auto &gate = profile_.gate(name);
-  EventSpec action;
-  action.get<GateSpec>().operation = gate.operation;
-  action.get<GateSpec>().operands.targets = gate.targets;
-  action.get<GateSpec>().operands.resources = gate.resources;
-  action.duration = gate.duration;
-  return action;
-}
 void ControlElectronics::validate(const EventSpec &action) const {
   backend_.validate(action.kind() == ActionKind::GateOutput
-                        ? gate_action(action.get<GateOutputSpec>().gate)
+                        ? gate_action(profile_, action.get<GateOutputSpec>().gate)
                         : action);
 }
 std::vector<ScheduledEvent> ControlElectronics::resolve(const TriggeredEvents &batch) const {
@@ -49,74 +41,33 @@ std::vector<ScheduledEvent> ControlElectronics::resolve(const TriggeredEvents &b
       require(std::find(gate.inputs.begin(), gate.inputs.end(), input) != gate.inputs.end() &&
                   event.action.duration == gate.duration,
               ErrorCode::GateInputMismatch, "unexpected gate output endpoint or duration");
-      resolved.spec = gate_action(gate.name).spec;
+      resolved.spec = gate_action(profile_, gate.name).spec;
     }
     actions.push_back(
         {event, start, checked_add(start, event.action.duration), std::move(resolved)});
   }
   return actions;
 }
-void ControlElectronics::preflight(const TriggeredEvents &batch) const {
-  const auto actions = resolve(batch);
+ControlElectronics::PreparedEvents ControlElectronics::prepare(const TriggeredEvents &batch) const {
+  auto actions = resolve(batch);
   reservations_.check(actions);
-  std::map<Id, unsigned> acquisitions, arms;
-  std::map<Id, MeasurementReference> identities;
-  for (const auto &action : actions) {
-    const auto &e = action.event;
-    if (e.action.kind() == ActionKind::Acquire || is_arm(e.action)) {
-      require(e.reference && e.reference->epoch == batch.epoch, ErrorCode::InvalidMeasurement,
-              "readout reference missing or stale");
-      require(e.action.targets().size() == 1 && e.action.targets().front() == e.reference->target,
-              ErrorCode::InvalidMeasurement, "readout target and reference differ");
-      const auto [identity, inserted] = identities.emplace(e.reference->measurement, *e.reference);
-      require(inserted || identity->second == *e.reference, ErrorCode::InvalidMeasurement,
-              "readout members disagree on reference identity");
-      if (is_arm(e.action))
-        ++arms[e.reference->measurement];
-      else
-        ++acquisitions[e.reference->measurement];
-    }
-  }
-  for (const auto &action : actions)
-    if (action.event.action.kind() == ActionKind::Acquire) {
-      const auto id = action.event.reference->measurement;
-      require(acquisitions[id] == 1 && !readouts_.contains(id) &&
-                  arms[id] == (action.event.action.get<AcquireSpec>().separate_arm ? 1U : 0U),
-              ErrorCode::Protocol, "invalid acquisition and arm pairing");
-      Tick arm = action.start;
-      if (action.event.action.get<AcquireSpec>().separate_arm)
-        for (const auto &other : actions)
-          if (is_arm(other.event.action) && other.event.reference == action.event.reference)
-            arm = other.start;
-      (void)checked_add(std::max(action.end, arm),
-                        action.event.action.get<AcquireSpec>().discriminator_delay);
-    }
-  for (const auto &[id, count] : arms)
-    if (count > 0)
-      require(acquisitions[id] == 1, ErrorCode::Protocol, "orphan discriminator arm");
+  auto readouts = readouts_.prepare(actions, batch.epoch);
   require(!processed_tick_ || batch.fire_tick > *processed_tick_, ErrorCode::Protocol,
           "launch arrived after its physical barrier");
+  return {std::move(actions), std::move(readouts)};
 }
+void ControlElectronics::preflight(const TriggeredEvents &batch) const { (void)prepare(batch); }
 void ControlElectronics::accept(const TriggeredEvents &batch) {
-  preflight(batch);
-  const auto actions = resolve(batch);
+  const auto prepared = prepare(batch);
+  const auto &actions = prepared.actions;
   reservations_.reserve(actions);
+  readouts_.insert(prepared.readouts);
+  for (const auto &readout : prepared.readouts)
+    boundaries_[readout.ready].ready.push_back(readout.reference.measurement);
   for (const auto &action : actions) {
     const auto &e = action.event;
     boundaries_[action.start].starts.push_back(action);
     boundaries_[action.end].ends.push_back(e.id);
-    if (e.action.kind() == ActionKind::Acquire) {
-      Tick arm = action.start;
-      if (e.action.get<AcquireSpec>().separate_arm)
-        for (const auto &other : actions)
-          if (is_arm(other.event.action) && other.event.reference == e.reference)
-            arm = other.start;
-      const Tick ready =
-          checked_add(std::max(action.end, arm), e.action.get<AcquireSpec>().discriminator_delay);
-      readouts_.emplace(e.reference->measurement,
-                        Readout{*e.reference, action.end, arm, ready, {}, e.core});
-      boundaries_[ready].ready.push_back(e.reference->measurement);
-    }
     TraceEvent record{batch.fire_tick, batch.epoch, "CodewordTriggered", e.id, batch.label};
     record.core = e.core;
     record.port = e.action.port;
@@ -168,27 +119,14 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
         gates.push_back(action.event.action);
     }
   }
-  for (const auto &[name, outputs] : gate_outputs) {
-    const auto &gate = profile_.gate(name);
-    require(outputs.size() == gate.inputs.size(), ErrorCode::GateInputMismatch,
-            "two-qubit gate requires both outputs at the same physical start tick: " + name);
-    for (const auto &input : gate.inputs)
-      require(std::count_if(outputs.begin(), outputs.end(),
-                            [&](const auto *output) {
-                              const auto &event = output->event;
-                              return input == GateInput{event.core.value_or(0), event.source_port,
-                                                        event.codeword} &&
-                                     output->end == checked_add(now, gate.duration);
-                            }) == 1,
-              ErrorCode::GateInputMismatch, "missing or duplicate two-qubit gate input");
-    gates.push_back(gate_action(name));
-  }
+  const auto paired_gates = resolve_gate_outputs(profile_, now, gate_outputs);
+  gates.insert(gates.end(), paired_gates.begin(), paired_gates.end());
   // All capability, identity and ordering checks precede the first backend mutation.
   if (now > last_tick_)
     backend_.evolve(last_tick_, now, drives, acquisitions);
   const auto outcomes = backend_.measure(now, samples);
   for (std::size_t i = 0; i < samples.size(); ++i) {
-    readouts_.at(samples[i].measurement).sample = outcomes[i];
+    readouts_.sample(samples[i].measurement, outcomes[i]);
     TraceEvent record{now, epoch, "MeasurementSampled", samples[i].measurement};
     record.core = readouts_.at(samples[i].measurement).core;
     record.targets = {samples[i].target};
@@ -230,8 +168,7 @@ void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) 
   }
   for (auto id : boundary.ready) {
     const auto &readout = readouts_.at(id);
-    require(readout.sample.has_value(), ErrorCode::Protocol, "result is ready before sampling");
-    Completion result{readout.reference, *readout.sample};
+    const auto result = readouts_.result(id);
     TraceEvent record{now, epoch, "ResultReady", id};
     deliver(result);
     record.core = readout.core;
@@ -262,7 +199,7 @@ void ControlElectronics::reset(Tick now, Epoch epoch) {
       trace_.emit({now, epoch, "ResetAborted", action.event.id, action.event.label});
   boundaries_.clear();
   active_.clear();
-  readouts_.clear();
+  readouts_.reset();
   reservations_.reset();
   backend_.reset(profile_.qubits, profile_.seed, epoch, now);
   last_tick_ = now;

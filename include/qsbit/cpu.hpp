@@ -1,8 +1,8 @@
 #pragma once
 
+#include "qsbit/control_command.hpp"
 #include "qsbit/isa.hpp"
 #include "qsbit/memory.hpp"
-#include "qsbit/timing_control.hpp"
 #include "qsbit/trace.hpp"
 #include <array>
 #include <functional>

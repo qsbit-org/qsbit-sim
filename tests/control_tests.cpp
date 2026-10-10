@@ -1,5 +1,7 @@
 #include "qsbit/feedback.hpp"
+#include "qsbit/profile.hpp"
 #include "qsbit/tcu.hpp"
+#include "qsbit/timing_config.hpp"
 #include "test.hpp"
 #include <functional>
 #include <map>
@@ -31,7 +33,7 @@ TimingEvents group(const Profile &p, Id label, Tick interval,
   g.point.underflow_policy = interval > 0 ? UnderflowPolicy::Strict : UnderflowPolicy::Inherit;
   g.configuration = p.fingerprint();
   for (auto port : ports) {
-    auto e = decode_codeword(p, port, 1, 1, label, label * 100 + port).front();
+    auto e = decode_codeword(timing_config(p), port, 1, 1, label, label * 100 + port).front();
     e.label = label;
     g.point.manifest.push_back(e.id);
     g.events.push_back(e);
@@ -41,7 +43,7 @@ TimingEvents group(const Profile &p, Id label, Tick interval,
 void admission_test() {
   auto p = profile();
   Trace trace;
-  TcuCycleModel tcu(p, trace);
+  TcuCycleModel tcu(tcu_config(p), trace);
   const auto ok = [](const TriggeredEvents &) {};
   auto first = group(p, 1, 0, {0, 1});
   auto second = group(p, 2, 2, {0});
@@ -61,7 +63,7 @@ void atomic_test() {
   p.timing_capacity = 2;
   p.event_capacity = 2;
   Trace trace;
-  TcuCycleModel tcu(p, trace);
+  TcuCycleModel tcu(tcu_config(p), trace);
   auto first = group(p, 1, 0, {0, 1});
   const auto ok = [](const TriggeredEvents &) {};
   auto broken = first;
@@ -96,7 +98,7 @@ void atomic_test() {
 void empty_test() {
   auto p = profile();
   Trace trace;
-  TcuCycleModel tcu(p, trace);
+  TcuCycleModel tcu(tcu_config(p), trace);
   const auto ok = [](const TriggeredEvents &) {};
   CHECK(!tcu.step(100, 1, nullptr, {}, ok).launch);
   auto future = group(p, 1, 4, {0});
@@ -148,7 +150,7 @@ void fast_test() {
   auto p = profile();
   p.mappings[0].actions[0].get<GateSpec>().execution_flag = ExecutionFlag::LastOne;
   Trace trace;
-  TcuCycleModel tcu(p, trace);
+  TcuCycleModel tcu(tcu_config(p), trace);
   MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   const auto reference = registers.reserve(1, 0);
   const auto ok = [](const TriggeredEvents &) {};
@@ -175,7 +177,7 @@ void mapping_test() {
   faults(ErrorCode::InvalidPort, [&] { (void)p.mapping(2, 1); });
   faults(ErrorCode::InvalidCodeword, [&] { (void)p.mapping(0, 2); });
   auto g = group(p, 1, 1, {0, 0});
-  faults(ErrorCode::ManifestMismatch, [&] { validate_timing_events(g, p); });
+  faults(ErrorCode::ManifestMismatch, [&] { validate_timing_events(g, timing_config(p)); });
   const auto before = p.fingerprint();
   p.cpu_result_latency = 2;
   CHECK(p.fingerprint() != before);

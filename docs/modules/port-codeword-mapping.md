@@ -11,14 +11,14 @@ and codeword; the selected events can address different core-local output ports.
 
 - **Input:** source port and codeword from a `cw` operation.
 - **Output:** a `Mapping` containing one or more `EventSpec` values for codeword decoding.
-- **Owner:** the immutable `Profile`; lookup has no runtime state.
+- **Owner:** the immutable `TimingConfig`, indexed by port and codeword.
 
 ```{graphviz}
 digraph module {
   rankdir=TB; bgcolor="transparent";
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Port and codeword"];
-  owner [label="Profile::mapping"];
+  owner [label="TimingConfig::mapping"];
   state [label="Mapping::port and codeword\nMapping::actions\nEventSpec"];
   output [label="Mapping with EventSpec values"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="value records and configuration"];
@@ -57,7 +57,7 @@ See [waveform configuration](../qutip.md#waveforms).
 | --- | --- | --- |
 | `Mapping::port and codeword` | lookup key | Source control port and digital codeword. |
 | `Mapping::actions` | `vector<EventSpec>` | IdealGate, Pulse, Acquire, DiscriminatorArm or GateOutput descriptors. |
-| `EventSpec` | port and timing with a typed payload | Holds one of `GateSpec`, `PulseSpec`, `AcquireSpec`, `ArmSpec` or `GateOutputSpec`. |
+| `EventSpec` | port and timing with a typed payload | Holds one of `GateSpec`, `PulseSpec`, `AcquireSpec`, `DiscriminatorArmSpec` or `GateOutputSpec`. |
 
 [C++ API](../api.md#profilehpp).
 

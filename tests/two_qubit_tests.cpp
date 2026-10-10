@@ -1,5 +1,7 @@
 #include "qsbit/defaults.hpp"
 #include "qsbit/device.hpp"
+#include "qsbit/profile.hpp"
+#include "qsbit/timing_config.hpp"
 #include "test.hpp"
 #include <algorithm>
 
@@ -31,7 +33,7 @@ public:
 };
 
 TriggeredEvents output(const Profile &p, unsigned port, unsigned code, Tick tick, Id id) {
-  auto events = decode_codeword(p, port, code, 1, id, id);
+  auto events = decode_codeword(timing_config(p), port, code, 1, id, id);
   for (auto &event : events)
     event.label = id;
   return {1, id, tick, events};

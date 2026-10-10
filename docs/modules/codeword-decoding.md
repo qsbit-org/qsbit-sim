@@ -18,7 +18,7 @@ digraph module {
   node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
   input [label="Pending events and codeword map"];
   owner [label="decode_codeword and validate_timing_events"];
-  state [label="Profile::mappings\nOperationEvent\nTimingEvents"];
+  state [label="TimingConfig::mappings\nOperationEvent\nTimingEvents"];
   output [label="OperationEvent values and validated TimingEvents"];
   input -> owner; owner -> output; state -> owner [style=dashed, label="value records and configuration"];
 }
@@ -46,7 +46,7 @@ queue insertion. Device validation checks acquisition and arm pairing.
 
 | Object or member | Representation | Role |
 | --- | --- | --- |
-| `Profile::mappings` | read-only mappings | Maps a source port and codeword to one or more EventSpec values. |
+| `TimingConfig::mappings` | read-only mappings | Maps a source port and codeword to one or more EventSpec values. |
 | `OperationEvent` | output values | Resolved event plus epoch, event and instruction IDs and optional measurement references. |
 | `TimingEvents` | timing control-owned aggregate | Time point, ordered manifest, events and profile fingerprint. |
 

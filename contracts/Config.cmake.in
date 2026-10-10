@@ -1,0 +1,4 @@
+@PACKAGE_INIT@
+include("${CMAKE_CURRENT_LIST_DIR}/QsbitContractsTargets.cmake")
+set_and_check(QsbitContracts_DATA_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/qsbit-contracts")
+set(QsbitContracts_TOOLS_DIR "${QsbitContracts_DATA_DIR}")

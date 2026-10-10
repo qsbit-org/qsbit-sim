@@ -1,4 +1,17 @@
 #include "output.hpp"
+#include "../config_json.hpp"
+#include "qsbit/backend.hpp"
+#include "qsbit/core.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/simulator.hpp"
+#include "qsbit/sync.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <string>
+#include <systemc>
+#include <utility>
+#include <vector>
 
 namespace qsbit::app {
 namespace {
@@ -17,7 +30,8 @@ Json core_summary(const Core &core, const std::string &model) {
 } // namespace
 Json simulation_summary(Simulator &sim, const std::string &backend_name,
                         const Json &backend_options, BackendExecutionConfig backend_execution,
-                        const std::vector<std::string> &models, const Json &connection_settings,
+                        const std::vector<std::string> &models,
+                        std::span<const SyncConnection> connections,
                         std::span<const std::uint32_t> inspect, bool multicore) {
   Json result{
       {"schema", 1},
@@ -41,7 +55,13 @@ Json simulation_summary(Simulator &sim, const std::string &backend_name,
       entry["drained"] = core.drained();
       result["cores"].push_back(std::move(entry));
     }
-    result["sync_connections"] = connection_settings;
+    result["sync_connections"] = Json::array();
+    for (const auto &connection : connections)
+      result["sync_connections"].push_back({{"first", connection.first},
+                                            {"second", connection.second},
+                                            {"first_to_second", connection.first_to_second},
+                                            {"second_to_first", connection.second_to_first},
+                                            {"capacity", connection.capacity}});
   } else {
     result.update(core_summary(sim.core(0), models.front()));
     result["configuration_hash"] = sim.core(0).profile().fingerprint();

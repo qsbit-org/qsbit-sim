@@ -1,5 +1,25 @@
 #include "qsbit/core.hpp"
+#include "qsbit/control_command.hpp"
+#include "qsbit/control_protocol.hpp"
+#include "qsbit/cpu.hpp"
 #include "qsbit/cpu/rv32.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/image.hpp"
+#include "qsbit/measurement.hpp"
+#include "qsbit/profile.hpp"
+#include "qsbit/sync.hpp"
+#include "qsbit/tcu.hpp"
+#include "qsbit/time.hpp"
+#include "qsbit/timing_config.hpp"
+#include "qsbit/timing_control.hpp"
+#include "qsbit/trace.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace qsbit {
 Core::Core(std::uint32_t id, Profile profile, ProgramImage image, Trace &trace,
@@ -8,14 +28,14 @@ Core::Core(std::uint32_t id, Profile profile, ProgramImage image, Trace &trace,
     : id_(id), profile_(std::move(profile)),
       trace_(trace, identify ? std::optional{id} : std::nullopt), sync_(id, network, trace_),
       registers_({profile_.qubits, profile_.result_capacity, profile_.fast_feedback}),
-      timing_control_(profile_, registers_, trace_, std::move(validate),
+      timing_control_(timing_config(profile_), registers_, trace_, std::move(validate),
                       [this](std::uint32_t target) { sync_.validate(target); }),
-      links_(profile_), fetch_port_(profile_.cpu), data_port_(profile_.cpu),
+      links_(transport_config(profile_)), fetch_port_(profile_.cpu), data_port_(profile_.cpu),
       memory_(std::move(image), profile_.cpu, profile_.memory_latency),
       cpu_(cpu_factory
                ? cpu_factory(profile_.cpu, memory_.image().entry(), trace_)
                : std::make_unique<CpuCycleModel>(profile_.cpu, memory_.image().entry(), trace_)),
-      tcu_(profile_, trace_, sync_capacity) {
+      tcu_(tcu_config(profile_), trace_, sync_capacity) {
   profile_.validate();
   require(bool(cpu_), ErrorCode::InvalidProfile, "CPU factory returned no model");
 }

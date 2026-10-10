@@ -1,6 +1,8 @@
 #pragma once
+#include "qsbit/timing_control.hpp"
 
 #include "qsbit/cpu.hpp"
+#include "qsbit/profile.hpp"
 #include "qsbit/sync.hpp"
 #include "qsbit/tcu.hpp"
 #include <memory>

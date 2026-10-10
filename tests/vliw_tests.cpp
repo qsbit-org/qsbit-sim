@@ -15,12 +15,11 @@ void decoder() {
       const auto word = 0x2bU | ((1U | (2U << 5) | (first << 10)) << 7) |
                         ((31U | (31U << 5) | (second << 10)) << 19);
       const auto operations = decode_cw_bundle(word, 7, registers);
+      CHECK((operations[0] == ControlOperation{7, CodewordCommand{first & 1 ? 1U : 0xffffffffU,
+                                                                  first & 2 ? 2U : 0x12345678U}}));
       CHECK(
-          (operations[0] == ControlOperation{7, ControlKind::Codeword, first & 1 ? 1U : 0xffffffffU,
-                                             first & 2 ? 2U : 0x12345678U}));
-      CHECK((operations[1] == ControlOperation{7, ControlKind::Codeword,
-                                               second & 1 ? 31U : 0x87654321U,
-                                               second & 2 ? 31U : 0x87654321U}));
+          (operations[1] == ControlOperation{7, CodewordCommand{second & 1 ? 31U : 0x87654321U,
+                                                                second & 2 ? 31U : 0x87654321U}}));
     }
   for (auto word : {0x8000002bU, 0x0bU, 0xffffffffU})
     faults(ErrorCode::IllegalInstruction, [&] { decode_cw_bundle(word, 1, registers); });
@@ -44,14 +43,14 @@ void blocked_lane(bool reset) {
   unsigned first = 0, second = 0, stalls = 3, exits = 0;
   Epoch epoch = 1;
   CpuPorts ports{fetch, data, [&](const ControlOperation &op) -> std::optional<std::uint32_t> {
-                   if (op.kind == ControlKind::Halt) {
+                   if (op.is<HaltCommand>()) {
                      ++exits;
                    } else {
-                     CHECK(op.kind == ControlKind::Codeword && op.second == 1);
-                     if (op.first == 0) {
+                     CHECK(op.is<CodewordCommand>() && op.get<CodewordCommand>().codeword == 1);
+                     if (op.get<CodewordCommand>().port == 0) {
                        ++first;
                      } else {
-                       CHECK(op.first == 1);
+                       CHECK(op.get<CodewordCommand>().port == 1);
                        if (stalls) {
                          --stalls;
                          return std::nullopt;

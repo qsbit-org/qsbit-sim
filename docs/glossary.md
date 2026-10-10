@@ -68,7 +68,7 @@ internally.
 ### Discriminator arm
 
 An event that enables discrimination for a specific acquisition. With
-`separate_arm: true`, the mapping supplies an `ArmSpec` event paired with the
+`separate_arm: true`, the mapping supplies an `DiscriminatorArmSpec` event paired with the
 acquisition's target and measurement reference. Otherwise the discriminator is
 armed at acquisition start. Result readiness is
 `max(acquisition_end, arm_start) + discriminator_delay`.

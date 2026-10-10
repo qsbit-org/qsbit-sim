@@ -204,7 +204,7 @@ void apply_profile(Profile &p, const Json &input) {
           break;
         case ActionKind::DiscriminatorArm:
           keys(spec, {"kind", "port", "delay", "duration", "operation", "targets", "resources"});
-          action.spec = ArmSpec{};
+          action.spec = DiscriminatorArmSpec{};
           break;
         case ActionKind::GateOutput:
           keys(spec, {"kind", "port", "delay", "duration", "gate"});

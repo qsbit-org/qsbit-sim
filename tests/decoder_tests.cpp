@@ -1,5 +1,7 @@
 #include "qsbit/decoder.hpp"
 #include "test.hpp"
+#include <algorithm>
+#include <sstream>
 
 using namespace qsbit;
 namespace {
@@ -71,6 +73,26 @@ private:
   Tick now_ = 0;
 };
 
+void mmio_commands() {
+  DecoderMmio mmio(0x40000000, {7});
+  const auto write = [&](unsigned offset, std::uint32_t value) {
+    return mmio.access(2, {1, 0x40000000 + offset, value, 4, true, false});
+  };
+  CHECK(!write(0, 7));
+  CHECK(!write(4, 64));
+  CHECK(!write(8, 0x89abcdef));
+  CHECK(!write(12, 0x12345678));
+  CHECK(!write(16, 19));
+  const auto command = write(20, 1);
+  const auto &submit = std::get<DecoderSubmit>(*command);
+  CHECK(submit.decoder == 7 && submit.count == 64 && submit.tag == 19);
+  CHECK(submit.data == 0x1234567889abcdefULL);
+  const auto reset = write(20, 2);
+  CHECK(std::get<DecoderReset>(*reset).decoder == 7);
+  CHECK(std::get<DecoderRead>(*mmio.access(2, {1, 0x40000018})).kind == DecoderReadKind::Low);
+  mmio.reset();
+  faults(ErrorCode::InvalidOperand, [&] { (void)write(20, 1); });
+}
 void response_order() {
   Responses responses(std::vector<Tick>{100, 1});
   responses.submit(0);
@@ -243,6 +265,7 @@ void reset_boundaries() {
 } // namespace
 int main() {
   try {
+    mmio_commands();
     response_order();
     response_contention();
     response_cancellation();
@@ -345,6 +368,14 @@ int main() {
     wide.step(234, 3);
     CHECK(wide.access(0, {1, config.base + 24}, 234, 3) == 0x80000001);
     CHECK(wide.access(0, {1, config.base + 28}, 234, 3) == 0x80000002);
+    const auto returned =
+        std::find_if(trace.events().begin(), trace.events().end(),
+                     [](const auto &event) { return event.kind == "DecoderResultReturned"; });
+    CHECK(returned != trace.events().end() && returned->decoder);
+    CHECK(returned->decoder->id == 7 && returned->decoder->jobs == 1);
+    std::ostringstream serialized;
+    trace.write_jsonl(serialized);
+    CHECK(serialized.str().find("\"decoder\":{\"id\":7") != std::string::npos);
     std::cout << "PASS decoder transport, capacity, routing and reset\n";
     return 0;
   } catch (const std::exception &e) {

@@ -10,15 +10,13 @@ observable. PyMatching supplies the logical correction through decoder MMIO.
 Use a Bloq checkout containing the
 [`bloq_qir` exporter](https://github.com/Zhaoyilunnn/bloq/tree/experiment/bloq-qir/bloq_qir)
 and install [qsbit-compiler](https://github.com/qsbit-org/qsbit-compiler#build)
-on PATH. The exporter build command below uses a sibling Bloq checkout;
-`--exporter` selects its executable.
-
-From the qsbit-sim repository root, build the exporter with Bloq's pinned
-Rust toolchain and LLVM 21's `opt-21` and `llvm-as-21` available on PATH:
+on PATH. Build the exporter with Bloq's pinned Rust toolchain and LLVM 21's
+`opt-21` and `llvm-as-21` available on PATH:
 
 ```sh
-cargo build --locked --manifest-path ../bloq/Cargo.toml \
-  -p bloq_qir --example export
+export BLOQ_SOURCE="/absolute/path/to/bloq"
+(cd "$BLOQ_SOURCE" && cargo build --locked -p bloq_qir --example export)
+export QSBIT_BLOQ_EXPORTER="$BLOQ_SOURCE/target/debug/examples/export"
 ```
 
 From the qsbit-sim repository root, prepare the C++ dependencies using the
@@ -37,7 +35,6 @@ From the qsbit-sim repository root:
 
 ```sh
 uv run --frozen --extra qec examples/bloq-qir/run.py \
-  --exporter ../bloq/target/debug/examples/export \
   --output build-clang/bloq-qir --shots 4
 ```
 
@@ -45,7 +42,8 @@ uv run --frozen --extra qec examples/bloq-qir/run.py \
 model from the exported QIR and reference circuit, compiles `memory.bc`, then
 runs one simulator process per shot. It finds `qsbitc` and `qsbit-sim` on PATH;
 `--compiler PATH` and `--sim PATH` select other builds.
-Target generation is part of this command.
+The exporter is selected by `--exporter`, then `QSBIT_BLOQ_EXPORTER`, then
+`bloq-qir-export` on PATH. Target generation is part of this command.
 The simulator executes the physical circuit from the exported Bloq VM program.
 
 Bloq compiles `GalleryItem::XMemory` at distance 3 and lowers it to a VM program.
@@ -110,7 +108,6 @@ To exercise LLVM text input and a longer terminal decoder wait:
 
 ```sh
 uv run --frozen --extra qec examples/bloq-qir/run.py \
-  --exporter ../bloq/target/debug/examples/export \
   --output build-clang/bloq-qir-delayed --shots 1 \
   --qir-format ll --decoder-latency 100000
 ```

@@ -61,7 +61,10 @@ int main(int argc, char **argv) {
     const Json cores{{"schema", 1},
                      {"cores", Json::array({Json{{"id", 0}, {"program", "program.elf"}}})}};
     std::ofstream(path) << cores;
-    CHECK(parse({"--config", path}).core_settings == cores["cores"]);
+    const auto multicore = parse({"--config", path});
+    CHECK(multicore.multicore && multicore.cores.size() == 1);
+    CHECK(multicore.cores.front().id == 0);
+    CHECK(multicore.cores.front().program == (directory / "program.elf").string());
     for (const auto &option : {"--program", "--raw-base", "--inspect", "--memory-dump"})
       faults(ErrorCode::InvalidProfile, [&] { (void)parse({"--config", path, option, "0"}); });
     std::ofstream(path) << Json{{"simulation", Json::object()}};

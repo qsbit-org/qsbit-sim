@@ -1,0 +1,219 @@
+{
+  "roots": [
+    "include",
+    "src",
+    "contracts/include"
+  ],
+  "modules": {
+    "contracts": {
+      "files": [
+        "contracts/include/qsbit/contracts/*.hpp"
+      ],
+      "allows": [],
+      "external": []
+    },
+    "measurement": {
+      "files": [
+        "include/qsbit/measurement.hpp",
+        "src/measurement.cpp"
+      ],
+      "allows": [
+        "time"
+      ],
+      "external": []
+    },
+    "time": {
+      "files": [
+        "include/qsbit/time.hpp",
+        "src/time.cpp",
+        "include/qsbit/error.hpp",
+        "src/error.cpp"
+      ],
+      "allows": [],
+      "external": []
+    },
+    "model": {
+      "files": [
+        "include/qsbit/profile.hpp",
+        "src/profile.cpp",
+        "include/qsbit/defaults.hpp",
+        "src/defaults.cpp",
+        "include/qsbit/control_protocol.hpp",
+        "src/control_protocol.cpp",
+        "include/qsbit/trace.hpp",
+        "src/trace.cpp",
+        "include/qsbit/event.hpp",
+        "include/qsbit/timing_config.hpp",
+        "src/timing_config.cpp"
+      ],
+      "allows": [
+        "time",
+        "measurement",
+        "contracts"
+      ],
+      "external": []
+    },
+    "controller": {
+      "files": [
+        "include/qsbit/isa.hpp",
+        "src/isa.cpp",
+        "include/qsbit/image.hpp",
+        "src/image.cpp",
+        "include/qsbit/memory.hpp",
+        "src/memory.cpp",
+        "include/qsbit/feedback.hpp",
+        "src/feedback.cpp",
+        "include/qsbit/mailbox.hpp",
+        "src/mailbox.cpp",
+        "include/qsbit/sync.hpp",
+        "src/sync.cpp",
+        "include/qsbit/tcu.hpp",
+        "src/tcu.cpp",
+        "include/qsbit/timing_control.hpp",
+        "src/timing_control.cpp",
+        "include/qsbit/control_command.hpp",
+        "src/control_command.cpp",
+        "include/qsbit/cpu.hpp",
+        "src/cpu.cpp",
+        "include/qsbit/cpu/*.hpp",
+        "src/cpu/*.cpp"
+      ],
+      "allows": [
+        "model",
+        "time",
+        "measurement",
+        "contracts"
+      ],
+      "external": []
+    },
+    "device": {
+      "files": [
+        "include/qsbit/device.hpp",
+        "src/device.cpp",
+        "include/qsbit/backend.hpp",
+        "src/backend.cpp",
+        "include/qsbit/device/*.hpp",
+        "src/device/*.hpp",
+        "src/device/*.cpp"
+      ],
+      "allows": [
+        "model",
+        "time",
+        "measurement",
+        "contracts"
+      ],
+      "external": []
+    },
+    "platform": {
+      "files": [
+        "include/qsbit/core.hpp",
+        "src/core.cpp",
+        "include/qsbit/decoder.hpp",
+        "src/decoder.cpp",
+        "include/qsbit/decoder/*.hpp",
+        "src/decoder/*.cpp"
+      ],
+      "allows": [
+        "controller",
+        "model",
+        "time",
+        "measurement",
+        "contracts"
+      ],
+      "external": []
+    },
+    "systemc": {
+      "files": [
+        "include/qsbit/simulator.hpp",
+        "src/simulator.cpp"
+      ],
+      "allows": [
+        "platform",
+        "device",
+        "controller",
+        "model",
+        "time",
+        "measurement"
+      ],
+      "external": [
+        "systemc",
+        "systemc.h"
+      ]
+    },
+    "config": {
+      "files": [
+        "src/config_json.*"
+      ],
+      "allows": [
+        "model",
+        "time",
+        "measurement"
+      ],
+      "external": [
+        "nlohmann/*"
+      ]
+    },
+    "app": {
+      "files": [
+        "src/app/config.hpp",
+        "src/app/config.cpp",
+        "src/app/run_config.cpp"
+      ],
+      "allows": [
+        "systemc",
+        "config",
+        "platform",
+        "device",
+        "controller",
+        "model",
+        "time",
+        "measurement",
+        "python"
+      ],
+      "external": [
+        "systemc",
+        "nlohmann/*"
+      ]
+    },
+    "python": {
+      "files": [
+        "include/qsbit/python_backend.hpp",
+        "src/python_backend.cpp"
+      ],
+      "allows": [
+        "platform",
+        "device",
+        "model",
+        "time",
+        "measurement"
+      ],
+      "external": [
+        "pybind11/*",
+        "Python.h"
+      ]
+    },
+    "cli": {
+      "files": [
+        "src/main.cpp",
+        "src/app/output.hpp",
+        "src/app/output.cpp"
+      ],
+      "allows": [
+        "app",
+        "systemc",
+        "config",
+        "platform",
+        "device",
+        "controller",
+        "model",
+        "time",
+        "measurement",
+        "python"
+      ],
+      "external": [
+        "systemc",
+        "nlohmann/*"
+      ]
+    }
+  }
+}

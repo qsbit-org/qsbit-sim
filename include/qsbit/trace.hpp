@@ -21,6 +21,20 @@ struct CpuPipelineState {
   bool halted = false;
   bool operator==(const CpuPipelineState &) const = default;
 };
+enum class DecoderEventKind {
+  RequestSubmitted,
+  RequestSent,
+  RequestArrived,
+  Started,
+  Completed,
+  ResultReturned,
+  Reset,
+  ResultConsumed
+};
+struct DecoderTrace {
+  std::uint32_t id, tag;
+  std::size_t requests, resets, jobs;
+};
 struct TraceEvent {
   TraceEvent(Tick at, Epoch session, std::string type, Id identity = 0, Id timing_label = 0,
              Tick local_cycle = 0)
@@ -39,6 +53,7 @@ struct TraceEvent {
   std::uint64_t value = 0;
   std::optional<std::uint32_t> core;
   std::optional<CpuPipelineState> pipeline;
+  std::optional<DecoderTrace> decoder;
 };
 class Trace {
 public:
@@ -46,6 +61,8 @@ public:
   Trace(Trace &destination, std::optional<std::uint32_t> core)
       : destination_(&destination), core_(core) {}
   void emit(TraceEvent event);
+  void emit_decoder(Tick tick, Epoch epoch, DecoderEventKind kind, Id request, std::uint32_t core,
+                    DecoderTrace state);
   void include_stalls(bool enabled) { include_stalls_ = enabled; }
   [[nodiscard]] const std::vector<TraceEvent> &events() const { return events_; }
   void write_jsonl(std::ostream &stream) const;

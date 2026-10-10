@@ -17,7 +17,7 @@ Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 
 | Library | Contents | Dependencies |
 | --- | --- | --- |
-| `qsbit::contracts` | Controller instruction encodings, decoder registers and core operation names. | C++20 headers. |
+| `qsbit::contracts` | Controller instruction encodings, decoder registers, operation names and executable layout. | C++20 headers. |
 | `qsbit_model_types` | Time, profiles, protocol records and traces. | Contracts. |
 | `qsbit_controller` | ISA, memory, CPU pipeline, TCU, synchronization and feedback. | Model types. |
 | `qsbit_device` | Output scheduling, resource reservations and backend execution. | Model types. |
@@ -29,6 +29,16 @@ Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 
 The executable and `qsbit::contracts` headers are installed. The simulator's
 other headers describe internal C++ interfaces and are not installed.
+
+Direct include dependencies are checked against `architecture.json`.
+Controller code cannot include device implementation headers. Standalone header
+compilation checks each header with its owning target's include paths.
+
+Configuration parsing resolves program paths, core profiles and synchronization
+connections before component construction. Backend options remain opaque JSON.
+`Core` derives `TransportConfig`, `TimingConfig` and `TcuConfig` from its validated
+profile. Each component owns its configuration; `TimingConfig` indexes codeword
+mappings by port and codeword.
 
 The [module reference](modules/README.md) maps logical responsibilities to their
 C++ owners and source files.
@@ -104,7 +114,7 @@ It completes on local acceptance. `wait`, `fmr` and the exit ECALL
 enqueue pending events; only one request can await a reply.
 `wait 0` marks its time point to permit waiting for subsequent queue entries.
 
-`profile.hpp` defines device events and configuration. `control_protocol.hpp`
+`event.hpp` defines device events; `profile.hpp` defines the full configuration. `control_protocol.hpp`
 defines the records exchanged with the TCU. Each timing point carries an
 `UnderflowPolicy`: `Inherit` retains the previous policy, `Strict` restores
 strict deadlines, and `PauseWhenEmpty` permits an empty queue to pause the timer.
@@ -127,6 +137,9 @@ shift subsequent points.
 Mappings select `gate`, `gate_output`, `pulse`, `acquire` or `arm` events.
 Physical start is `fire_tick + delay`. All durations are positive, and resources
 are occupied over `[start, end)`.
+
+`Readouts` owns acquisition pairing, readiness and sampled results.
+Gate-output resolution checks configured endpoints before backend execution.
 
 Two matching `gate_output` events must start together. The shared device checks
 both inputs before committing the configured gate once.

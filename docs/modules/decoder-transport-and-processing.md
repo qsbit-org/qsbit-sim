@@ -21,6 +21,10 @@ MMIO commands and timing equations.
 
 ## Requests, jobs and results
 
+`DecoderMmio` validates addresses, register permissions and command operands.
+`DecoderSystem` accepts its commands, applies queue backpressure and advances
+transfers, jobs and result state.
+
 A submit write copies the core's staging registers into a bounded request
 queue. A full queue keeps the memory write pending. Each request reserves
 transmission time and incurs the configured propagation delay. Arriving packets
@@ -40,7 +44,7 @@ capacity leaves the completing syndrome packet at the request queue head.
 
 | Member | Role |
 | --- | --- |
-| `registers_` | Per-core staging registers for decoder ID, bit count, payload and logging tag. |
+| `mmio_` | `DecoderMmio` owns per-core registers and translates accesses into typed commands. |
 | `sessions_` | Per-core, per-decoder partial input, active-job status and accumulated corrections. |
 | `requests_`, `reset_request_` | Bounded syndrome queue and one separate reset slot. |
 | `jobs_` | Decoded results with processing start, completion and response-arrival ticks. |
@@ -68,7 +72,7 @@ returns the wrong number of correction bits raises `BackendFailure`.
 ## Implementation and tests
 
 Source: [decoder.hpp](../../include/qsbit/decoder.hpp),
-[decoder.cpp](../../src/decoder.cpp), [simulator.cpp](../../src/simulator.cpp)
+[decoder.cpp](../../src/decoder.cpp), [decoder/mmio.cpp](../../src/decoder/mmio.cpp), [simulator.cpp](../../src/simulator.cpp)
 and [decoding.py](../../python/qsbit_backend/decoding.py).
 
 **CTest:** `decoder.transport`.

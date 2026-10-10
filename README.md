@@ -74,6 +74,17 @@ The Bell measurements at addresses 4096 and 4100 should agree.
 See [backend setup](docs/backends.md) for installation and configuration, QuTiP pulse models
 and custom adapters, and [examples](examples/README.md) for complete programs.
 
+## Architecture
+
+Each core contains a CPU, timing control, a TCU and measurement result registers.
+The TCU triggers queued events; the shared device schedules their physical
+intervals and submits quantum operations through `BackendExecution`.
+
+Controller, device and decoder transitions are independent of SystemC and Python.
+`Simulator` supplies SystemC scheduling; numerical adapters use the optional
+Python bridge. See the [implementation map](docs/implementation.md) for library
+dependencies and component ownership.
+
 ## Test
 
 Core tests require Python and GNU RISC-V binutils:

@@ -61,14 +61,15 @@ function(qsbit_model target)
   target_include_directories(${target} PUBLIC include)
   target_link_libraries(${target} PUBLIC qsbit_warnings qsbit::contracts)
 endfunction()
-qsbit_model(qsbit_model_types src/error.cpp src/profile.cpp src/control_protocol.cpp
+qsbit_model(qsbit_model_types src/error.cpp src/profile.cpp src/timing_config.cpp src/control_protocol.cpp
   src/trace.cpp src/defaults.cpp)
 qsbit_model(qsbit_controller src/isa.cpp src/image.cpp src/memory.cpp src/feedback.cpp
   src/tcu.cpp src/timing_control.cpp src/cpu/pipeline.cpp src/cpu/vliw.cpp src/sync.cpp)
 target_link_libraries(qsbit_controller PUBLIC qsbit_model_types)
-qsbit_model(qsbit_device src/backend.cpp src/device.cpp src/device/resources.cpp)
+qsbit_model(qsbit_device src/backend.cpp src/device.cpp src/device/resources.cpp
+  src/device/gates.cpp src/device/readouts.cpp)
 target_link_libraries(qsbit_device PUBLIC qsbit_model_types)
-qsbit_model(qsbit_platform src/core.cpp src/decoder.cpp)
+qsbit_model(qsbit_platform src/core.cpp src/decoder.cpp src/decoder/mmio.cpp)
 target_link_libraries(qsbit_platform PUBLIC qsbit_controller)
 add_library(qsbit_systemc STATIC src/simulator.cpp)
 target_link_libraries(qsbit_systemc PUBLIC qsbit_platform qsbit_device SystemC::systemc)

@@ -6,8 +6,9 @@ See [simulation timing](module-architecture.md) for call order and
 
 ## Time and cycle units
 
-`Tick` is a `uint64_t` alias reused for timestamps and cycle counts. The field
-contract, not the C++ alias, determines the unit.
+`Tick` stores physical timestamps and durations. `TcuCycle` identifies logical
+TCU cycles inside the TCU model. Serialized cycle fields and instruction intervals
+remain integers with the units listed below.
 
 | Fields | Unit |
 | --- | --- |
@@ -71,7 +72,7 @@ class TcuCycleModel {
 public:
   using Preflight = std::function<void(const TriggeredEvents &)>;
   using SyncPreflight = std::function<void(std::span<const std::uint32_t>)>;
-  TcuCycleModel(const Profile &profile, Trace &trace, std::size_t sync_capacity = 8);
+  TcuCycleModel(TcuConfig profile, Trace &trace, std::size_t sync_capacity = 8);
   TcuOutput step(Tick now, Epoch epoch, const TimingEvents *candidate,
                  const std::vector<Completion> &results, const Preflight &preflight,
                  bool synchronization_paused = false, const SyncPreflight &sync_preflight = {});
@@ -81,7 +82,7 @@ public:
   [[nodiscard]] std::size_t timing_size() const { return timing_.size(); }
   [[nodiscard]] std::size_t port_size(std::uint32_t port) const { return events_.at(port).size(); }
   [[nodiscard]] Id last_label() const { return last_label_; }
-  [[nodiscard]] Tick last_due() const { return last_due_; }
+  [[nodiscard]] TcuCycle last_due() const { return last_due_; }
   [[nodiscard]] const ExecutionFlags &execution_flags() const { return execution_flags_; }
 
 private:
@@ -92,12 +93,12 @@ private:
   };
   struct TimingState {
     bool running;
-    Tick cycle;
+    TcuCycle cycle;
     PauseState pause;
   };
   struct Point {
     TimingPoint point;
-    Tick due;
+    TcuCycle due;
   };
   struct Trigger {
     TriggeredEvents batch;
@@ -111,21 +112,22 @@ private:
                                                        const TimingState &state,
                                                        const Preflight &preflight,
                                                        const SyncPreflight &sync_preflight) const;
-  [[nodiscard]] std::optional<Tick> prepare_admission(Tick now, Epoch epoch,
-                                                      const TimingEvents &candidate,
-                                                      const PauseState &pause) const;
-  void commit_trigger(Tick now, Epoch epoch, Tick cycle, const Trigger &trigger);
-  void commit_admission(Tick now, Epoch epoch, Tick cycle, const TimingEvents &candidate, Tick due);
-  void commit_fast_results(Tick now, Epoch epoch, Tick cycle,
+  [[nodiscard]] std::optional<TcuCycle> prepare_admission(Tick now, Epoch epoch,
+                                                          const TimingEvents &candidate,
+                                                          const PauseState &pause) const;
+  void commit_trigger(Tick now, Epoch epoch, TcuCycle cycle, const Trigger &trigger);
+  void commit_admission(Tick now, Epoch epoch, TcuCycle cycle, const TimingEvents &candidate,
+                        TcuCycle due);
+  void commit_fast_results(Tick now, Epoch epoch, TcuCycle cycle,
                            const std::vector<Completion> &results, ExecutionFlags next_flags,
                            TcuOutput &output);
   void update_pause_state(Tick now, Epoch epoch, const TimingState &state, Tick paused_ticks);
-  const Profile &profile_;
+  const TcuConfig profile_;
   Trace &trace_;
   std::deque<Point> timing_;
   std::vector<std::deque<OperationEvent>> events_;
   ExecutionFlags execution_flags_;
-  Tick last_due_ = 0;
+  TcuCycle last_due_;
   Tick start_ = 0;
   Tick paused_ticks_ = 0;
   std::size_t sync_capacity_ = 8, sync_size_ = 0;
@@ -134,6 +136,26 @@ private:
   UnderflowPolicy admitted_policy_ = UnderflowPolicy::Strict;
   UnderflowPolicy triggered_policy_ = UnderflowPolicy::Strict;
   PauseState pause_;
+};
+```
+<!-- /source -->
+
+## Measurement records
+
+`measurement.hpp` defines measurement identities, completion bits and execution
+flags without importing device configuration.
+
+<!-- source: {"path": "include/qsbit/measurement.hpp", "start": "struct MeasurementReference {", "end": "} // namespace qsbit"} -->
+```cpp
+struct MeasurementReference {
+  Epoch epoch = 0;
+  Id measurement = 0;
+  std::uint32_t target = 0;
+  bool operator==(const MeasurementReference &) const = default;
+};
+struct Completion {
+  MeasurementReference reference;
+  bool value = false;
 };
 ```
 <!-- /source -->
@@ -150,14 +172,9 @@ visibility timing; each core has one control stream.
 
 Source: [include/qsbit/control_protocol.hpp](../include/qsbit/control_protocol.hpp).
 
-<!-- source: {"path": "include/qsbit/control_protocol.hpp", "start": "struct MeasurementReference {", "end": "struct ScheduledEvent {"} -->
+<!-- source: {"path": "include/qsbit/control_protocol.hpp", "start": "enum class UnderflowPolicy", "end": "struct ScheduledEvent {"} -->
 ```cpp
-struct MeasurementReference {
-  Epoch epoch = 0;
-  Id measurement = 0;
-  std::uint32_t target = 0;
-  bool operator==(const MeasurementReference &) const = default;
-};
+enum class UnderflowPolicy { Inherit, Strict, PauseWhenEmpty };
 struct OperationEvent {
   Epoch epoch = 0;
   Id id = 0, instruction = 0, label = 0;
@@ -185,10 +202,6 @@ struct EnqueueReply {
 };
 struct EndOfStream {
   Id last_label = 0;
-};
-struct Completion {
-  MeasurementReference reference;
-  bool value = false;
 };
 struct TriggeredEvents {
   Epoch epoch = 0;
@@ -274,7 +287,9 @@ struct DecoderSystemConfig {
 ## Trace record
 
 `TraceEvent` stores a timestamp, kind and event-specific fields.
-The kind determines the meaning of `id`, `cycle` and `value`. JSONL serialization adds `schema: 1`.
+The kind determines the meaning of `id`, `cycle` and `value`. Decoder events carry
+an explicit `DecoderTrace` payload with decoder ID, tag and queue counts.
+JSONL serialization adds `schema: 1`.
 
 Source: [include/qsbit/trace.hpp](../include/qsbit/trace.hpp).
 
@@ -298,6 +313,7 @@ struct TraceEvent {
   std::uint64_t value = 0;
   std::optional<std::uint32_t> core;
   std::optional<CpuPipelineState> pipeline;
+  std::optional<DecoderTrace> decoder;
 };
 ```
 <!-- /source -->

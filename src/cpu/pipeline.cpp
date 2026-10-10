@@ -79,7 +79,7 @@ void InOrderPipeline::step(Tick now, Epoch epoch, CpuPorts &ports) {
         completed = true;
       }
     } else if (d.op == rv32::Op::Ecall && registers_[17] == 93) {
-      if (ports.control({frame.id, ControlKind::Halt})) {
+      if (ports.control({frame.id, HaltCommand{}})) {
         completed = true;
         halted_ = true;
         flush = true;

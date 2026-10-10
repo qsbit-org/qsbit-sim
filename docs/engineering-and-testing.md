@@ -58,6 +58,7 @@ hooks on all tracked files and runs the complete configured CTest suites.
 | Test family | Main assertions |
 | --- | --- |
 | `core.*` | RV32I effects, legal encodings, image access, mailboxes and memory service. |
+| `build.includes`, `build.include_checker` | Declared module dependencies and rejection of forbidden includes. |
 | `config.profile` | Profile JSON round trips, typed event fields and invalid configurations. |
 | `config.run` | Run-file fields, relative paths, ordered CLI overrides and invalid configurations without SystemC. |
 | `cpu.vliw` | Dual-codeword operand modes, reserved encodings, blocked-operation progress and reset. |
@@ -174,14 +175,13 @@ example runner, generated artifacts and result validation. Cross-project CI
 runs the same example command with the installed compiler and simulator.
 
 After completing the example's setup, configure the test from the repository
-root. Set `QSBIT_BLOQ_EXPORTER` to the built exporter; this command assumes a
-sibling Bloq checkout:
+root. The setup defines `QSBIT_BLOQ_EXPORTER`:
 
 ```sh
 cmake --preset clang-ninja -DBUILD_TESTING=ON \
   -DQSBIT_PYTHON_BACKENDS=ON -DQSBIT_TEST_QEC=ON \
   -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
-  -DQSBIT_BLOQ_EXPORTER="$PWD/../bloq/target/debug/examples/export" \
+  -DQSBIT_BLOQ_EXPORTER="${QSBIT_BLOQ_EXPORTER:?Complete the Bloq example setup first}" \
   -DQSBIT_QIR_COMPILER="$(command -v qsbitc)"
 cmake --build --preset clang-ninja --parallel
 ctest --test-dir build-clang -R '^example\.bloq_qir$' --no-tests=error --output-on-failure

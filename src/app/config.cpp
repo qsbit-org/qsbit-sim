@@ -1,9 +1,25 @@
 #include "config.hpp"
+#include "../config_json.hpp"
+#include "qsbit/core.hpp"
 #include "qsbit/cpu/vliw.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/image.hpp"
+#include "qsbit/profile.hpp"
+#include "qsbit/sync.hpp"
+#include "qsbit/time.hpp"
+#include "qsbit/trace.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <set>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace qsbit::app {
 std::uint64_t number(const std::string &text) {
@@ -72,9 +88,7 @@ Core::CpuFactory cpu_factory(const std::string &model) {
 }
 
 } // namespace
-CoreSetup configure_cores(const Profile &profile, const std::string &program,
-                          const Json &core_settings, const std::string &cpu_model,
-                          const std::filesystem::path &config_base, MemoryConfig memory) {
+CoreSetup configure_cores(std::span<const CoreSpec> settings, MemoryConfig memory) {
   const auto load_image = [&](const std::string &path) {
     std::ifstream input(path, std::ios::binary);
     require(bool(input), ErrorCode::InvalidImage, "cannot read program: " + path);
@@ -82,11 +96,21 @@ CoreSetup configure_cores(const Profile &profile, const std::string &program,
     return memory.raw_base ? ProgramImage::raw(bytes, *memory.raw_base, memory.base, memory.size)
                            : ProgramImage::elf(bytes, memory.base, memory.size);
   };
-  std::vector<CoreConfig> cores;
-  std::vector<std::string> models;
+  CoreSetup setup;
+  for (const auto &core : settings) {
+    setup.cores.push_back({core.id, core.profile, load_image(core.program),
+                           cpu_factory(core.cpu_model), core.sync_capacity});
+    setup.models.push_back(core.cpu_model);
+  }
+  return setup;
+}
+std::vector<CoreSpec> resolve_cores(const Profile &profile, const std::string &program,
+                                    const Json &core_settings, const std::string &cpu_model,
+                                    const std::filesystem::path &config_base) {
+  std::vector<CoreSpec> cores;
   if (core_settings.empty()) {
-    cores.push_back({0, profile, load_image(program), cpu_factory(cpu_model)});
-    models.push_back(cpu_model);
+    (void)cpu_factory(cpu_model);
+    cores.push_back({0, profile, program, cpu_model});
   } else {
     const std::set<std::string> allowed{"id",           "program",   "profile",
                                         "profile_file", "cpu_model", "sync_capacity"};
@@ -107,16 +131,16 @@ CoreSetup configure_cores(const Profile &profile, const std::string &program,
                              ? json_string(settings["cpu_model"], "cpu_model")
                              : cpu_model;
       cores.push_back({json_word(settings["id"], "core id"), p,
-                       load_image(relative_to(config_base, settings["program"], "program")),
-                       cpu_factory(model),
+                       relative_to(config_base, settings["program"], "program"), model,
                        settings.contains("sync_capacity")
                            ? json_word(settings["sync_capacity"], "sync_capacity")
                            : 8});
-      models.push_back(model);
+      p.validate();
+      (void)cpu_factory(model);
     }
   }
 
-  return {std::move(cores), std::move(models)};
+  return cores;
 }
 std::vector<SyncConnection> configure_connections(const Json &connection_settings) {
   std::vector<SyncConnection> connections;

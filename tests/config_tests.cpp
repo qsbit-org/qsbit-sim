@@ -47,7 +47,7 @@ void event_fields() {
   CHECK(event.kind() == ActionKind::Pulse);
   event.spec = AcquireSpec{};
   CHECK(event.kind() == ActionKind::Acquire);
-  event.spec = ArmSpec{};
+  event.spec = DiscriminatorArmSpec{};
   CHECK(event.kind() == ActionKind::DiscriminatorArm);
   event.spec = GateOutputSpec{};
   CHECK(event.kind() == ActionKind::GateOutput);
@@ -60,7 +60,7 @@ void event_fields() {
   arm.port = 1;
   arm.delay = 7;
   arm.duration = 9;
-  ArmSpec spec;
+  DiscriminatorArmSpec spec;
   spec.operation = "arm";
   spec.operands.targets = {0};
   arm.spec = spec;

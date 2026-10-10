@@ -1,6 +1,8 @@
 #include "qsbit/defaults.hpp"
 #include "qsbit/device.hpp"
 #include "qsbit/image.hpp"
+#include "qsbit/profile.hpp"
+#include "qsbit/timing_config.hpp"
 #include "qsbit/timing_control.hpp"
 #include "test.hpp"
 #include <functional>
@@ -10,7 +12,7 @@
 using namespace qsbit;
 TriggeredEvents launch(const Profile &p, std::uint32_t port, std::uint32_t code, Tick now,
                        Id id = 1, std::optional<MeasurementReference> reference = {}) {
-  auto events = decode_codeword(p, port, code, 1, id, id, reference);
+  auto events = decode_codeword(timing_config(p), port, code, 1, id, id, reference);
   for (auto &event : events)
     event.label = id;
   return {1, id, now, std::move(events)};
@@ -19,16 +21,16 @@ void timing_test() {
   auto p = default_profile();
   MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   Trace trace;
-  ControlLinks links(p);
-  TimingControl control(p, registers, trace, [](const EventSpec &) {});
-  CHECK(control.execute({1, ControlKind::Wait, 8}, 0, 1, links) == 0);
-  CHECK(control.execute({2, ControlKind::Codeword, 0, 1}, 5, 1, links) == 0);
-  CHECK(control.execute({3, ControlKind::Codeword, 1, 1}, 10, 1, links) == 0);
-  const ControlOperation advance{4, ControlKind::Wait, 3};
+  ControlLinks links(transport_config(p));
+  TimingControl control(timing_config(p), registers, trace, [](const EventSpec &) {});
+  CHECK(control.execute({1, WaitCommand{8}}, 0, 1, links) == 0);
+  CHECK(control.execute({2, CodewordCommand{0, 1}}, 5, 1, links) == 0);
+  CHECK(control.execute({3, CodewordCommand{1, 1}}, 10, 1, links) == 0);
+  const ControlOperation advance{4, WaitCommand{3}};
   CHECK(!control.execute(advance, 15, 1, links));
   CHECK(control.pending() && control.time_point() == 8);
   CHECK(!control.execute(advance, 20, 1, links));
-  faults(ErrorCode::Protocol, [&] { (void)control.execute({5, ControlKind::Halt}, 20, 1, links); });
+  faults(ErrorCode::Protocol, [&] { (void)control.execute({5, HaltCommand{}}, 20, 1, links); });
   auto group = links.timing_events.take(20);
   CHECK(group && group->value.events.size() == 2 && group->value.point.interval == 8);
   CHECK(group->value.point.manifest[0] != group->value.point.manifest[1]);
@@ -37,35 +39,34 @@ void timing_test() {
   CHECK(control.pending());
   control.receive(25, 1, links);
   CHECK(control.execute(advance, 25, 1, links) == 0 && control.time_point() == 11);
-  CHECK(!control.execute({6, ControlKind::Wait, 0}, 30, 1, links));
+  CHECK(!control.execute({6, WaitCommand{0}}, 30, 1, links));
   CHECK(control.time_point() == 11);
   auto final = links.timing_events.take(40);
   CHECK(final && final->value.events.empty() && final->value.point.interval == 3);
   CHECK(final->value.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty);
   links.replies.publish(40, 1, {2});
   control.receive(45, 1, links);
-  CHECK(control.execute({6, ControlKind::Wait, 0}, 45, 1, links) == 0);
-  CHECK(control.execute({7, ControlKind::Halt}, 50, 1, links) == 0);
+  CHECK(control.execute({6, WaitCommand{0}}, 45, 1, links) == 0);
+  CHECK(control.execute({7, HaltCommand{}}, 50, 1, links) == 0);
   CHECK(control.closed() && links.closure.take(60)->value.last_label == 2);
-  faults(ErrorCode::Protocol,
-         [&] { (void)control.execute({8, ControlKind::Wait, 1}, 55, 1, links); });
+  faults(ErrorCode::Protocol, [&] { (void)control.execute({8, WaitCommand{1}}, 55, 1, links); });
 }
 void capacity_test() {
   auto p = default_profile();
   p.result_capacity = 1;
   MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   Trace trace;
-  ControlLinks links(p);
-  TimingControl control(p, registers, trace, [](const EventSpec &) {});
-  CHECK(control.execute({1, ControlKind::Codeword, 0, 4}, 0, 1, links) == 0);
+  ControlLinks links(transport_config(p));
+  TimingControl control(timing_config(p), registers, trace, [](const EventSpec &) {});
+  CHECK(control.execute({1, CodewordCommand{0, 4}}, 0, 1, links) == 0);
   faults(ErrorCode::Capacity,
-         [&] { (void)control.execute({2, ControlKind::Codeword, 1, 4}, 5, 1, links); });
+         [&] { (void)control.execute({2, CodewordCommand{1, 4}}, 5, 1, links); });
   CHECK(trace.events().size() == 1);
   control.reset();
   registers.reset();
-  CHECK(control.execute({1, ControlKind::Codeword, 0, 1}, 10, 2, links) == 0);
+  CHECK(control.execute({1, CodewordCommand{0, 1}}, 10, 2, links) == 0);
   faults(ErrorCode::Capacity,
-         [&] { (void)control.execute({2, ControlKind::Codeword, 0, 2}, 15, 2, links); });
+         [&] { (void)control.execute({2, CodewordCommand{0, 2}}, 15, 2, links); });
   CHECK(trace.events().size() == 2);
 }
 void resources_test() {
@@ -93,12 +94,12 @@ void readout_test() {
   map.actions[0].get<AcquireSpec>().separate_arm = true;
   map.actions[0].get<AcquireSpec>().discriminator_delay = 0;
   EventSpec arm = map.actions[0];
-  ArmSpec specification;
+  DiscriminatorArmSpec specification;
   specification.operands = arm.get<AcquireSpec>().operands;
   specification.operation = arm.get<AcquireSpec>().operation;
   arm.spec = specification;
   arm.port = 2;
-  arm.get<ArmSpec>().operands.resources = {{20, true}};
+  arm.get<DiscriminatorArmSpec>().operands.resources = {{20, true}};
   arm.delay = 80;
   arm.duration = 1;
   map.actions.push_back(arm);
@@ -107,7 +108,7 @@ void readout_test() {
   const auto reference = registers.reserve(1, 0);
   MockBackend backend({{reference.measurement, true}});
   Trace trace;
-  ControlLinks links(p);
+  ControlLinks links(transport_config(p));
   ControlElectronics device(device_profile(p), backend, trace);
   auto batch = launch(p, 0, 4, 100, 1, reference);
   auto corrupted = batch;
@@ -135,7 +136,7 @@ void readout_test() {
     if (e.kind == "MeasurementSampled" || e.kind == "ResultReady")
       times.push_back(e.tick);
   CHECK(times == std::vector<Tick>({140, 180}));
-  p.mappings[3].actions.back().get<ArmSpec>().operands.targets = {1};
+  p.mappings[3].actions.back().get<DiscriminatorArmSpec>().operands.targets = {1};
   faults(ErrorCode::InvalidProfile, [&] { p.validate(); });
 }
 void overflow_test() {
@@ -162,7 +163,7 @@ void reset_test() {
   MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   MockBackend backend;
   Trace trace;
-  ControlLinks links(p);
+  ControlLinks links(transport_config(p));
   ControlElectronics device(device_profile(p), backend, trace);
   device.accept(launch(p, 0, 4, 100, 1, registers.reserve(1, 0)));
   device.process(100, 1, [&](const Completion &result) {

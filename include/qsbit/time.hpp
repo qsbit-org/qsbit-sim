@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qsbit/error.hpp"
+#include <compare>
 #include <cstdint>
 #include <limits>
 
@@ -8,6 +9,10 @@ namespace qsbit {
 using Tick = std::uint64_t;
 using Id = std::uint64_t;
 using Epoch = std::uint64_t;
+struct TcuCycle {
+  std::uint64_t value = 0;
+  auto operator<=>(const TcuCycle &) const = default;
+};
 
 inline Tick checked_add(Tick a, Tick b) {
   require(b <= std::numeric_limits<Tick>::max() - a, ErrorCode::TimeOverflow,

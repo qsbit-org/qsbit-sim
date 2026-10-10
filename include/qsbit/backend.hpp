@@ -2,6 +2,7 @@
 
 #include "qsbit/control_protocol.hpp"
 #include <complex>
+#include <map>
 #include <span>
 #include <vector>
 

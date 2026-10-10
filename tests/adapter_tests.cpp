@@ -26,7 +26,7 @@ public:
     if (halted())
       return;
     const std::array<ControlOperation, 3> operations{
-        {{1, ControlKind::Wait, 8}, {2, ControlKind::Codeword, 0, 1}, {3, ControlKind::Halt}}};
+        {{1, WaitCommand{8}}, {2, CodewordCommand{0, 1}}, {3, HaltCommand{}}}};
     if (ports.control(operations[index_])) {
       ++index_;
       pc_ += 4;

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import re
 import shutil
 import struct
@@ -217,7 +218,11 @@ def simulate(directory, simulator, shots, reference, latency):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--exporter", type=Path, required=True)
+    parser.add_argument(
+        "--exporter",
+        default=os.environ.get("QSBIT_BLOQ_EXPORTER", "bloq-qir-export"),
+        help="exporter command or path (default: QSBIT_BLOQ_EXPORTER, then PATH)",
+    )
     parser.add_argument("--compiler", default="qsbitc", help="compiler command or path")
     parser.add_argument("--sim", default="qsbit-sim", help="simulator command or path")
     parser.add_argument("--output", type=Path, default=Path("build-clang/bloq-qir"))
@@ -225,14 +230,16 @@ def main():
     parser.add_argument("--decoder-latency", type=int, default=1000)
     parser.add_argument("--qir-format", choices=("bc", "ll"), default="bc")
     args = parser.parse_args()
-    for command in (args.compiler, args.sim):
+    for command in (args.exporter, args.compiler, args.sim):
         if shutil.which(command) is None:
             parser.error(f"executable not found: {command}; install it on PATH or pass its path")
     if args.shots < 1 or args.shots > 0xFFFFFFFF or args.decoder_latency < 1:
         parser.error("shots must be in 1..4294967295 and decoder-latency must be positive")
     directory = args.output.resolve()
     directory.mkdir(parents=True, exist_ok=True)
-    reference = generate(directory, args.exporter.resolve(), args.decoder_latency)
+    reference = generate(
+        directory, Path(shutil.which(args.exporter)).resolve(), args.decoder_latency
+    )
     subprocess.run(
         [
             args.compiler,

@@ -1,8 +1,18 @@
+#include "../config_json.hpp"
 #include "config.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/time.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <set>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace qsbit::app {
 std::string_view usage() {
@@ -19,7 +29,9 @@ std::string_view usage() {
          "  --reset TICK --inspect ADDRESS --reverse-registration --python-path DIRECTORY\n"
          "  --memory-dump FILE --dump-default-profile FILE\n";
 }
-void apply_run_config(RunConfig &run, const Json &config, const std::filesystem::path &base) {
+namespace {
+void apply_run_config(RunConfig &run, const Json &config, const std::filesystem::path &base,
+                      Json &core_settings, Json &connection_settings) {
   require(config.is_object(), ErrorCode::InvalidProfile, "run config must be an object");
   const std::set<std::string> allowed{"schema",
                                       "program",
@@ -53,13 +65,13 @@ void apply_run_config(RunConfig &run, const Json &config, const std::filesystem:
           "unsupported run schema");
   run.config_base = base;
   if (config.contains("cores")) {
-    run.core_settings = config["cores"];
-    require(run.core_settings.is_array() && !run.core_settings.empty(), ErrorCode::InvalidProfile,
+    core_settings = config["cores"];
+    require(core_settings.is_array() && !core_settings.empty(), ErrorCode::InvalidProfile,
             "cores must be a nonempty array");
   }
   if (config.contains("sync_connections")) {
-    run.connection_settings = config["sync_connections"];
-    require(run.connection_settings.is_array(), ErrorCode::InvalidProfile,
+    connection_settings = config["sync_connections"];
+    require(connection_settings.is_array(), ErrorCode::InvalidProfile,
             "sync_connections must be an array");
   }
   if (config.contains("program"))
@@ -141,8 +153,10 @@ void apply_run_config(RunConfig &run, const Json &config, const std::filesystem:
     run.reverse = config["reverse_registration"].get<bool>();
   }
 }
+} // namespace
 RunConfig parse_run_config(std::span<const std::string> arguments, std::string module_directory) {
   RunConfig run;
+  Json core_settings = Json::array(), connection_settings = Json::array();
   run.module_directory = std::move(module_directory);
   for (std::size_t i = 0; i < arguments.size(); ++i) {
     const auto &argument = arguments[i];
@@ -169,7 +183,7 @@ RunConfig parse_run_config(std::span<const std::string> arguments, std::string m
         run.check_config = check_only;
         return run;
       }
-      apply_run_config(run, config, path.parent_path());
+      apply_run_config(run, config, path.parent_path(), core_settings, connection_settings);
     } else if (argument == "--list-backends")
       run.backend_command = "list";
     else if (argument == "--help-backend")
@@ -233,15 +247,19 @@ RunConfig parse_run_config(std::span<const std::string> arguments, std::string m
   }
 
   if (run.backend_command.empty()) {
-    require(!run.program.empty() || !run.core_settings.empty(), ErrorCode::InvalidOperand,
+    require(!run.program.empty() || !core_settings.empty(), ErrorCode::InvalidOperand,
             "a program or cores configuration is required");
-    require(run.core_settings.empty() ||
+    require(core_settings.empty() ||
                 (run.program.empty() && !run.raw && run.inspect.empty() && run.memory_dump.empty()),
             ErrorCode::InvalidProfile,
             "cores cannot be combined with a top-level program, raw_base, inspect or memory_dump");
     require(run.backend_options.is_object(), ErrorCode::InvalidProfile,
             "backend_options must be an object");
     run.profile.validate();
+    run.multicore = !core_settings.empty();
+    run.cores =
+        resolve_cores(run.profile, run.program, core_settings, run.cpu_model, run.config_base);
+    run.connections = configure_connections(connection_settings);
   }
   return run;
 }

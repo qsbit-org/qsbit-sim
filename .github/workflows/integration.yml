@@ -93,9 +93,10 @@ jobs:
           python examples/qec/run.py --output build-clang/qec --shots 2
       - name: Validate Bloq example entry point
         working-directory: qsbit-sim
+        env:
+          QSBIT_BLOQ_EXPORTER: ${{ github.workspace }}/bloq/target/debug/examples/export
         run: |
           "$VIRTUAL_ENV/bin/python" examples/bloq-qir/run.py \
-            --exporter "$GITHUB_WORKSPACE/bloq/target/debug/examples/export" \
             --output build-clang/bloq-qir --shots 1
       - name: Upload test logs
         if: always()

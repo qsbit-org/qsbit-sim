@@ -12,14 +12,13 @@ Quantum backend operations and the mock implementation. [Open header](../include
 (profile_8hpp)=
 ## profile.hpp
 
-Profiles, event specifications, codeword mappings and paired two-qubit gates.
+Full simulation profile, validation and configuration fingerprint.
 [Open header](../include/qsbit/profile.hpp).
 
 (control__protocol_8hpp)=
 ## control_protocol.hpp
 
-Timing-point requests, underflow policies, events, measurement references and
-completion records. [Open header](../include/qsbit/control_protocol.hpp).
+Timing-point requests, underflow policies and scheduled events. [Open header](../include/qsbit/control_protocol.hpp).
 
 (cpu_8hpp)=
 ## cpu.hpp
@@ -137,6 +136,48 @@ Tick arithmetic and clock-edge calculations. [Open header](../include/qsbit/time
 ## trace.hpp
 
 Trace records and JSONL serialization. [Open header](../include/qsbit/trace.hpp).
+
+(event_8hpp)=
+## event.hpp
+
+Device event specifications, codeword mappings and paired-gate definitions.
+[Open header](../include/qsbit/event.hpp).
+
+(measurement_8hpp)=
+## measurement.hpp
+
+Measurement identities, completion bits and execution flags.
+[Open header](../include/qsbit/measurement.hpp).
+
+(control__command_8hpp)=
+## control_command.hpp
+
+Named payloads for codeword, wait, measurement-read, halt and synchronization commands.
+[Open header](../include/qsbit/control_command.hpp).
+
+(timing__config_8hpp)=
+## timing_config.hpp
+
+Transport, timing-control and TCU configuration values.
+[Open header](../include/qsbit/timing_config.hpp).
+
+(gates_8hpp)=
+## device/gates.hpp
+
+Indexed paired-gate definitions and gate-output resolution.
+[Open header](../include/qsbit/device/gates.hpp).
+
+(readouts_8hpp)=
+## device/readouts.hpp
+
+Acquisition pairing, readiness calculation and sampled-result lifetime.
+[Open header](../include/qsbit/device/readouts.hpp).
+
+(mmio_8hpp)=
+## decoder/mmio.hpp
+
+Decoder register storage and typed MMIO commands.
+[Open header](../include/qsbit/decoder/mmio.hpp).
 
 ## Namespace reference
 

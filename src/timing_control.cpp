@@ -1,41 +1,41 @@
 #include "qsbit/timing_control.hpp"
-#include <algorithm>
+#include "qsbit/control_command.hpp"
+#include "qsbit/control_protocol.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/event.hpp"
+#include "qsbit/feedback.hpp"
+#include "qsbit/isa.hpp"
+#include "qsbit/measurement.hpp"
+#include "qsbit/time.hpp"
+#include "qsbit/timing_config.hpp"
+#include "qsbit/trace.hpp"
+#include <cstdint>
+#include <optional>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace qsbit {
 ControlOperation adapt_quantum(const rv32::Decoded &d, Id id, std::uint32_t lhs,
                                std::uint32_t rhs) {
   require(d.op == rv32::Op::Quantum, ErrorCode::Protocol, "non-quantum operation sent to adapter");
-  ControlOperation op;
-  op.instruction = id;
-  op.first = lhs;
-  op.second = rhs;
   switch ((d.word >> 12) & 7) {
   case 0:
-    op.kind = ControlKind::Codeword;
-    op.first = (d.word >> 25) & 1 ? d.rs1 : lhs;
-    op.second = (d.word >> 25) & 2 ? d.rs2 : rhs;
-    break;
+    return {id,
+            CodewordCommand{(d.word >> 25) & 1 ? d.rs1 : lhs, (d.word >> 25) & 2 ? d.rs2 : rhs}};
   case 1:
-    op.kind = ControlKind::Wait;
-    break;
+    return {id, WaitCommand{lhs}};
   case 2:
-    op.kind = ControlKind::Wait;
-    op.first = d.word >> 15;
-    break;
+    return {id, WaitCommand{d.word >> 15}};
   case 3:
-    op.kind = ControlKind::FetchMeasurement;
-    op.first = d.rs1;
-    break;
+    return {id, FetchMeasurementCommand{d.rs1}};
   case 6:
-    op.kind = ControlKind::Synchronize;
-    op.first = d.word >> 15;
-    break;
+    return {id, SynchronizeCommand{d.word >> 15}};
   default:
     throw Fault(ErrorCode::IllegalInstruction, "reserved quantum operation");
   }
-  return op;
 }
+
 void ControlLinks::reset() {
   timing_events.reset();
   replies.reset();
@@ -44,9 +44,9 @@ void ControlLinks::reset() {
   fast_results.reset();
   fast_credits.reset();
 }
-TimingControl::TimingControl(const Profile &profile, MeasurementRegisters &registers, Trace &trace,
+TimingControl::TimingControl(TimingConfig profile, MeasurementRegisters &registers, Trace &trace,
                              ValidateAction validate, ValidateSync validate_sync)
-    : profile_(profile), measurement_registers_(registers), trace_(trace),
+    : profile_(std::move(profile)), measurement_registers_(registers), trace_(trace),
       validate_(std::move(validate)), validate_sync_(std::move(validate_sync)) {}
 void TimingControl::receive(Tick now, Epoch epoch, ControlLinks &links) {
   if (auto reply = links.replies.take(now)) {
@@ -93,7 +93,7 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   request.point.underflow_policy = pending_wait_for_next_       ? UnderflowPolicy::PauseWhenEmpty
                                    : request.point.interval > 0 ? UnderflowPolicy::Strict
                                                                 : UnderflowPolicy::Inherit;
-  request.configuration = profile_.fingerprint();
+  request.configuration = profile_.configuration;
   for (auto &event : request.events) {
     event.label = request.point.label;
     request.point.manifest.push_back(event.id);
@@ -133,7 +133,8 @@ std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &ope
                                                      Epoch epoch) {
   require(!enqueued_ && !enqueue_request_, ErrorCode::Protocol,
           "cw requires wait after a submitted time point");
-  const auto &map = profile_.mapping(operation.first, operation.second);
+  const auto &map = profile_.mapping(operation.get<CodewordCommand>().port,
+                                     operation.get<CodewordCommand>().codeword);
   std::optional<std::uint32_t> measurement_target;
   for (const auto &action : map.actions) {
     validate_(action);
@@ -160,14 +161,15 @@ std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &ope
             "measurement delivery capacity exhausted");
     reference = measurement_registers_.reserve(epoch, *measurement_target);
   }
-  auto events = decode_codeword(profile_, operation.first, operation.second, epoch,
+  auto events = decode_codeword(profile_, operation.get<CodewordCommand>().port,
+                                operation.get<CodewordCommand>().codeword, epoch,
                                 operation.instruction, next_event_, reference);
   pending_events_.insert(pending_events_.end(), events.begin(), events.end());
   pending_point_ = true;
   next_event_ = next_event;
   TraceEvent record{now, epoch, "CodewordQueued", operation.instruction, 0, time_point_};
-  record.port = operation.first;
-  record.codeword = operation.second;
+  record.port = operation.get<CodewordCommand>().port;
+  record.codeword = operation.get<CodewordCommand>().codeword;
   trace_.emit(std::move(record));
   return 0;
 }
@@ -180,47 +182,41 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
   else
     held_ = operation;
   std::optional<std::uint32_t> result;
-  switch (operation.kind) {
-  case ControlKind::Codeword:
+  if (operation.is<CodewordCommand>()) {
     result = codeword(operation, now, epoch);
-    break;
-  case ControlKind::Wait:
-    result = operation.first == 0 ? execute_zero_wait(now, epoch, links)
-                                  : advance_time(operation.first, now, epoch, links);
-    break;
-  case ControlKind::FetchMeasurement:
-    require(operation.first < profile_.qubits, ErrorCode::InvalidOperand,
+  } else if (const auto *wait = std::get_if<WaitCommand>(&operation.command)) {
+    result = wait->cycles == 0 ? execute_zero_wait(now, epoch, links)
+                               : advance_time(wait->cycles, now, epoch, links);
+  } else if (const auto *read = std::get_if<FetchMeasurementCommand>(&operation.command)) {
+    require(read->qubit < profile_.qubits, ErrorCode::InvalidOperand,
             "measurement register is invalid");
     if (enqueue(now, epoch, links)) {
-      const auto value = measurement_registers_.read(operation.first);
+      const auto value = measurement_registers_.read(read->qubit);
       if (value) {
         result = *value ? 1U : 0U;
         TraceEvent e{now, epoch, "MeasurementRegisterRead", operation.instruction};
-        e.targets = {operation.first};
+        e.targets = {read->qubit};
         e.value = *result;
         trace_.emit(std::move(e));
       }
     }
-    break;
-  case ControlKind::Halt:
+  } else if (operation.is<HaltCommand>()) {
     if (enqueue(now, epoch, links)) {
       links.closure.publish(now, epoch, EndOfStream{last_label_});
       closed_ = true;
       result = 0;
     }
-    break;
-  case ControlKind::Synchronize:
+  } else if (const auto *sync = std::get_if<SynchronizeCommand>(&operation.command)) {
     require(bool(validate_sync_), ErrorCode::UnsupportedSynchronization,
             "sync requires a connected controller");
     require(!enqueued_ && !enqueue_request_, ErrorCode::Protocol,
             "sync requires wait after a submitted time point");
-    validate_sync_(operation.first);
+    validate_sync_(sync->target);
     require(pending_sync_.empty(), ErrorCode::InvalidOperand,
             "only one sync is allowed at a time point");
-    pending_sync_.push_back(operation.first);
+    pending_sync_.push_back(sync->target);
     pending_point_ = true;
     result = 0;
-    break;
   }
   if (result)
     held_.reset();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "qsbit/memory.hpp"
+#include "qsbit/decoder/mmio.hpp"
 #include "qsbit/trace.hpp"
 #include <deque>
 #include <functional>
@@ -22,8 +22,8 @@ struct DecoderSystemConfig {
 class DecoderSystem {
 public:
   DecoderSystem(DecoderSystemConfig config, Trace &trace);
-  [[nodiscard]] bool contains(std::uint32_t address) const;
-  void validate_memory(const ProgramImage &image) const;
+  [[nodiscard]] bool contains(std::uint32_t address) const { return mmio_.contains(address); }
+  void validate_memory(const ProgramImage &image) const { mmio_.validate_memory(image); }
   std::optional<std::uint32_t> access(std::uint32_t core, const MemoryRequest &request, Tick now,
                                       Epoch epoch);
   void step(Tick now, Epoch epoch);
@@ -32,9 +32,6 @@ public:
   [[nodiscard]] std::optional<Tick> next_boundary(Tick now) const;
 
 private:
-  struct Registers {
-    std::uint32_t decoder = 0, count = 0, low = 0, high = 0, tag = 0;
-  };
   struct Session {
     std::vector<std::uint8_t> measurements;
     std::optional<std::uint64_t> result;
@@ -60,11 +57,11 @@ private:
   void admit_requests(Tick now, Epoch epoch);
   void transmit_result(Tick now);
   const DecoderConfig &decoder(std::uint32_t id) const;
-  void event(Tick now, Epoch epoch, const char *kind, Id id, std::uint32_t core,
+  void event(Tick now, Epoch epoch, DecoderEventKind kind, Id id, std::uint32_t core,
              std::uint32_t decoder, std::uint32_t tag = 0);
   DecoderSystemConfig config_;
   Trace &trace_;
-  std::map<std::uint32_t, Registers> registers_;
+  DecoderMmio mmio_;
   std::map<std::pair<std::uint32_t, std::uint32_t>, Session> sessions_;
   std::map<std::uint32_t, Tick> available_;
   std::deque<Request> requests_;

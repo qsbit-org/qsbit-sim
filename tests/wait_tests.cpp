@@ -1,5 +1,7 @@
 #include "qsbit/defaults.hpp"
+#include "qsbit/profile.hpp"
 #include "qsbit/tcu.hpp"
+#include "qsbit/timing_config.hpp"
 #include "test.hpp"
 #include <algorithm>
 
@@ -12,10 +14,10 @@ int main() {
     p.timing_capacity = 1;
     const auto ok = [](const TriggeredEvents &) {};
     TimingEvents invalid{{1, 1, 1, {}, {}, UnderflowPolicy::Inherit}, {}, p.fingerprint()};
-    faults(ErrorCode::Protocol, [&] { validate_timing_events(invalid, p); });
+    faults(ErrorCode::Protocol, [&] { validate_timing_events(invalid, timing_config(p)); });
     for (bool synchronization : {false, true}) {
       Trace trace;
-      TcuCycleModel tcu(p, trace);
+      TcuCycleModel tcu(tcu_config(p), trace);
       TimingEvents zero{{1, 1, 0, {}, {}, UnderflowPolicy::PauseWhenEmpty}, {}, p.fingerprint()};
       TimingEvents first{{1, 2, 0, {}}, {}, p.fingerprint()};
       TimingEvents next{{1, 3, 2, {}, {}, UnderflowPolicy::Strict}, {}, p.fingerprint()};
@@ -54,7 +56,7 @@ int main() {
     p.timing_capacity = 4;
     for (bool zero_first : {false, true}) {
       Trace trace;
-      TcuCycleModel tcu(p, trace);
+      TcuCycleModel tcu(tcu_config(p), trace);
       TimingEvents first{{1,
                           1,
                           0,
@@ -93,7 +95,7 @@ int main() {
     }
     // Prefetched work does not pause. Repeated zero waits each consume one edge.
     Trace trace;
-    TcuCycleModel tcu(p, trace);
+    TcuCycleModel tcu(tcu_config(p), trace);
     for (Id label = 1; label <= 3; ++label) {
       TimingEvents zero{
           {1, label, 0, {}, {}, UnderflowPolicy::PauseWhenEmpty}, {}, p.fingerprint()};

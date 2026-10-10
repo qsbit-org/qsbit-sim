@@ -1,15 +1,32 @@
 #include "qsbit/decoder.hpp"
 #include "qsbit/contracts/decoder.hpp"
+#include "qsbit/decoder/mmio.hpp"
+#include "qsbit/error.hpp"
+#include "qsbit/memory.hpp"
+#include "qsbit/time.hpp"
+#include "qsbit/trace.hpp"
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <optional>
 #include <set>
+#include <utility>
+#include <variant>
 
 namespace qsbit {
 namespace registers = contract::decoder;
+namespace {
+std::set<std::uint32_t> decoder_ids(const DecoderSystemConfig &config) {
+  std::set<std::uint32_t> ids;
+  for (const auto &decoder : config.decoders)
+    ids.insert(decoder.id);
+  return ids;
+}
+} // namespace
 DecoderSystem::DecoderSystem(DecoderSystemConfig config, Trace &trace)
-    : config_(std::move(config)), trace_(trace) {
-  require(config_.base % 4 == 0 && config_.base <= UINT32_MAX - (registers::RegisterBytes - 1) &&
-              config_.request_capacity > 0 && config_.result_capacity > 0 &&
+    : config_(std::move(config)), trace_(trace), mmio_(config_.base, decoder_ids(config_)) {
+  require(config_.request_capacity > 0 && config_.result_capacity > 0 &&
               config_.bytes_per_tick > 0 && config_.link_latency > 0,
           ErrorCode::InvalidProfile, "invalid decoder transport configuration");
   std::set<std::uint32_t> ids;
@@ -19,115 +36,76 @@ DecoderSystem::DecoderSystem(DecoderSystemConfig config, Trace &trace)
                 bool(d.decode),
             ErrorCode::InvalidProfile, "invalid decoder configuration");
 }
-bool DecoderSystem::contains(std::uint32_t address) const {
-  return !config_.decoders.empty() && address >= config_.base &&
-         std::uint64_t(address) < std::uint64_t(config_.base) + registers::RegisterBytes;
-}
-void DecoderSystem::validate_memory(const ProgramImage &image) const {
-  require(config_.decoders.empty() ||
-              std::uint64_t(image.base()) + image.bytes().size() <= config_.base ||
-              std::uint64_t(config_.base) + registers::RegisterBytes <= image.base(),
-          ErrorCode::InvalidProfile, "decoder MMIO overlaps program RAM");
-}
 const DecoderConfig &DecoderSystem::decoder(std::uint32_t id) const {
   const auto it = std::find_if(config_.decoders.begin(), config_.decoders.end(),
                                [id](const auto &d) { return d.id == id; });
   require(it != config_.decoders.end(), ErrorCode::InvalidOperand, "unknown decoder id");
   return *it;
 }
-void DecoderSystem::event(Tick now, Epoch epoch, const char *kind, Id id, std::uint32_t core,
+void DecoderSystem::event(Tick now, Epoch epoch, DecoderEventKind kind, Id id, std::uint32_t core,
                           std::uint32_t target, std::uint32_t tag) {
-  TraceEvent e{now, epoch, kind, id};
-  e.core = core;
-  e.value = target;
-  e.detail = "tag=" + std::to_string(tag) + ",requests=" + std::to_string(requests_.size()) +
-             ",resets=" + std::to_string(reset_request_.has_value()) +
-             ",jobs=" + std::to_string(jobs_.size());
-  trace_.emit(std::move(e));
+  trace_.emit_decoder(now, epoch, kind, id, core,
+                      {target, tag, requests_.size(),
+                       static_cast<std::size_t>(reset_request_.has_value()), jobs_.size()});
 }
 std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const MemoryRequest &request,
                                                    Tick now, Epoch epoch) {
-  require(contains(request.address) && request.width == 4 && request.address % 4 == 0 &&
-              !request.instruction,
-          ErrorCode::InvalidOperand, "decoder MMIO requires aligned data words");
-  auto &r = registers_[core];
-  const auto offset = request.address - config_.base;
-  if (request.write) {
-    switch (offset) {
-    case registers::Select:
-      (void)decoder(request.value);
-      r.decoder = request.value;
-      return 0;
-    case registers::Count:
-      r.count = request.value;
-      return 0;
-    case registers::DataLow:
-      r.low = request.value;
-      return 0;
-    case registers::DataHigh:
-      r.high = request.value;
-      return 0;
-    case registers::Tag:
-      r.tag = request.value;
-      return 0;
-    case registers::Command: {
-      (void)decoder(r.decoder);
-      require(request.value == registers::Submit || request.value == registers::Reset ||
-                  request.value == registers::Consume,
-              ErrorCode::InvalidOperand, "invalid decoder command");
-      if (request.value == registers::Consume) {
-        auto &s = sessions_[{core, r.decoder}];
-        require(s.result.has_value() && !s.submitted && s.measurements.empty(), ErrorCode::Protocol,
-                "decoder result is not ready");
-        s = {};
-        event(now, epoch, "DecoderResultConsumed", 0, core, r.decoder);
-        return 0;
-      }
-      const bool resetting = request.value == registers::Reset;
-      require(resetting || (r.count > 0 && r.count <= 64), ErrorCode::InvalidOperand,
-              "decoder packet must contain 1 to 64 bits");
-      if (resetting ? reset_request_.has_value() : requests_.size() >= config_.request_capacity)
-        return std::nullopt;
-      const auto count = resetting ? 0 : r.count;
-      const auto bytes = checked_add(config_.packet_overhead, (count + 7ULL) / 8);
-      const auto duration =
-          std::max<Tick>(1, (bytes + config_.bytes_per_tick - 1) / config_.bytes_per_tick);
-      const auto sent = std::max(now, tx_available_);
-      const auto end = checked_add(sent, duration);
-      const auto arrival = checked_add(end, config_.link_latency);
-      require(next_ != std::numeric_limits<Id>::max(), ErrorCode::Capacity,
-              "decoder request id overflow");
-      const auto id = next_;
-      const auto data = resetting ? 0 : std::uint64_t(r.low) | (std::uint64_t(r.high) << 32);
-      const Request packet{id, core, r.decoder, count, r.tag, data, sent, arrival};
-      if (resetting)
-        reset_request_ = packet;
-      else
-        requests_.push_back(packet);
-      ++next_;
-      tx_available_ = end;
-      event(now, epoch, "DecoderRequestSubmitted", id, core, r.decoder, r.tag);
-      return 0;
-    }
-    default:
-      throw Fault(ErrorCode::InvalidOperand, "read-only decoder register");
-    }
+  const auto command = mmio_.access(core, request);
+  if (!command)
+    return 0;
+  if (const auto *consume = std::get_if<DecoderConsume>(&*command)) {
+    auto &session = sessions_[{core, consume->decoder}];
+    require(session.result.has_value() && !session.submitted && session.measurements.empty(),
+            ErrorCode::Protocol, "decoder result is not ready");
+    session = {};
+    event(now, epoch, DecoderEventKind::ResultConsumed, 0, core, consume->decoder);
+    return 0;
   }
-  const auto &d = decoder(r.decoder);
-  if (offset == registers::Count)
-    return d.outputs;
-  const auto &s = sessions_[{core, r.decoder}];
-  if (offset == registers::Command) {
-    const auto matches = [&](const auto &p) { return p.core == core && p.decoder == r.decoder; };
-    const bool pending = (reset_request_ && matches(*reset_request_)) ||
-                         std::any_of(requests_.begin(), requests_.end(), matches);
-    return (s.result ? registers::Ready : 0U) |
-           ((pending || s.submitted || !s.measurements.empty()) ? registers::Busy : 0U);
+  if (const auto *read = std::get_if<DecoderRead>(&*command)) {
+    if (read->kind == DecoderReadKind::Count)
+      return decoder(read->decoder).outputs;
+    const auto &session = sessions_[{core, read->decoder}];
+    if (read->kind == DecoderReadKind::Status) {
+      const auto matches = [&](const auto &p) {
+        return p.core == core && p.decoder == read->decoder;
+      };
+      const bool pending = (reset_request_ && matches(*reset_request_)) ||
+                           std::any_of(requests_.begin(), requests_.end(), matches);
+      return (session.result ? registers::Ready : 0U) |
+             ((pending || session.submitted || !session.measurements.empty()) ? registers::Busy
+                                                                              : 0U);
+    }
+    require(session.result.has_value(), ErrorCode::Protocol,
+            "decoder result read before completion");
+    return static_cast<std::uint32_t>(*session.result >>
+                                      (read->kind == DecoderReadKind::Low ? 0 : 32));
   }
-  require((offset == registers::ResultLow || offset == registers::ResultHigh) &&
-              s.result.has_value(),
-          ErrorCode::Protocol, "decoder result read before completion");
-  return static_cast<std::uint32_t>(*s.result >> (offset == registers::ResultLow ? 0 : 32));
+  const auto *reset = std::get_if<DecoderReset>(&*command);
+  const auto submission =
+      reset ? DecoderSubmit{reset->decoder, 0, reset->tag, 0} : std::get<DecoderSubmit>(*command);
+  if (reset ? reset_request_.has_value() : requests_.size() >= config_.request_capacity)
+    return std::nullopt;
+  const auto bytes = checked_add(config_.packet_overhead, (submission.count + 7ULL) / 8);
+  const auto duration =
+      std::max<Tick>(1, (bytes + config_.bytes_per_tick - 1) / config_.bytes_per_tick);
+  const auto sent = std::max(now, tx_available_);
+  const auto end = checked_add(sent, duration);
+  const auto arrival = checked_add(end, config_.link_latency);
+  require(next_ != std::numeric_limits<Id>::max(), ErrorCode::Capacity,
+          "decoder request id overflow");
+  const auto id = next_;
+  const Request packet{
+      id,   core,   submission.decoder, submission.count, submission.tag, submission.data,
+      sent, arrival};
+  if (reset)
+    reset_request_ = packet;
+  else
+    requests_.push_back(packet);
+  ++next_;
+  tx_available_ = end;
+  event(now, epoch, DecoderEventKind::RequestSubmitted, id, core, submission.decoder,
+        submission.tag);
+  return 0;
 }
 void DecoderSystem::step(Tick now, Epoch epoch) {
   advance_transmission(now, epoch);
@@ -138,7 +116,7 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
 void DecoderSystem::advance_transmission(Tick now, Epoch epoch) {
   const auto transmitted = [&](Request &p) {
     if (!p.transmitted && p.sent <= now) {
-      event(now, epoch, "DecoderRequestSent", p.id, p.core, p.decoder, p.tag);
+      event(now, epoch, DecoderEventKind::RequestSent, p.id, p.core, p.decoder, p.tag);
       p.transmitted = true;
     }
   };
@@ -155,7 +133,7 @@ void DecoderSystem::advance_transmission(Tick now, Epoch epoch) {
       std::erase_if(requests_, cancelled);
       std::erase_if(jobs_, cancelled);
       sessions_[{p.core, p.decoder}] = {};
-      event(now, epoch, "DecoderReset", p.id, p.core, p.decoder, p.tag);
+      event(now, epoch, DecoderEventKind::Reset, p.id, p.core, p.decoder, p.tag);
     }
   }
 }
@@ -163,18 +141,18 @@ void DecoderSystem::advance_jobs(Tick now, Epoch epoch) {
   for (auto it = jobs_.begin(); it != jobs_.end();) {
     auto &j = *it;
     if (!j.started && j.start <= now) {
-      event(now, epoch, "DecoderStarted", j.id, j.core, j.decoder);
+      event(now, epoch, DecoderEventKind::Started, j.id, j.core, j.decoder);
       j.started = true;
     }
     if (!j.completed && j.completion <= now) {
-      event(now, epoch, "DecoderCompleted", j.id, j.core, j.decoder);
+      event(now, epoch, DecoderEventKind::Completed, j.id, j.core, j.decoder);
       j.completed = true;
     }
     if (j.arrival && *j.arrival <= now) {
       auto &s = sessions_.at({j.core, j.decoder});
       s.result = s.result.value_or(0) ^ j.result;
       s.submitted = false;
-      event(now, epoch, "DecoderResultReturned", j.id, j.core, j.decoder);
+      event(now, epoch, DecoderEventKind::ResultReturned, j.id, j.core, j.decoder);
       it = jobs_.erase(it);
     } else
       ++it;
@@ -198,7 +176,7 @@ void DecoderSystem::admit_requests(Tick now, Epoch epoch) {
       break;
     for (std::uint32_t bit = 0; bit < p.count; ++bit)
       s.measurements.push_back((p.data >> bit) & 1);
-    event(now, epoch, "DecoderRequestArrived", p.id, p.core, p.decoder, p.tag);
+    event(now, epoch, DecoderEventKind::RequestArrived, p.id, p.core, p.decoder, p.tag);
     if (s.measurements.size() == d.measurements) {
       const auto result = d.decode(s.measurements);
       require(result.size() == d.outputs, ErrorCode::BackendFailure,
@@ -236,7 +214,7 @@ void DecoderSystem::transmit_result(Tick now) {
   }
 }
 void DecoderSystem::reset() {
-  registers_.clear();
+  mmio_.reset();
   sessions_.clear();
   requests_.clear();
   reset_request_.reset();

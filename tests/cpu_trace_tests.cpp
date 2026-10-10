@@ -27,7 +27,7 @@ template <typename Cpu> void pipeline(std::uint32_t exit_code) {
   Cpu cpu(clock, 0, trace);
   unsigned stalls = 8;
   CpuPorts ports{fetch, data, [&](const ControlOperation &op) -> std::optional<std::uint32_t> {
-                   if (op.kind == ControlKind::Codeword && stalls) {
+                   if (op.is<CodewordCommand>() && stalls) {
                      --stalls;
                      return std::nullopt;
                    }
