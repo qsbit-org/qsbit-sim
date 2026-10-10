@@ -13,7 +13,7 @@ int sc_main(int argc, char **argv) {
   try {
     sc_core::sc_set_time_resolution(1, sc_core::SC_NS);
     const std::vector<std::string> arguments(argv + 1, argv + argc);
-    auto run = parse_run_config(arguments);
+    const auto run = parse_run_config(arguments);
     if (run.help) {
       std::cout << usage();
       return 0;
@@ -54,6 +54,7 @@ int sc_main(int argc, char **argv) {
     std::unique_ptr<PythonSession> python;
 #endif
     std::unique_ptr<IQuantumBackend> backend;
+    auto backend_options = run.backend_options;
     if (run.backend_name == "mock") {
       require(run.backend_options.empty(), ErrorCode::InvalidProfile,
               "mock backend_options must be empty; configure outcomes in the run file");
@@ -63,7 +64,7 @@ int sc_main(int argc, char **argv) {
       python = std::make_unique<PythonSession>(run.module_directory);
       auto adapter = std::make_unique<PythonBackend>(
           PythonBackendConfig{run.backend_name, run.backend_options.dump()});
-      run.backend_options = Json::parse(adapter->options());
+      backend_options = Json::parse(adapter->options());
       backend = std::move(adapter);
 #else
       throw Fault(ErrorCode::UnsupportedCapability, "this build has no Python backends");
@@ -94,9 +95,8 @@ int sc_main(int argc, char **argv) {
       require(bool(trace), ErrorCode::InvalidOperand, "cannot open trace output");
       sim.trace().write_jsonl(trace);
     }
-    auto result =
-        simulation_summary(sim, run.backend_name, run.backend_options, run.backend_execution,
-                           models, run.connections, run.inspect, run.multicore);
+    auto result = simulation_summary(sim, run.backend_name, backend_options, run.backend_execution,
+                                     models, run.connections, run.inspect, run.multicore);
     if (!run.decoder_options.empty())
       result["decoding"] = run.decoder_options;
     write_json(run.summary_path, result);

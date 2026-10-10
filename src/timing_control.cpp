@@ -1,10 +1,10 @@
 #include "qsbit/timing_control.hpp"
 #include "qsbit/control_command.hpp"
+#include "qsbit/control_links.hpp"
 #include "qsbit/control_protocol.hpp"
 #include "qsbit/error.hpp"
 #include "qsbit/event.hpp"
 #include "qsbit/feedback.hpp"
-#include "qsbit/isa.hpp"
 #include "qsbit/measurement.hpp"
 #include "qsbit/time.hpp"
 #include "qsbit/timing_config.hpp"
@@ -16,34 +16,6 @@
 #include <vector>
 
 namespace qsbit {
-ControlOperation adapt_quantum(const rv32::Decoded &d, Id id, std::uint32_t lhs,
-                               std::uint32_t rhs) {
-  require(d.op == rv32::Op::Quantum, ErrorCode::Protocol, "non-quantum operation sent to adapter");
-  switch ((d.word >> 12) & 7) {
-  case 0:
-    return {id,
-            CodewordCommand{(d.word >> 25) & 1 ? d.rs1 : lhs, (d.word >> 25) & 2 ? d.rs2 : rhs}};
-  case 1:
-    return {id, WaitCommand{lhs}};
-  case 2:
-    return {id, WaitCommand{d.word >> 15}};
-  case 3:
-    return {id, FetchMeasurementCommand{d.rs1}};
-  case 6:
-    return {id, SynchronizeCommand{d.word >> 15}};
-  default:
-    throw Fault(ErrorCode::IllegalInstruction, "reserved quantum operation");
-  }
-}
-
-void ControlLinks::reset() {
-  timing_events.reset();
-  replies.reset();
-  closure.reset();
-  cpu_results.reset();
-  fast_results.reset();
-  fast_credits.reset();
-}
 TimingControl::TimingControl(TimingConfig profile, MeasurementRegisters &registers, Trace &trace,
                              ValidateAction validate, ValidateSync validate_sync)
     : profile_(std::move(profile)), measurement_registers_(registers), trace_(trace),
@@ -87,12 +59,15 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
     return true;
   }
   TimingEvents request;
-  request.point = {epoch, checked_add(last_label_, 1), time_point_ - last_enqueued_time_, {}};
+  request.point = {epoch,
+                   checked_add(last_label_, 1),
+                   TcuCycle{time_point_.value - last_enqueued_time_.value},
+                   {}};
   request.events = pending_events_;
   request.point.synchronizations = pending_sync_;
-  request.point.underflow_policy = pending_wait_for_next_       ? UnderflowPolicy::PauseWhenEmpty
-                                   : request.point.interval > 0 ? UnderflowPolicy::Strict
-                                                                : UnderflowPolicy::Inherit;
+  request.point.underflow_policy = pending_wait_for_next_ ? UnderflowPolicy::PauseWhenEmpty
+                                   : request.point.interval.value > 0 ? UnderflowPolicy::Strict
+                                                                      : UnderflowPolicy::Inherit;
   request.configuration = profile_.configuration;
   for (auto &event : request.events) {
     event.label = request.point.label;
@@ -102,7 +77,8 @@ bool TimingControl::enqueue(Tick now, Epoch epoch, ControlLinks &links) {
   require(!links.timing_events.full(), ErrorCode::Protocol, "enqueue request already pending");
   enqueue_request_ = request;
   links.timing_events.publish(now, epoch, std::move(request));
-  trace_.emit({now, epoch, "TimingPointSubmitted", 0, enqueue_request_->point.label, time_point_});
+  trace_.emit(
+      {now, epoch, "TimingPointSubmitted", 0, enqueue_request_->point.label, time_point_.value});
   return false;
 }
 std::optional<std::uint32_t> TimingControl::execute_zero_wait(Tick now, Epoch epoch,
@@ -118,7 +94,7 @@ std::optional<std::uint32_t> TimingControl::execute_zero_wait(Tick now, Epoch ep
   enqueued_ = false;
   return 0;
 }
-std::optional<std::uint32_t> TimingControl::advance_time(Tick interval, Tick now, Epoch epoch,
+std::optional<std::uint32_t> TimingControl::advance_time(TcuCycle interval, Tick now, Epoch epoch,
                                                          ControlLinks &links) {
   const auto destination = checked_add(time_point_, interval);
   if (!enqueue(now, epoch, links))
@@ -167,7 +143,7 @@ std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &ope
   pending_events_.insert(pending_events_.end(), events.begin(), events.end());
   pending_point_ = true;
   next_event_ = next_event;
-  TraceEvent record{now, epoch, "CodewordQueued", operation.instruction, 0, time_point_};
+  TraceEvent record{now, epoch, "CodewordQueued", operation.instruction, 0, time_point_.value};
   record.port = operation.get<CodewordCommand>().port;
   record.codeword = operation.get<CodewordCommand>().codeword;
   trace_.emit(std::move(record));
@@ -186,7 +162,7 @@ std::optional<std::uint32_t> TimingControl::execute(const ControlOperation &oper
     result = codeword(operation, now, epoch);
   } else if (const auto *wait = std::get_if<WaitCommand>(&operation.command)) {
     result = wait->cycles == 0 ? execute_zero_wait(now, epoch, links)
-                               : advance_time(wait->cycles, now, epoch, links);
+                               : advance_time(TcuCycle{wait->cycles}, now, epoch, links);
   } else if (const auto *read = std::get_if<FetchMeasurementCommand>(&operation.command)) {
     require(read->qubit < profile_.qubits, ErrorCode::InvalidOperand,
             "measurement register is invalid");
@@ -227,8 +203,8 @@ void TimingControl::reset() {
   pending_sync_.clear();
   enqueue_request_.reset();
   held_.reset();
-  time_point_ = 0;
-  last_enqueued_time_ = 0;
+  time_point_ = {};
+  last_enqueued_time_ = {};
   last_label_ = 0;
   next_event_ = 1;
   pending_point_ = false;

@@ -44,9 +44,10 @@ const DecoderConfig &DecoderSystem::decoder(std::uint32_t id) const {
 }
 void DecoderSystem::event(Tick now, Epoch epoch, DecoderEventKind kind, Id id, std::uint32_t core,
                           std::uint32_t target, std::uint32_t tag) {
-  trace_.emit_decoder(now, epoch, kind, id, core,
-                      {target, tag, requests_.size(),
-                       static_cast<std::size_t>(reset_request_.has_value()), jobs_.size()});
+  trace_.emit({now, epoch, id, core,
+               DecoderEvent{kind,
+                            {target, tag, requests_.size(),
+                             static_cast<std::size_t>(reset_request_.has_value()), jobs_.size()}}});
 }
 std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const MemoryRequest &request,
                                                    Tick now, Epoch epoch) {

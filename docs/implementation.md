@@ -35,10 +35,13 @@ Controller code cannot include device implementation headers. Standalone header
 compilation checks each header with its owning target's include paths.
 
 Configuration parsing resolves program paths, core profiles and synchronization
-connections before component construction. Backend options remain opaque JSON.
+connections before component construction. The application retains the parsed configuration
+as a const value. Backend options remain opaque JSON; normalized backend options
+are stored separately for the run summary.
 `Core` derives `TransportConfig`, `TimingConfig` and `TcuConfig` from its validated
 profile. Each component owns its configuration; `TimingConfig` indexes codeword
-mappings by port and codeword.
+mappings by port and codeword. `ControlLinks` owns the bounded mailboxes and depends
+on protocol records and transport settings, not on `TimingControl`.
 
 The [module reference](modules/README.md) maps logical responsibilities to their
 C++ owners and source files.

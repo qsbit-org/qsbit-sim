@@ -70,7 +70,7 @@ creating the initial state for the new epoch.
 
 ## Implementation and tests
 
-Source: [backend.cpp](../../src/backend.cpp), [device.cpp](../../src/device.cpp),
+Source: [backend.cpp](../../src/backend.cpp), [control_electronics.cpp](../../src/device/control_electronics.cpp),
 [python_backend.cpp](../../src/python_backend.cpp) and [backend.hpp](../../include/qsbit/backend.hpp).
 
 **CTest:** `backend.execution`, `systemc.bell.normal`.

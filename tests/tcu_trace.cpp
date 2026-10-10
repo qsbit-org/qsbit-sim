@@ -61,7 +61,7 @@ struct TimingHarness : sc_module {
       Id label = 0;
       for (auto interval : intervals) {
         TimingEvents group;
-        group.point = {1, ++label, interval, {}};
+        group.point = {1, ++label, TcuCycle{interval}, {}};
         group.point.underflow_policy =
             interval > 0 ? UnderflowPolicy::Strict : UnderflowPolicy::Inherit;
         group.configuration = profile.fingerprint();

@@ -1,6 +1,10 @@
 #pragma once
 
 #include "qsbit/trace.hpp"
+#include <array>
+#include <cstddef>
+#include <optional>
+#include <utility>
 
 namespace qsbit {
 class CpuPipelineTrace {
@@ -25,9 +29,7 @@ public:
     state.halted = halted;
     if (previous_ && epoch == epoch_ && state == *previous_)
       return;
-    TraceEvent event{now, epoch, "CpuPipelineUpdated", 0, 0, (now - clock.phase) / clock.period};
-    event.pipeline = state;
-    trace_.emit(std::move(event));
+    trace_.emit({now, epoch, (now - clock.phase) / clock.period, state});
     previous_ = std::move(state);
     epoch_ = epoch;
   }

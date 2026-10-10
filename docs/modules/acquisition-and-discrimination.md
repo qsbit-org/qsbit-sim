@@ -67,7 +67,7 @@ or discard stale completions according to their epoch checks.
 ## Implementation and tests
 
 Source: [readouts.cpp](../../src/device/readouts.cpp),
-[readouts.hpp](../../include/qsbit/device/readouts.hpp) and [device.cpp](../../src/device.cpp).
+[readouts.hpp](../../include/qsbit/device/readouts.hpp) and [control_electronics.cpp](../../src/device/control_electronics.cpp).
 
 **CTest:** `protocol.readout`.
 

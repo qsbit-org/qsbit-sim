@@ -1,4 +1,5 @@
 #pragma once
+#include "qsbit/control_links.hpp"
 #include "qsbit/timing_control.hpp"
 
 #include "qsbit/cpu.hpp"

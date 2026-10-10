@@ -1,3 +1,4 @@
+#include "qsbit/control_links.hpp"
 #include "qsbit/defaults.hpp"
 #include "qsbit/device.hpp"
 #include "qsbit/image.hpp"
@@ -28,21 +29,21 @@ void timing_test() {
   CHECK(control.execute({3, CodewordCommand{1, 1}}, 10, 1, links) == 0);
   const ControlOperation advance{4, WaitCommand{3}};
   CHECK(!control.execute(advance, 15, 1, links));
-  CHECK(control.pending() && control.time_point() == 8);
+  CHECK(control.pending() && control.time_point().value == 8);
   CHECK(!control.execute(advance, 20, 1, links));
   faults(ErrorCode::Protocol, [&] { (void)control.execute({5, HaltCommand{}}, 20, 1, links); });
   auto group = links.timing_events.take(20);
-  CHECK(group && group->value.events.size() == 2 && group->value.point.interval == 8);
+  CHECK(group && group->value.events.size() == 2 && group->value.point.interval.value == 8);
   CHECK(group->value.point.manifest[0] != group->value.point.manifest[1]);
   links.replies.publish(20, 1, {1});
   control.receive(20, 1, links);
   CHECK(control.pending());
   control.receive(25, 1, links);
-  CHECK(control.execute(advance, 25, 1, links) == 0 && control.time_point() == 11);
+  CHECK(control.execute(advance, 25, 1, links) == 0 && control.time_point().value == 11);
   CHECK(!control.execute({6, WaitCommand{0}}, 30, 1, links));
-  CHECK(control.time_point() == 11);
+  CHECK(control.time_point().value == 11);
   auto final = links.timing_events.take(40);
-  CHECK(final && final->value.events.empty() && final->value.point.interval == 3);
+  CHECK(final && final->value.events.empty() && final->value.point.interval.value == 3);
   CHECK(final->value.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty);
   links.replies.publish(40, 1, {2});
   control.receive(45, 1, links);

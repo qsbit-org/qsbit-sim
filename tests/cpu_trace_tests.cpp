@@ -47,8 +47,8 @@ template <typename Cpu> void pipeline(std::uint32_t exit_code) {
   for (const auto &event : destination.events()) {
     CHECK(event.core == 7);
     if (event.kind == "InstructionRetired") {
-      CHECK(event.pc != 16);
-      if (event.pc == 0)
+      CHECK(event.get_if<InstructionRetired>()->pc != 16);
+      if (event.get_if<InstructionRetired>()->pc == 0)
         retired = event.tick;
     }
     if (event.kind == "PipelineFlushed") {
@@ -57,8 +57,9 @@ template <typename Cpu> void pipeline(std::uint32_t exit_code) {
     }
     if (event.kind != "CpuPipelineUpdated")
       continue;
-    CHECK(event.pipeline && event.cycle == (event.tick - clock.phase) / clock.period);
-    const auto &state = *event.pipeline;
+    CHECK(event.get_if<CpuPipelineState>() &&
+          event.cycle == (event.tick - clock.phase) / clock.period);
+    const auto &state = *event.get_if<CpuPipelineState>();
     if (pending_flush) {
       CHECK(!state.stages[1] && !state.stages[2] && !state.stages[3]);
       pending_flush = false;
@@ -99,13 +100,23 @@ template <typename Cpu> void pipeline(std::uint32_t exit_code) {
   memory.reset();
   cpu.step(now, 2, ports);
   const auto &reset = destination.events().back();
-  CHECK(reset.kind == "CpuPipelineUpdated" && reset.epoch == 2 && reset.pipeline);
-  CHECK(!reset.pipeline->halted && reset.pipeline->stages[0]->id == 1);
-  CHECK(!reset.pipeline->stages[1] && !reset.pipeline->stages[2] && !reset.pipeline->stages[3]);
+  CHECK(reset.kind == "CpuPipelineUpdated" && reset.epoch == 2 && reset.get_if<CpuPipelineState>());
+  CHECK(!reset.get_if<CpuPipelineState>()->halted &&
+        reset.get_if<CpuPipelineState>()->stages[0]->id == 1);
+  CHECK(!reset.get_if<CpuPipelineState>()->stages[1] &&
+        !reset.get_if<CpuPipelineState>()->stages[2] &&
+        !reset.get_if<CpuPipelineState>()->stages[3]);
 }
 } // namespace
 int main() {
   try {
+    Trace trace;
+    for (const auto *kind : {"InstructionRetired", "CpuPipelineUpdated", "DecoderStarted"})
+      faults(ErrorCode::Protocol, [&] { trace.emit({0, 1, kind}); });
+    TraceEvent mismatched{0, 1, 0, CpuPipelineState{}};
+    mismatched.kind = "InstructionRetired";
+    faults(ErrorCode::Protocol, [&] { trace.emit(mismatched); });
+    CHECK(trace.events().empty());
     for (auto status : {0U, 1U, 2U, 63U}) {
       pipeline<CpuCycleModel>(status);
       pipeline<VliwCpuCycleModel>(status);

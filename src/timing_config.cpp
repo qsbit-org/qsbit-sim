@@ -1,6 +1,7 @@
 #include "qsbit/timing_config.hpp"
 #include "qsbit/error.hpp"
 #include "qsbit/profile.hpp"
+#include "qsbit/transport_config.hpp"
 #include <cstdint>
 
 namespace qsbit {

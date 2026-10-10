@@ -38,7 +38,8 @@ void validate_timing_events(const TimingEvents &request, const TimingConfig &pro
               request.point.underflow_policy == UnderflowPolicy::Strict ||
               request.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty,
           ErrorCode::Protocol, "invalid timing-point underflow policy");
-  require(request.point.interval == 0 || request.point.underflow_policy != UnderflowPolicy::Inherit,
+  require(request.point.interval.value == 0 ||
+              request.point.underflow_policy != UnderflowPolicy::Inherit,
           ErrorCode::Protocol, "positive intervals require an explicit underflow policy");
   require(request.configuration == profile.configuration, ErrorCode::Protocol,
           "request profile mismatch");

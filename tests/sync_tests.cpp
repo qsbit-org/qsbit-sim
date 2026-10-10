@@ -63,8 +63,10 @@ int main() {
     auto profile = default_profile();
     Trace tcu_trace;
     TcuCycleModel tcu(tcu_config(profile), tcu_trace, 1);
-    TimingEvents a{{1, 1, 8, {}, {1}, UnderflowPolicy::Strict}, {}, profile.fingerprint()};
-    TimingEvents b{{1, 2, 8, {}, {1}, UnderflowPolicy::Strict}, {}, profile.fingerprint()};
+    TimingEvents a{
+        {1, 1, TcuCycle{8}, {}, {1}, UnderflowPolicy::Strict}, {}, profile.fingerprint()};
+    TimingEvents b{
+        {1, 2, TcuCycle{8}, {}, {1}, UnderflowPolicy::Strict}, {}, profile.fingerprint()};
     const auto check = [](const TriggeredEvents &) {};
     CHECK(tcu.step(0, 1, &a, {}, check).admitted);
     CHECK(!tcu.step(20, 1, &b, {}, check).admitted);

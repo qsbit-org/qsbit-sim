@@ -28,9 +28,7 @@ std::string quoted(const std::string &s) {
   out << '"';
   return out.str();
 }
-} // namespace
-void Trace::emit_decoder(Tick tick, Epoch epoch, DecoderEventKind kind, Id request,
-                         std::uint32_t core, DecoderTrace state) {
+const char *decoder_name(DecoderEventKind kind) {
   const char *name = nullptr;
   switch (kind) {
   case DecoderEventKind::RequestSubmitted:
@@ -59,12 +57,22 @@ void Trace::emit_decoder(Tick tick, Epoch epoch, DecoderEventKind kind, Id reque
     break;
   }
   require(name != nullptr, ErrorCode::Protocol, "invalid decoder trace kind");
-  TraceEvent event{tick, epoch, name, request};
-  event.core = core;
-  event.decoder = state;
-  emit(std::move(event));
+  return name;
 }
+} // namespace
+TraceEvent::TraceEvent(Tick at, Epoch session, Id request, std::uint32_t core_id,
+                       DecoderEvent event)
+    : tick(at), epoch(session), kind(decoder_name(event.kind)), id(request), core(core_id),
+      payload_(event) {}
 void Trace::emit(TraceEvent event) {
+  require((event.kind == "InstructionRetired") == (event.get_if<InstructionRetired>() != nullptr) &&
+              (event.kind == "CpuPipelineUpdated") ==
+                  (event.get_if<CpuPipelineState>() != nullptr) &&
+              event.kind.starts_with("Decoder") == (event.get_if<DecoderEvent>() != nullptr),
+          ErrorCode::Protocol, "trace kind and payload differ");
+  if (const auto *decoder = event.get_if<DecoderEvent>())
+    require(event.kind == decoder_name(decoder->kind), ErrorCode::Protocol,
+            "decoder trace kind and payload differ");
   if (destination_) {
     event.core = core_;
     destination_->emit(std::move(event));
@@ -78,38 +86,44 @@ void Trace::emit(TraceEvent event) {
 }
 void Trace::write_jsonl(std::ostream &out) const {
   for (const auto &e : events_) {
+    const auto *retired = e.get_if<InstructionRetired>();
+    const auto *pipeline = e.get_if<CpuPipelineState>();
+    const auto *decoder = e.get_if<DecoderEvent>();
     out << "{\"schema\":1,\"tick\":" << e.tick << ",\"epoch\":" << e.epoch
         << ",\"kind\":" << quoted(e.kind) << ",\"id\":" << e.id << ",\"label\":" << e.label
         << ",\"cycle\":" << e.cycle << ",\"port\":" << e.port << ",\"codeword\":" << e.codeword
-        << ",\"pc\":" << e.pc << ",\"word\":" << e.word << ",\"rd\":" << e.rd
-        << ",\"next_pc\":" << e.next_pc << ",\"operation\":" << quoted(e.operation)
-        << ",\"detail\":" << quoted(e.detail) << ",\"value\":" << e.value << ",\"targets\":[";
+        << ",\"pc\":" << (retired ? retired->pc : 0)
+        << ",\"word\":" << (retired ? retired->word : 0)
+        << ",\"rd\":" << (retired ? retired->rd : 0)
+        << ",\"next_pc\":" << (retired ? retired->next_pc : 0)
+        << ",\"operation\":" << quoted(e.operation) << ",\"detail\":" << quoted(e.detail)
+        << ",\"value\":" << (retired ? retired->value : e.value) << ",\"targets\":[";
     for (std::size_t i = 0; i < e.targets.size(); ++i) {
       if (i)
         out << ',';
       out << e.targets[i];
     }
     out << "],\"registers\":[";
-    for (std::size_t i = 0; i < e.registers.size(); ++i) {
+    for (std::size_t i = 0; retired && i < retired->registers.size(); ++i) {
       if (i)
         out << ',';
-      out << e.registers[i];
+      out << retired->registers[i];
     }
     out << ']';
     if (e.core)
       out << ",\"core\":" << *e.core;
-    if (e.decoder) {
-      const auto &d = *e.decoder;
+    if (decoder) {
+      const auto &d = decoder->state;
       out << ",\"decoder\":{\"id\":" << d.id << ",\"tag\":" << d.tag
           << ",\"requests\":" << d.requests << ",\"resets\":" << d.resets << ",\"jobs\":" << d.jobs
           << '}';
     }
-    if (e.pipeline) {
-      out << ",\"pipeline\":{\"halted\":" << (e.pipeline->halted ? "true" : "false");
+    if (pipeline) {
+      out << ",\"pipeline\":{\"halted\":" << (pipeline->halted ? "true" : "false");
       const std::array names{"fetch", "fetched", "decode", "execute"};
       for (std::size_t i = 0; i < names.size(); ++i) {
         out << ',' << quoted(names[i]) << ':';
-        const auto &stage = e.pipeline->stages[i];
+        const auto &stage = pipeline->stages[i];
         if (!stage) {
           out << "null";
           continue;

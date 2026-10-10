@@ -19,6 +19,7 @@ inline Tick checked_add(Tick a, Tick b) {
           "tick addition overflow");
   return a + b;
 }
+inline TcuCycle checked_add(TcuCycle a, TcuCycle b) { return {checked_add(a.value, b.value)}; }
 inline Tick checked_mul(Tick a, Tick b) {
   require(a == 0 || b <= std::numeric_limits<Tick>::max() / a, ErrorCode::TimeOverflow,
           "tick multiplication overflow");

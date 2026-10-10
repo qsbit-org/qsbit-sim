@@ -371,8 +371,9 @@ int main() {
     const auto returned =
         std::find_if(trace.events().begin(), trace.events().end(),
                      [](const auto &event) { return event.kind == "DecoderResultReturned"; });
-    CHECK(returned != trace.events().end() && returned->decoder);
-    CHECK(returned->decoder->id == 7 && returned->decoder->jobs == 1);
+    CHECK(returned != trace.events().end() && returned->get_if<DecoderEvent>());
+    CHECK(returned->get_if<DecoderEvent>()->state.id == 7 &&
+          returned->get_if<DecoderEvent>()->state.jobs == 1);
     std::ostringstream serialized;
     trace.write_jsonl(serialized);
     CHECK(serialized.str().find("\"decoder\":{\"id\":7") != std::string::npos);

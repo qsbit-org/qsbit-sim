@@ -15,6 +15,18 @@ Quantum backend operations and the mock implementation. [Open header](../include
 Full simulation profile, validation and configuration fingerprint.
 [Open header](../include/qsbit/profile.hpp).
 
+(control__links_8hpp)=
+## control_links.hpp
+
+Bounded mailboxes between CPU timing control and the TCU.
+[Open header](../include/qsbit/control_links.hpp).
+
+(transport__config_8hpp)=
+## transport_config.hpp
+
+Mailbox clocks, receiver-edge latencies and result capacity.
+[Open header](../include/qsbit/transport_config.hpp).
+
 (control__protocol_8hpp)=
 ## control_protocol.hpp
 

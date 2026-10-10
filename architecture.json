@@ -44,6 +44,7 @@
         "src/trace.cpp",
         "include/qsbit/event.hpp",
         "include/qsbit/timing_config.hpp",
+        "include/qsbit/transport_config.hpp",
         "src/timing_config.cpp"
       ],
       "allows": [
@@ -72,6 +73,7 @@
         "include/qsbit/timing_control.hpp",
         "src/timing_control.cpp",
         "include/qsbit/control_command.hpp",
+        "include/qsbit/control_links.hpp",
         "src/control_command.cpp",
         "include/qsbit/cpu.hpp",
         "src/cpu.cpp",
@@ -89,7 +91,6 @@
     "device": {
       "files": [
         "include/qsbit/device.hpp",
-        "src/device.cpp",
         "include/qsbit/backend.hpp",
         "src/backend.cpp",
         "include/qsbit/device/*.hpp",

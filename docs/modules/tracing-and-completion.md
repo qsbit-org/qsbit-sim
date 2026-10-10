@@ -27,7 +27,9 @@ digraph module {
 
 Trace records distinguish event preparation, queue insertion, triggering,
 output starts and ends, measurement sampling, result readiness and delivery.
-Each has a tick and event-specific IDs. See the
+Each has a tick and event-specific IDs. CPU retirement, CPU pipeline snapshots and
+decoder events use distinct C++ payload types. The serializer writes their JSONL
+fields, and the recorder rejects a kind that does not match its payload. See the
 [trace reference](../interfaces.md#jsonl-trace).
 
 The exit ECALL preserves `a0` as the program exit status and halts the CPU after its pending events have been enqueued and
@@ -65,8 +67,9 @@ completion discards remain available for diagnosis.
 
 Source: [simulator.cpp](../../src/simulator.cpp) and [trace.hpp](../../include/qsbit/trace.hpp).
 
-**CTest:** `systemc.use_cases`.
+**CTest:** `cpu.trace`, `decoder.transport`, `systemc.use_cases`.
 
-The tests compare complete traces after reversing process registration. They
+CPU and decoder tests check typed records, payload validation and serialization.
+The integration tests compare complete traces after reversing process registration. They
 also check that simulation completion waits for slow fast-feedback delivery, that reset changes
 the epoch, and that watchdog and model faults terminate with the expected type.

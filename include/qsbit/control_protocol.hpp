@@ -2,7 +2,11 @@
 
 #include "qsbit/event.hpp"
 #include "qsbit/measurement.hpp"
+#include "qsbit/time.hpp"
+#include <cstdint>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace qsbit {
 struct TimingConfig;
@@ -18,7 +22,7 @@ struct OperationEvent {
 struct TimingPoint {
   Epoch epoch = 0;
   Id label = 0;
-  Tick interval = 0;
+  TcuCycle interval;
   std::vector<Id> manifest;
   std::vector<std::uint32_t> synchronizations = {};
   UnderflowPolicy underflow_policy = UnderflowPolicy::Inherit;

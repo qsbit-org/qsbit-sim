@@ -1,18 +1,14 @@
 #pragma once
 
 #include "qsbit/event.hpp"
+#include "qsbit/time.hpp"
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
 
 namespace qsbit {
 struct Profile;
-struct TransportConfig {
-  Clock cpu, tcu;
-  std::uint32_t command_latency, reply_latency, cpu_result_latency, fast_result_latency;
-  std::uint32_t result_capacity;
-};
-[[nodiscard]] TransportConfig transport_config(const Profile &profile);
 struct TimingConfig {
   std::uint32_t event_capacity, staging_capacity, ports, qubits, firing_width;
   bool fast_feedback;

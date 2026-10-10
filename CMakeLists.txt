@@ -64,9 +64,9 @@ endfunction()
 qsbit_model(qsbit_model_types src/error.cpp src/profile.cpp src/timing_config.cpp src/control_protocol.cpp
   src/trace.cpp src/defaults.cpp)
 qsbit_model(qsbit_controller src/isa.cpp src/image.cpp src/memory.cpp src/feedback.cpp
-  src/tcu.cpp src/timing_control.cpp src/cpu/pipeline.cpp src/cpu/vliw.cpp src/sync.cpp)
+  src/tcu.cpp src/control_command.cpp src/timing_control.cpp src/cpu/pipeline.cpp src/cpu/vliw.cpp src/sync.cpp)
 target_link_libraries(qsbit_controller PUBLIC qsbit_model_types)
-qsbit_model(qsbit_device src/backend.cpp src/device.cpp src/device/resources.cpp
+qsbit_model(qsbit_device src/backend.cpp src/device/control_electronics.cpp src/device/resources.cpp
   src/device/gates.cpp src/device/readouts.cpp)
 target_link_libraries(qsbit_device PUBLIC qsbit_model_types)
 qsbit_model(qsbit_platform src/core.cpp src/decoder.cpp src/decoder/mmio.cpp)

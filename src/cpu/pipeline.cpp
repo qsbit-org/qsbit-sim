@@ -25,15 +25,10 @@ void InOrderPipeline::retire(const Frame &frame, std::uint32_t value, std::uint3
     registers_[frame.decoded->rd] = value;
   registers_[0] = 0;
   pc_ = next_pc;
-  TraceEvent event{now,      epoch, "InstructionRetired",
-                   frame.id, 0,     (now - clock_.phase) / clock_.period};
-  event.value = value;
-  event.pc = frame.pc;
-  event.word = frame.word;
-  event.rd = frame.decoded->writes_rd ? frame.decoded->rd : 0;
-  event.next_pc = next_pc;
-  event.registers.assign(registers_.begin(), registers_.end());
-  trace_.emit(std::move(event));
+  trace_.emit(
+      {now, epoch, frame.id, (now - clock_.phase) / clock_.period,
+       InstructionRetired{frame.pc, frame.word, frame.decoded->writes_rd ? frame.decoded->rd : 0U,
+                          next_pc, value, registers_}});
 }
 void InOrderPipeline::step(Tick now, Epoch epoch, CpuPorts &ports) {
   require(clock_.edge(now), ErrorCode::Protocol, "CPU invoked off-edge");

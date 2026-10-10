@@ -114,13 +114,13 @@ std::optional<TcuCycle> TcuCycleModel::prepare_admission(Tick now, Epoch epoch,
   validate_timing_events(candidate, profile_.timing);
   require(candidate.point.epoch == epoch && candidate.point.label == checked_add(last_label_, 1),
           ErrorCode::Protocol, "request identity is stale, repeated or out of order");
-  require(last_label_ == 0 || candidate.point.interval > 0 ||
+  require(last_label_ == 0 || candidate.point.interval.value > 0 ||
               admitted_policy_ == UnderflowPolicy::PauseWhenEmpty ||
               candidate.point.underflow_policy == UnderflowPolicy::PauseWhenEmpty,
           ErrorCode::Protocol, "duplicate logical time point");
   const auto interval =
-      last_label_ == 0 ? candidate.point.interval : std::max<Tick>(1, candidate.point.interval);
-  const TcuCycle due{checked_add(last_due_.value, interval)};
+      last_label_ == 0 ? candidate.point.interval : std::max(TcuCycle{1}, candidate.point.interval);
+  const auto due = checked_add(last_due_, interval);
   const auto due_tick = checked_add(checked_add(start_, paused_ticks_),
                                     checked_mul(due.value, profile_.clock.period));
   require(meets_deadline(now, due_tick, pause), ErrorCode::LateAdmission,

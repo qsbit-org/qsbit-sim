@@ -1,4 +1,6 @@
+#include "qsbit/control_links.hpp"
 #include "qsbit/defaults.hpp"
+#include "qsbit/isa.hpp"
 #include "qsbit/profile.hpp"
 #include "qsbit/timing_config.hpp"
 #include "qsbit/timing_control.hpp"
@@ -40,7 +42,7 @@ int main() {
     ControlLinks links(transport_config(p));
     TimingControl control(timing_config(p), registers, trace, [](const EventSpec &) {});
     CHECK(control.execute({1, WaitCommand{8}}, 0, 1, links) == 0);
-    CHECK(control.time_point() == 8);
+    CHECK(control.time_point().value == 8);
     const auto sync = adapt_quantum(rv32::decode((17U << 15) | 0x600b), 2, 0, 0);
     CHECK(sync.is<SynchronizeCommand>() && sync.get<SynchronizeCommand>().target == 17);
     faults(ErrorCode::UnsupportedSynchronization,

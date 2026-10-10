@@ -7,7 +7,8 @@ See [simulation timing](module-architecture.md) for call order and
 ## Time and cycle units
 
 `Tick` stores physical timestamps and durations. `TcuCycle` identifies logical
-TCU cycles inside the TCU model. Serialized cycle fields and instruction intervals
+TCU cycles in timing control, timing-point intervals and the TCU model.
+Serialized cycle fields and instruction operands
 remain integers with the units listed below.
 
 | Fields | Unit |
@@ -186,7 +187,7 @@ struct OperationEvent {
 struct TimingPoint {
   Epoch epoch = 0;
   Id label = 0;
-  Tick interval = 0;
+  TcuCycle interval;
   std::vector<Id> manifest;
   std::vector<std::uint32_t> synchronizations = {};
   UnderflowPolicy underflow_policy = UnderflowPolicy::Inherit;
@@ -300,20 +301,27 @@ struct TraceEvent {
              Tick local_cycle = 0)
       : tick(at), epoch(session), kind(std::move(type)), id(identity), label(timing_label),
         cycle(local_cycle) {}
+  TraceEvent(Tick at, Epoch session, Tick local_cycle, CpuPipelineState state)
+      : tick(at), epoch(session), kind("CpuPipelineUpdated"), cycle(local_cycle),
+        payload_(std::move(state)) {}
+  TraceEvent(Tick at, Epoch session, Id instruction, Tick local_cycle, InstructionRetired state)
+      : tick(at), epoch(session), kind("InstructionRetired"), id(instruction), cycle(local_cycle),
+        payload_(std::move(state)) {}
+  TraceEvent(Tick at, Epoch session, Id request, std::uint32_t core_id, DecoderEvent event);
+  template <typename T> [[nodiscard]] const T *get_if() const { return std::get_if<T>(&payload_); }
   Tick tick = 0;
   Epoch epoch = 0;
   std::string kind;
   Id id = 0, label = 0;
   Tick cycle = 0;
   std::uint32_t port = 0, codeword = 0;
-  std::uint32_t pc = 0, word = 0, rd = 0, next_pc = 0;
-  std::vector<std::uint32_t> registers;
   std::vector<std::uint32_t> targets;
   std::string operation, detail;
   std::uint64_t value = 0;
   std::optional<std::uint32_t> core;
-  std::optional<CpuPipelineState> pipeline;
-  std::optional<DecoderTrace> decoder;
+
+private:
+  std::variant<std::monostate, CpuPipelineState, InstructionRetired, DecoderEvent> payload_;
 };
 ```
 <!-- /source -->
