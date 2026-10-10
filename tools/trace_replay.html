@@ -3,15 +3,14 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>qsbit trace replay</title>
-<link rel="stylesheet" href="site.css">
-<style>
-body { max-width: 1480px; margin: auto; padding: 1rem; font-family: system-ui, sans-serif; background: #f9fafb; color: #182a2d; --color-background-border: #d8e1e5; --color-background-secondary: #f1f5f7; --color-background-primary: white; --color-content-foreground: #182a2d; --color-content-foreground-secondary: #566975; }
-#trace-file { overflow-wrap: anywhere; color: var(--color-content-foreground-secondary); font-size: 13px; }
-@media (prefers-color-scheme: dark) { body { background: #141d25; color: #e7f0f0; --color-background-border: #394954; --color-background-secondary: #1c2933; --color-background-primary: #18232c; --color-content-foreground: #e7f0f0; --color-content-foreground-secondary: #a9bec0; } }
-</style>
+<link rel="stylesheet" href="qsbit-fonts.css">
+<link rel="stylesheet" href="qsbit-tokens.css">
+<link rel="stylesheet" href="qsbit-base.css">
+<link rel="stylesheet" href="trace-player.css">
+<script src="qsbit-theme.js"></script>
 </head>
-<body>
-<h1>Trace replay</h1>
+<body class="qsbit-app">
+<header class="app-header"><h1>Trace replay</h1><label>Theme <select data-theme-select><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
 <p id="trace-file"></p>
 <main data-standalone="true" data-bundle="trace.json" id="trace-player" class="trace-player" aria-label="Simulation trace player"></main>
 <noscript>The interactive player requires JavaScript.</noscript>

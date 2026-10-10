@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import subprocess
+import sys
 import threading
 import xml.etree.ElementTree as ET
 from functools import lru_cache, partial
@@ -29,7 +31,11 @@ class Page(HTMLParser):
 
 
 def check_links(site):
-    pages = {p.resolve(): Page(p.read_text()) for p in site.rglob("*.html")}
+    pages = {
+        p.resolve(): Page(p.read_text())
+        for p in site.rglob("*.html")
+        if "_static" not in p.relative_to(site).parts
+    }
 
     @lru_cache(maxsize=None)
     def destination(parent, relative):
@@ -82,6 +88,9 @@ def check_browser(site):
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(base + "/index.html")
+            expect(
+                page.get_by_role("navigation", name="Section navigation", exact=True)
+            ).to_be_visible()
             page.get_by_role("main").locator('a[href="quickstart.html"]').first.click()
             page.wait_for_url("**/quickstart.html")
             page.get_by_role("main").locator('a[href="execution.html"]').first.click()
@@ -113,10 +122,12 @@ def check_browser(site):
             bundle = json.loads((site / "_static/trace-examples.json").read_text())
             for example_index, example in enumerate(bundle["examples"]):
                 page.select_option("#trace-example", str(example_index))
-                expect(page.locator("#trace-node-registers a")).to_have_attribute(
+                page.click("#trace-tab-machine")
+                page.click("#trace-node-registers button")
+                expect(page.locator("#trace-module-link")).to_have_attribute(
                     "href", "modules/measurement-registers.html"
                 )
-                page.locator(".replay-records > summary").click()
+                page.click("#trace-tab-records")
                 initial = json.loads(page.locator("#trace-event").inner_text())
                 initial_index = example["events"].index(initial)
                 page.click("#trace-next")
@@ -198,7 +209,7 @@ def check_browser(site):
                     json.loads(page.locator("#trace-event").inner_text()) == example["events"][last]
                 )
                 assert page.locator("#trace-next").is_disabled()
-                page.locator(".replay-records > summary").click()
+                page.click("#trace-tab-records")
             page.select_option("#trace-example", "0")
             page.select_option("#trace-speed", "60")
             page.click("#trace-play")
@@ -208,7 +219,10 @@ def check_browser(site):
             page.wait_for_timeout(150)
             assert page.locator("#trace-position").input_value() == paused_position
             page.get_by_role("button", name="CPU result", exact=True).click()
+            page.click("#trace-tab-machine")
+            page.click("#trace-node-cpu button")
             page.screenshot(path=str(site.parent / "execution-desktop.png"), full_page=True)
+            check_workspace(page, site)
             page.click("#trace-expand")
             expect(page.locator("#trace-expand")).to_have_attribute("aria-pressed", "true")
             page.locator("#trace-player").screenshot(
@@ -216,7 +230,7 @@ def check_browser(site):
             )
             page.keyboard.press("Escape")
             expect(page.locator("#trace-expand")).to_have_attribute("aria-pressed", "false")
-            page.evaluate("document.body.dataset.theme = 'dark'")
+            page.evaluate("document.documentElement.dataset.theme = 'dark'")
             page.screenshot(path=str(site.parent / "execution-dark.png"), full_page=True)
             page.set_viewport_size({"width": 390, "height": 844})
             assert page.locator("#trace-tick").is_visible()
@@ -224,6 +238,7 @@ def check_browser(site):
             page.screenshot(path=str(site.parent / "execution-mobile.png"), full_page=True)
             assert not errors, "\n".join(errors)
             check_replay_state(page)
+            check_standalone(browser, site)
             # A missing bundle must leave controls disabled and show a usable error.
             page.route(
                 "**/trace-examples.json", lambda route: route.fulfill(status=404, body="missing")
@@ -236,6 +251,91 @@ def check_browser(site):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def check_workspace(page, site):
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.evaluate("window.scrollTo(0, 0)")
+    page.evaluate("document.fonts.ready")
+    timeline = page.locator("#trace-timeline")
+    assert timeline.bounding_box()["y"] < 700
+    for zoom in ("1", "4", "16"):
+        page.select_option("#trace-zoom", zoom)
+        geometry = timeline.evaluate("""el => ({
+            width: el.getBoundingClientRect().width,
+            units: el.viewBox.baseVal.width,
+            font: parseFloat(getComputedStyle(el.querySelector('text')).fontSize)
+        })""")
+        assert abs(geometry["width"] - geometry["units"]) < 1
+        assert geometry["font"] >= 14
+    page.select_option("#trace-zoom", "1")
+    page.locator("#trace-tab-machine").focus()
+    page.keyboard.press("ArrowRight")
+    expect(page.locator("#trace-tab-instructions")).to_be_focused()
+    expect(page.locator("#trace-panel-instructions")).to_be_visible()
+    assert (
+        page.locator(".instruction-row code").first.evaluate(
+            "el => parseFloat(getComputedStyle(el).fontSize)"
+        )
+        >= 14
+    )
+    page.keyboard.press("End")
+    expect(page.locator("#trace-panel-records")).to_be_visible()
+    page.keyboard.press("Home")
+    for theme in ("light", "dark"):
+        page.evaluate("(theme) => { document.documentElement.dataset.theme = theme; }", theme)
+        assert page.evaluate("""() => {
+            const style = getComputedStyle(document.documentElement);
+            const luminance = name => {
+                const hex = style.getPropertyValue(name).trim().slice(1);
+                const rgb = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+                    .map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+                return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+            };
+            return [['--qs-ink', '--qs-panel'], ['--qs-muted', '--qs-bg'],
+                    ['--qs-accent', '--qs-panel'], ['--qs-on-accent', '--qs-accent']]
+                .every(([a, b]) => (Math.max(luminance(a), luminance(b)) + .05) /
+                    (Math.min(luminance(a), luminance(b)) + .05) >= 4.5);
+        }""")
+        page.screenshot(path=str(site.parent / f"workspace-{theme}.png"), full_page=True)
+    page.evaluate("document.documentElement.style.fontSize = '32px'")
+    expect(page.locator("#trace-tick")).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.screenshot(path=str(site.parent / "workspace-200-percent.png"), full_page=True)
+    page.evaluate("document.documentElement.style.fontSize = ''")
+
+
+def check_standalone(browser, site):
+    root = Path(__file__).resolve().parents[1]
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            str(root / "tools/replay_trace.py"),
+            str(site.parent / "generated/bell.jsonl"),
+            "--no-browser",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    try:
+        url = process.stdout.readline().strip().removeprefix("Trace replay: ")
+        page.goto(url)
+        expect(page.locator("#trace-tick")).to_be_enabled()
+        for theme in ("light", "dark"):
+            page.select_option("[data-theme-select]", theme)
+            expect(page.locator("html")).to_have_attribute("data-theme", theme)
+            page.screenshot(path=str(site.parent / f"standalone-{theme}.png"), full_page=True)
+        page.set_viewport_size({"width": 390, "height": 844})
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert page.locator("#trace-timeline").evaluate(
+            "el => Math.abs(el.getBoundingClientRect().width - el.viewBox.baseVal.width) < 1"
+        )
+    finally:
+        page.close()
+        process.terminate()
+        process.wait(timeout=10)
 
 
 def check_replay_state(page):

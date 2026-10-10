@@ -18,31 +18,38 @@
     parent.append(node); return node;
   }
   root.innerHTML = `
-    <div class="replay-heading"><div><span class="replay-eyebrow">QSBIT · EXECUTION EXPLORER</span>
-    <h2>Inside the controller</h2></div><button id="trace-expand" type="button" aria-pressed="false">Expand view</button></div>
-    <div class="player-controls"><label>Recording <select id="trace-example"></select></label>
+    <div class="replay-heading"><h2>Execution replay</h2><button id="trace-expand" type="button" aria-pressed="false">Expand view</button></div>
+    <div class="replay-toolbar"><div class="player-controls"><label>Recording <select id="trace-example"></select></label>
     <label>Core <select id="trace-core"></select></label><span id="trace-backend" class="replay-tag"></span></div>
     <div class="replay-transport"><button id="trace-prev" type="button" aria-label="Previous time point">←</button>
     <button id="trace-play" type="button">Play</button><button id="trace-tick" type="button">Next time →</button>
-    <label>Speed <select id="trace-speed"><option value="600">1×</option><option value="200">3×</option><option value="60">10×</option></select></label>
+    <label>Speed <select id="trace-speed"><option value="600">1×</option><option value="200">3×</option><option value="60">10×</option></select></label></div>
     <strong id="trace-time">0 ns</strong></div>
     <label class="scrubber"><span class="sr-only">Simulation time</span><input id="trace-position" type="range" min="0" max="0" value="0"></label>
     <div id="trace-chapters" class="replay-chapters" aria-label="Execution milestones"></div>
     <p id="trace-status" role="status">Loading recorded executions…</p>
     <div id="trace-clocks" class="replay-metrics"></div>
-    <div class="replay-map" id="trace-map"><svg id="trace-wires" aria-hidden="true"></svg></div>
-    <div class="replay-legend"><span><i class="legend-active"></i>Changed at this time</span>
-    <span><i class="legend-held"></i>Last observed</span><span>CPU slots show end-of-edge occupancy.</span></div>
-    <section class="replay-panel"><div class="replay-section-heading"><h3>Control outputs</h3>
-    <span>Device ports · duration in ns</span></div><div class="timeline-scroll"><svg id="trace-timeline" role="group" aria-label="Control output intervals"></svg></div></section>
-    <div class="replay-detail-grid"><section class="replay-panel"><h3>Retired instructions</h3>
-    <div id="trace-instructions" class="replay-instructions"></div></section>
-    <section class="replay-panel"><h3>Measurement delivery</h3><div id="trace-delivery"></div></section></div>
-    <details class="replay-records"><summary>Trace records and configuration</summary>
+    <section class="replay-panel"><div class="replay-section-heading"><h3>Control outputs</h3><span>Device ports · ns</span></div>
+    <div class="timeline-tools"><label>Zoom <select id="trace-zoom"><option value="1">Fit</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option></select></label>
+    <label>Range start <input id="trace-pan" type="range" min="0" max="0" value="0"></label><span id="trace-range"></span>
+    <label>Output <select id="trace-output" aria-label="Select control output"></select></label></div>
+    <div class="timeline-scroll"><svg id="trace-timeline" role="group" aria-label="Control output intervals"></svg></div></section>
+    <div class="replay-tabs" role="tablist" aria-label="Execution details">
+    <button id="trace-tab-machine" role="tab" aria-controls="trace-panel-machine" aria-selected="true">Machine state</button>
+    <button id="trace-tab-instructions" role="tab" aria-controls="trace-panel-instructions" aria-selected="false" tabindex="-1">Instructions</button>
+    <button id="trace-tab-measurements" role="tab" aria-controls="trace-panel-measurements" aria-selected="false" tabindex="-1">Measurements</button>
+    <button id="trace-tab-records" role="tab" aria-controls="trace-panel-records" aria-selected="false" tabindex="-1">Trace records</button></div>
+    <section id="trace-panel-machine" role="tabpanel" aria-labelledby="trace-tab-machine">
+    <div class="machine-scroll"><div class="replay-map" id="trace-map"><svg id="trace-wires" aria-hidden="true"></svg></div></div>
+    <div class="replay-legend"><span><i class="legend-active"></i>Changed at this time</span><span><i class="legend-held"></i>Last observed</span></div>
+    <div class="module-inspector" id="trace-inspector"><div class="replay-section-heading"><h3 id="trace-module-title">CPU</h3><a id="trace-module-link">Component reference</a></div></div></section>
+    <section id="trace-panel-instructions" role="tabpanel" aria-labelledby="trace-tab-instructions" class="replay-panel" hidden><h3>Retired instructions</h3><div id="trace-instructions" class="replay-instructions"></div></section>
+    <section id="trace-panel-measurements" role="tabpanel" aria-labelledby="trace-tab-measurements" class="replay-panel" hidden><h3>Measurement delivery</h3><div id="trace-delivery"></div></section>
+    <section id="trace-panel-records" role="tabpanel" aria-labelledby="trace-tab-records" class="replay-panel replay-records" hidden>
     <div class="player-controls"><button id="trace-back" type="button">Previous record</button>
     <button id="trace-next" type="button">Next record</button><select id="trace-jump" aria-label="Jump to recorded event"></select></div>
     <pre id="trace-event"></pre><details><summary>Input assembly</summary><pre id="trace-program"></pre></details>
-    <details><summary>Run configuration</summary><pre id="trace-config"></pre></details></details>`;
+    <details><summary>Run configuration</summary><pre id="trace-config"></pre></details></section>`;
   const modules = [
     ['cpu', '01', 'CPU', 'cpu-cycle-model'], ['reserve', '02', 'Reserve phase', 'reserve-phase'],
     ['timing', '03', 'Timing Queue', 'timing-controller'], ['events', '04', 'Per-port Event Queues', 'timing-controller'],
@@ -70,10 +77,42 @@
   modules.forEach(([id, number, title, page]) => {
     const card = element('section', undefined, $('map'), `replay-module module-${id}`); card.id = `trace-node-${id}`;
     const heading = element('h3', undefined, card); element('span', number, heading, 'module-number');
-    const link = element(root.dataset.standalone ? 'span' : 'a', title, heading);
-    if (!root.dataset.standalone) link.href = `modules/${page}.html`;
-    element('div', undefined, card, 'module-body').id = `trace-state-${id}`;
+    const button = element('button', title, heading, 'module-select'); button.type = 'button';
+    button.setAttribute('aria-controls', `trace-state-${id}`);
+    button.addEventListener('click', () => selectModule(id));
+    element('div', undefined, card, 'module-summary').id = `trace-summary-${id}`;
+    const body = element('div', undefined, $('inspector'), 'module-body'); body.id = `trace-state-${id}`; body.hidden = id !== 'cpu';
   });
+  function selectModule(id) {
+    modules.forEach(([key, , title, page]) => {
+      $(`state-${key}`).hidden = key !== id; $(`node-${key}`).classList.toggle('selected', key === id);
+      $(`node-${key}`).querySelector('button').setAttribute('aria-pressed', String(key === id));
+      if (key === id) { $('module-title').textContent = title; $('module-link').href = `modules/${page}.html`; }
+    });
+    $('module-link').hidden = Boolean(root.dataset.standalone);
+  }
+  selectModule('cpu');
+  const tabs = [...root.querySelectorAll('[role=tab]')];
+  function selectTab(tab) {
+    tabs.forEach(item => {
+      const selected = item === tab;
+      item.setAttribute('aria-selected', String(selected)); item.tabIndex = selected ? 0 : -1;
+      document.getElementById(item.getAttribute('aria-controls')).hidden = !selected;
+    });
+    requestAnimationFrame(drawWires);
+  }
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => selectTab(tab));
+    tab.addEventListener('keydown', e => {
+      let next;
+      if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+      if (e.key === 'ArrowLeft') next = (i + tabs.length - 1) % tabs.length;
+      if (e.key === 'Home') next = 0;
+      if (e.key === 'End') next = tabs.length - 1;
+      if (next !== undefined) { e.preventDefault(); tabs[next].focus(); selectTab(tabs[next]); }
+    });
+  });
+  let timelineX = () => 110;
   let demos, demo, recording, index = 0, timer = null, selectedCore = 0, activeKinds = new Set();
   const stop = () => { clearInterval(timer); timer = null; $('play').textContent = 'Play'; root.classList.remove('is-playing'); };
   const qubits = e => (e.targets ?? []).map(q => `q${q}`).join(', ');
@@ -88,6 +127,7 @@
   function drawWires() {
     const svg = $('wires'); svg.replaceChildren();
     const bounds = $('map').getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
     svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
     const defs = svgElement('defs', {}, svg);
     for (const [name, color] of [['idle', 'var(--replay-wire)'], ['active', 'var(--replay-accent)']]) {
@@ -233,8 +273,12 @@
     if (!Object.keys(c?.registers ?? {}).length) hint(registers, 'No result delivered to the CPU.');
     if (c?.read) hint(registers, `Last FMR: ${qubits(c.read)} = ${c.read.value} at ${c.read.tick} ns`);
     drawDelivery(measurements); drawInstructions(state.epoch);
-    const cursor = $('cursor');
-    if (cursor) { const x = 115 + event.tick / Number(cursor.dataset.max) * 850; cursor.setAttribute('x1', x); cursor.setAttribute('x2', x); }
+    modules.forEach(([id]) => {
+      const body = $(`state-${id}`);
+      const summary = id === 'cpu' ? (snapshot?.halted ? 'Halted' : c?.retired ? `Retired #${c.retired.id} at ${c.retired.tick} ns` : 'No retirement recorded') : ((body.querySelector('.state-row') ? [...body.querySelector('.state-row').children].map(node => node.textContent).join(': ') : '') || body.querySelector('.state-hint')?.textContent || 'Not recorded');
+      $(`summary-${id}`).textContent = summary;
+    });
+    updateCursor();
     $('timeline').querySelectorAll('[data-start]').forEach(node => node.classList.toggle('future', Number(node.dataset.start) > event.tick));
     $('chapters').querySelectorAll('button').forEach(b => b.classList.toggle('reached', Number(b.dataset.index) <= index));
     drawWires(); if (index === demo.events.length - 1) stop();
@@ -262,31 +306,51 @@
       button.addEventListener('click', () => { stop(); show(i); });
     }
   }
+  function updateCursor() {
+    const cursor = $('cursor'); if (!cursor || !demo) return;
+    const tick = demo.events[index].tick, x = timelineX(tick);
+    cursor.setAttribute('x1', x); cursor.setAttribute('x2', x);
+    cursor.hidden = tick < Number($('pan').value) || tick > Number($('pan').value) + Number(cursor.dataset.span);
+    cursor.style.display = cursor.hidden ? 'none' : '';
+  }
   function drawTimeline() {
     const svg = $('timeline'); svg.replaceChildren();
     const ports = [...new Set(recording.intervals.map(i => i.event.port))].sort((a, b) => a - b);
-    const height = Math.max(ports.length, 1) * 44 + 48, max = demo.events.at(-1).tick || 1, x = tick => 115 + tick / max * 850;
-    svg.setAttribute('viewBox', `0 0 1000 ${height}`);
-    for (let step = 0; step <= 5; step++) {
-      const tick = max * step / 5; svgElement('line', {x1: x(tick), x2: x(tick), y1: 20, y2: height - 24, class: 'time-grid'}, svg);
-      svgElement('text', {x: x(tick), y: 12, 'text-anchor': 'middle'}, svg).textContent = `${Math.round(tick)}`;
+    const width = Math.max(620, Math.floor(svg.parentElement.clientWidth));
+    const height = Math.max(ports.length, 1) * 40 + 48;
+    const max = demo.events.at(-1).tick || 1, span = max / Number($('zoom').value);
+    $('pan').max = Math.max(0, max - span); $('pan').step = 'any'; $('pan').disabled = span === max;
+    const begin = Math.min(Number($('pan').value), max - span); $('pan').value = begin;
+    $('range').textContent = `${Math.round(begin)}–${Math.round(begin + span)} ns`;
+    const x = tick => 100 + (tick - begin) / span * (width - 135); timelineX = x;
+    svg.setAttribute('width', width); svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    const steps = Math.max(2, Math.floor((width - 135) / Math.max(110, parseFloat(getComputedStyle(root).fontSize) * 9)));
+    for (let step = 0; step <= steps; step++) {
+      const tick = begin + span * step / steps;
+      svgElement('line', {x1: x(tick), x2: x(tick), y1: 20, y2: height - 24, class: 'time-grid'}, svg);
+      svgElement('text', {x: x(tick), y: 14, 'text-anchor': 'middle'}, svg).textContent = `${Math.round(tick)}`;
     }
     ports.forEach((port, row) => {
-      const y = row * 44 + 28; svgElement('text', {x: 8, y: y + 18}, svg).textContent = `Port ${port}`;
-      svgElement('line', {x1: 115, x2: 965, y1: y + 13, y2: y + 13, class: 'lane'}, svg);
+      const y = row * 40 + 28; svgElement('text', {x: 8, y: y + 18}, svg).textContent = `Port ${port}`;
+      svgElement('line', {x1: 100, x2: width - 35, y1: y + 13, y2: y + 13, class: 'lane'}, svg);
       for (const item of recording.intervals.filter(i => i.event.port === port)) {
-        const e = item.event, end = item.end ?? demo.events.at(-1).tick;
+        const e = item.event, end = item.end ?? max;
+        if (end < begin || e.tick > begin + span) continue;
+        const left = x(Math.max(e.tick, begin)), right = x(Math.min(end, begin + span));
         const g = svgElement('g', {class: 'output-interval', tabindex: 0, role: 'button', 'data-start': e.tick,
           'aria-label': `Port ${port}, ${e.operation}, ${e.tick} to ${end} ns${item.end === null ? ', end not recorded' : ''}`}, svg);
-        svgElement('rect', {x: x(e.tick), y, width: Math.max(4, x(end) - x(e.tick)), height: 26, rx: 5, class: e.operation === 'measure' ? 'acquire-interval' : 'gate-interval'}, g);
+        svgElement('rect', {x: left, y, width: Math.max(3, right - left), height: 26, rx: 4, class: e.operation === 'measure' ? 'acquire-interval' : 'gate-interval'}, g);
         svgElement('title', {}, g).textContent = `Core ${coreId(e)} · ${e.operation} ${qubits(e)} · ${e.tick}–${end} ns${item.aborted ? ' · aborted' : ''}`;
-        if (x(end) - x(e.tick) > Math.min(32, e.operation.length * 8)) svgElement('text', {x: (x(e.tick) + x(end)) / 2, y: y + 17, 'text-anchor': 'middle', class: 'interval-label'}, g).textContent = e.operation;
+        if (right - left > e.operation.length * 9 + 16) svgElement('text', {x: (left + right) / 2, y: y + 18, 'text-anchor': 'middle', class: 'interval-label'}, g).textContent = e.operation;
+        g.classList.toggle('future', e.tick > demo.events[index].tick);
         const seek = () => { stop(); show(item.index, true); }; g.addEventListener('click', seek);
         g.addEventListener('keydown', ev => { if (['Enter', ' '].includes(ev.key)) { ev.preventDefault(); seek(); } });
       }
     });
-    if (!ports.length) svgElement('text', {x: 115, y: 46}, svg).textContent = 'No control output intervals recorded.';
-    const cursor = svgElement('line', {id: 'trace-cursor', x1: 115, x2: 115, y1: 18, y2: height - 20, class: 'time-cursor'}, svg); cursor.dataset.max = max;
+    if (!ports.length) svgElement('text', {x: 100, y: 46}, svg).textContent = 'No control output intervals recorded.';
+    const cursor = svgElement('line', {id: 'trace-cursor', y1: 18, y2: height - 20, class: 'time-cursor'}, svg);
+    cursor.dataset.span = span; updateCursor();
   }
   function selectDemo() {
     stop(); demo = demos[Number($('example').value)]; recording = new Recording(demo); $('core').replaceChildren();
@@ -300,8 +364,14 @@
       const i = demo.events.findIndex(e => e.kind === kind); if (i < 0) continue;
       const b = element('button', title, $('chapters')); b.type = 'button'; b.dataset.index = i; b.addEventListener('click', () => { stop(); show(i, true); });
     }
+    index = 0; $('zoom').value = '1'; $('pan').value = '0';
+    $('output').replaceChildren(); element('option', 'Choose an interval', $('output')).value = '';
+    recording.intervals.forEach(item => { element('option', `Port ${item.event.port} · ${item.event.operation} · ${item.event.tick} ns`, $('output')).value = item.index; });
     drawTimeline(); show(0, true);
   }
+  $('zoom').addEventListener('change', drawTimeline);
+  $('pan').addEventListener('input', drawTimeline);
+  $('output').addEventListener('change', () => { if ($('output').value !== '') { stop(); show(Number($('output').value), true); } });
   $('prev').addEventListener('click', () => { stop(); show(recording.previousTick(index)); });
   $('back').addEventListener('click', () => { stop(); show(index - 1); }); $('next').addEventListener('click', () => { stop(); show(index + 1); });
   $('tick').addEventListener('click', () => { stop(); show(recording.nextTick(index)); });
@@ -314,11 +384,13 @@
   $('core').addEventListener('change', () => { selectedCore = Number($('core').value); show(index); });
   function expand(enabled) {
     root.classList.toggle('expanded', enabled); document.body.classList.toggle('replay-expanded', enabled);
-    $('expand').textContent = enabled ? 'Close expanded view' : 'Expand view'; $('expand').setAttribute('aria-pressed', String(enabled)); requestAnimationFrame(drawWires);
+    $('expand').textContent = enabled ? 'Close expanded view' : 'Expand view'; $('expand').setAttribute('aria-pressed', String(enabled)); requestAnimationFrame(() => { drawWires(); drawTimeline(); });
+    if (!enabled) $('expand').focus();
   }
   $('expand').addEventListener('click', () => expand(!root.classList.contains('expanded')));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && root.classList.contains('expanded')) expand(false); });
   new ResizeObserver(() => { if (recording) drawWires(); }).observe($('map'));
+  new ResizeObserver(() => { if (recording) drawTimeline(); }).observe($('timeline').parentElement);
   root.querySelectorAll('button, select, input').forEach(control => control.disabled = true);
   fetch(url).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); }).then(bundle => {
     if (bundle.schema !== 1 || !Array.isArray(bundle.examples) || !bundle.examples.length) throw new Error('Unsupported example bundle');

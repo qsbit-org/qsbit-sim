@@ -60,7 +60,17 @@ with tempfile.TemporaryDirectory() as directory:
             raise AssertionError("trace replay did not start within 10 seconds") from None
         assert line.startswith("Trace replay: "), f"trace replay startup failed: {line!r}"
         url = line.strip().split()[-1]
-        for endpoint in ("", "trace-model.js", "trace-player.js", "site.css"):
+        for endpoint in (
+            "",
+            "trace-model.js",
+            "trace-player.js",
+            "trace-player.css",
+            "qsbit-theme.js",
+            "qsbit-fonts.css",
+            "qsbit-tokens.css",
+            "qsbit-base.css",
+            "fonts/source-sans-3.woff2",
+        ):
             with urllib.request.urlopen(url + endpoint, timeout=5) as response:
                 assert response.status == 200
         with urllib.request.urlopen(url + "trace.json", timeout=5) as response:

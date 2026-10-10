@@ -10,7 +10,7 @@ from pathlib import Path
 from socketserver import TCPServer
 
 ROOT = Path(__file__).resolve().parent
-ASSETS = ROOT.parent / "docs" / "_static"
+ASSETS = ROOT.parent / "web"
 
 
 class ReplayHTTPServer(ThreadingHTTPServer):
@@ -83,16 +83,13 @@ def serve(path, bundle, open_browser=True):
     payloads = {
         "/": ("text/html; charset=utf-8", page),
         "/trace.json": ("application/json; charset=utf-8", json.dumps(bundle).encode()),
-        "/trace-player.js": (
-            "text/javascript; charset=utf-8",
-            (ASSETS / "trace-player.js").read_bytes(),
-        ),
-        "/trace-model.js": (
-            "text/javascript; charset=utf-8",
-            (ASSETS / "trace-model.js").read_bytes(),
-        ),
-        "/site.css": ("text/css; charset=utf-8", (ASSETS / "site.css").read_bytes()),
     }
+
+    for asset in ASSETS.rglob("*"):
+        if asset.suffix not in {".js", ".css", ".woff2"}:
+            continue
+        mime = {".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2"}[asset.suffix]
+        payloads["/" + asset.relative_to(ASSETS).as_posix()] = (mime, asset.read_bytes())
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):

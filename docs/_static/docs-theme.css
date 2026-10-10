@@ -1,0 +1,20 @@
+:root { --pst-font-family-base: var(--qs-font); --pst-font-family-monospace: var(--qs-mono); }
+html[data-theme] { --pst-color-primary: var(--qs-accent); --pst-color-link: var(--qs-accent); --pst-color-text-base: var(--qs-ink); --pst-color-text-muted: var(--qs-muted); --pst-color-background: var(--qs-panel); --pst-color-surface: var(--qs-bg); --pst-color-border: var(--qs-line); }
+body { font-family: var(--qs-font); }
+.bd-page-width { max-width: 1440px; }
+.bd-sidebar-primary { width: 256px; flex-basis: 256px; }
+.bd-sidebar-secondary { width: 208px; flex-basis: 208px; }
+.bd-sidebar { font-size: .875rem; line-height: 1.43; }
+.bd-main .bd-content .bd-article-container { max-width: 780px; }
+.bd-article { font-size: 1.0625rem; line-height: 1.7; }
+.bd-article h1 { font-size: 2rem; line-height: 1.2; letter-spacing: -.025em; }
+.bd-article h2 { font-size: 1.5rem; line-height: 1.3; }
+.bd-article pre { font-size: .875rem; line-height: 1.43; }
+body:has(#trace-player) .bd-article-container { max-width: 100% !important; }
+body:has(#trace-player) .bd-article > section > p { max-width: 780px; }
+.graphviz { overflow-x: auto; padding: 1rem 0; }
+.graphviz object { min-width: 680px; max-width: 100%; background: white; border-radius: 8px; }
+.diagram-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 1rem 0 .5rem; }
+.diagram-controls button { padding: .4rem .65rem; font: inherit; font-size: .875rem; border: 1px solid var(--qs-line); background: var(--qs-bg); color: var(--qs-ink); border-radius: 6px; cursor: pointer; }
+.architecture-viewport { max-height: 75vh; overflow: auto; border: 1px solid var(--qs-line); border-radius: 8px; background: white; padding: 6px; }
+.architecture-viewport object.graphviz { min-width: 0; max-width: none; display: block; }

@@ -55,7 +55,22 @@ including scheduling helpers and backend APIs. Update the relevant diagram and
 [component index](modules/README.md) when changing an interface. SVG links open
 component pages in the containing browser window.
 
+## Shared visual resources
+
+`web/` contains the self-hosted Source Sans 3 and Source Code Pro fonts,
+color and typography tokens, base application styles, theme selection and the
+trace player. Sphinx copies these assets into the output's `_static` directory.
+The local replay server and Studio serve the same files.
+
+The documentation uses PyData Sphinx Theme and `docs/_static/docs-theme.css`.
+PyData controls the document's `html[data-theme]`; standalone applications use
+`qsbit-theme.js`. Studio passes its theme selection to its same-origin replay frame.
+
 ## Edit trace displays
+
+The timeline uses CSS-pixel coordinates. Zoom changes the displayed time range,
+not the text size. Detail tabs retain the selected record. Module selection shows
+its latest recorded values below the architecture diagram.
 
 The player reads a trace bundle produced during the website build. Display
 recorded values directly. Label calculated clock values as derived and show
@@ -81,7 +96,8 @@ ctest --test-dir build-gcc -L 'documentation|website' --output-on-failure
 ```
 
 The suite builds with Sphinx warnings treated as errors. Browser tests check
-links, module diagrams, architecture controls and the recorded executions.
+links, module diagrams, architecture controls, recorded executions, keyboard tabs,
+light and dark themes, timeline scale, data font size and text enlargement.
 CI uploads the HTML, browser captures and test logs as workflow artifacts.
 After the native, macOS and documentation jobs pass on `main`, CI publishes
 the tested HTML to

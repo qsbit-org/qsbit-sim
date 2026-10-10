@@ -1,3 +1,7 @@
+---
+html_theme.sidebar_secondary.remove: true
+---
+
 # Follow a program through the controller
 
 Watch instructions prepare time points, queues feed control outputs, and
@@ -13,8 +17,10 @@ measurement-dependent branch. [Quickstart](quickstart.md) runs the same program 
 
 **Play** advances through state changes, skipping repeated stall records. **Next time** applies all records
 at the next timestamp. Drag the slider or select a milestone to seek; select an
-output interval to inspect its start. **Expand view** opens the full-width diagram.
+output interval to inspect its start. Use **Zoom** and **Range start** to inspect a shorter time range. **Expand view** fills the window.
 
+Select **Machine state** to inspect the controller and choose a module for its detailed values.
+**Instructions** lists retired operations; **Measurements** shows result delivery.
 Highlighted modules changed at the selected time. The CPU shows the outstanding
 fetch request, fetch buffer, decode slot and execute slot. Each occupied slot
 shows its instruction ID and PC. Changed slots are highlighted; blocked execute
@@ -32,7 +38,7 @@ CPU slots show end-of-edge occupancy from `CpuPipelineUpdated`.
 In multicore traces,
 **Core** selects the controller; control outputs include all cores.
 
-Open **Trace records and configuration** to step through individual records,
+Select **Trace records** to step through individual records,
 including records at the same timestamp. Playback speed does not change simulation time.
 
 ## Follow measurement feedback

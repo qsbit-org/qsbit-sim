@@ -1,0 +1,18 @@
+:root {
+  font-size: 16px;
+  --qs-font: 'Source Sans 3', sans-serif; --qs-mono: 'Source Code Pro', monospace;
+  --qs-text: .875rem; --qs-small: .75rem; --qs-title: .9375rem;
+  --qs-bg: #F7F9FA; --qs-panel: #FFFFFF; --qs-ink: #172B35; --qs-muted: #52636E;
+  --qs-accent: #0F766E; --qs-on-accent: #FFFFFF; --qs-selected: #DEF3EF; --qs-line: #CCD6DB;
+  --qs-success: #27643D; --qs-danger: #A12732; --qs-danger-bg: #FDEDF0; --qs-warning: #8D5200;
+  --qs-gate: #245EA8; --qs-acquire: #7952A1; --qs-cursor: #A64B00;
+  --qs-gap: .75rem; --qs-radius: .5rem;
+}
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --qs-bg: #11181C; --qs-panel: #182227; --qs-ink: #E6EDF1; --qs-muted: #A6B6C0;
+  --qs-accent: #5EEAD4; --qs-on-accent: #11181C; --qs-selected: #163E38; --qs-line: #41525C;
+  --qs-success: #89D2A3; --qs-danger: #FFA8B1; --qs-danger-bg: #40232A; --qs-warning: #F1BB70;
+  --qs-gate: #245EA8; --qs-acquire: #7952A1; --qs-cursor: #FFBF78;
+}
+html[data-theme='light'] { color-scheme: light; }

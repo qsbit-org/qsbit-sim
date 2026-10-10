@@ -37,27 +37,25 @@ links each component to its source and tests.
 :caption: Get started
 
 quickstart
-execution
+prerequisites
+building
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: Guides
+:caption: User guide
 
-prerequisites
-building
+execution
 backends
 qutip
 repeated-simulations
 distributed-simulation
 decoding
-engineering-and-testing
-website
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: Understand the controller
+:caption: Architecture
 
 simulation-model
 high-level-design
@@ -76,4 +74,13 @@ interfaces
 cpp-interfaces
 api
 glossary
+```
+
+
+```{toctree}
+:maxdepth: 1
+:caption: Development
+
+engineering-and-testing
+website
 ```
