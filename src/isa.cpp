@@ -1,4 +1,5 @@
 #include "qsbit/isa.hpp"
+#include "qsbit/contracts/isa.hpp"
 #include <bit>
 
 namespace qsbit::rv32 {
@@ -198,10 +199,8 @@ Decoded decode(std::uint32_t w) {
     else
       illegal();
     break;
-  case 0x0b:
-    if ((f3 == 0 && (f7 > 3 || d.rd != 0)) || (f3 == 1 && (f7 != 0 || d.rd != 0 || d.rs2 != 0)) ||
-        ((f3 == 2 || f3 == 6) && d.rd != 0) || (f3 == 3 && (f7 != 0 || d.rs2 != 0)) || f3 == 4 ||
-        f3 == 5 || f3 == 7)
+  case contract::ControlOpcode:
+    if (!contract::valid_control_word(w))
       illegal();
     d.op = Op::Quantum;
     d.reads_rs1 = (f3 == 0 && (f7 & 1) == 0) || f3 == 1;

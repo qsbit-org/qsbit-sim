@@ -5,7 +5,7 @@
 
 namespace qsbit {
 TcuCycleModel::TcuCycleModel(const Profile &profile, Trace &trace, std::size_t sync_capacity)
-    : profile_(profile), trace_(trace), events_(profile.ports), execution_flags_(profile),
+    : profile_(profile), trace_(trace), events_(profile.ports), execution_flags_(profile.qubits),
       start_(profile.start), sync_capacity_(sync_capacity) {
   require(sync_capacity > 0, ErrorCode::InvalidProfile, "zero synchronization queue capacity");
 }

@@ -1,6 +1,7 @@
 #include "qsbit/defaults.hpp"
 #include "qsbit/device.hpp"
 #include "qsbit/image.hpp"
+#include "qsbit/timing_control.hpp"
 #include "test.hpp"
 #include <functional>
 #include <limits>
@@ -16,7 +17,7 @@ TriggeredEvents launch(const Profile &p, std::uint32_t port, std::uint32_t code,
 }
 void timing_test() {
   auto p = default_profile();
-  MeasurementRegisters registers(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   Trace trace;
   ControlLinks links(p);
   TimingControl control(p, registers, trace, [](const EventSpec &) {});
@@ -52,7 +53,7 @@ void timing_test() {
 void capacity_test() {
   auto p = default_profile();
   p.result_capacity = 1;
-  MeasurementRegisters registers(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   Trace trace;
   ControlLinks links(p);
   TimingControl control(p, registers, trace, [](const EventSpec &) {});
@@ -71,7 +72,7 @@ void resources_test() {
   auto p = default_profile();
   MockBackend backend;
   Trace trace;
-  ControlElectronics device(p, backend, trace);
+  ControlElectronics device(device_profile(p), backend, trace);
   auto first = launch(p, 0, 1, 100);
   device.accept(first);
   const auto calls = backend.calls();
@@ -93,20 +94,21 @@ void readout_test() {
   map.actions[0].get<AcquireSpec>().discriminator_delay = 0;
   EventSpec arm = map.actions[0];
   ArmSpec specification;
-  static_cast<QuantumSpec &>(specification) = arm.get<AcquireSpec>();
+  specification.operands = arm.get<AcquireSpec>().operands;
+  specification.operation = arm.get<AcquireSpec>().operation;
   arm.spec = specification;
   arm.port = 2;
-  arm.get<ArmSpec>().resources = {{20, true}};
+  arm.get<ArmSpec>().operands.resources = {{20, true}};
   arm.delay = 80;
   arm.duration = 1;
   map.actions.push_back(arm);
   p.validate();
-  MeasurementRegisters registers(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   const auto reference = registers.reserve(1, 0);
   MockBackend backend({{reference.measurement, true}});
   Trace trace;
   ControlLinks links(p);
-  ControlElectronics device(p, backend, trace);
+  ControlElectronics device(device_profile(p), backend, trace);
   auto batch = launch(p, 0, 4, 100, 1, reference);
   auto corrupted = batch;
   ++corrupted.events.back().reference->epoch;
@@ -115,7 +117,11 @@ void readout_test() {
   device.accept(batch);
   faults(ErrorCode::Protocol, [&] { device.finalize(100); });
   for (Tick tick : {100U, 140U, 180U, 181U})
-    device.process(tick, 1, links);
+    device.process(tick, 1, [&](const Completion &result) {
+      links.cpu_results.publish(tick, 1, result);
+      if (p.fast_feedback)
+        links.fast_results.publish(tick, 1, result);
+    });
   CHECK(!links.cpu_results.take(180));
   const auto cpu = links.cpu_results.take(185);
   CHECK(cpu && cpu->value.value && cpu->value.reference == reference);
@@ -129,7 +135,7 @@ void readout_test() {
     if (e.kind == "MeasurementSampled" || e.kind == "ResultReady")
       times.push_back(e.tick);
   CHECK(times == std::vector<Tick>({140, 180}));
-  p.mappings[3].actions.back().get<ArmSpec>().targets = {1};
+  p.mappings[3].actions.back().get<ArmSpec>().operands.targets = {1};
   faults(ErrorCode::InvalidProfile, [&] { p.validate(); });
 }
 void overflow_test() {
@@ -138,8 +144,8 @@ void overflow_test() {
   p.mappings[3].actions[0].get<AcquireSpec>().discriminator_delay = 10;
   MockBackend backend;
   Trace trace;
-  ControlElectronics device(p, backend, trace);
-  MeasurementRegisters registers(p);
+  ControlElectronics device(device_profile(p), backend, trace);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   const auto reference = registers.reserve(1, 0);
   const auto calls = backend.calls();
   faults(ErrorCode::TimeOverflow, [&] {
@@ -153,33 +159,41 @@ void overflow_test() {
 }
 void reset_test() {
   auto p = default_profile();
-  MeasurementRegisters registers(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   MockBackend backend;
   Trace trace;
   ControlLinks links(p);
-  ControlElectronics device(p, backend, trace);
+  ControlElectronics device(device_profile(p), backend, trace);
   device.accept(launch(p, 0, 4, 100, 1, registers.reserve(1, 0)));
-  device.process(100, 1, links);
+  device.process(100, 1, [&](const Completion &result) {
+    links.cpu_results.publish(100, 1, result);
+    if (p.fast_feedback)
+      links.fast_results.publish(100, 1, result);
+  });
   device.reset(140, 2);
   CHECK(device.drained() && links.cpu_results.empty());
   CHECK(trace.events().back().kind == "ResetAborted");
-  device.process(140, 2, links);
+  device.process(140, 2, [&](const Completion &result) {
+    links.cpu_results.publish(140, 2, result);
+    if (p.fast_feedback)
+      links.fast_results.publish(140, 2, result);
+  });
   CHECK(links.cpu_results.empty());
 }
 void sample_collision_test() {
   auto p = default_profile();
   MockBackend backend;
   Trace trace;
-  ControlElectronics device(p, backend, trace);
-  MeasurementRegisters registers(p);
+  ControlElectronics device(device_profile(p), backend, trace);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   device.accept(launch(p, 0, 4, 100, 1, registers.reserve(1, 0)));
   faults(ErrorCode::ResourceConflict, [&] { device.accept(launch(p, 0, 1, 140, 2)); });
   CHECK(device.resources().reservations().size() == 1);
 }
 void flags_test() {
   auto p = default_profile();
-  MeasurementRegisters registers(p);
-  ExecutionFlags flags(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
+  ExecutionFlags flags(p.qubits);
   CHECK(flags.evaluate(0, ExecutionFlag::Always));
   CHECK(!flags.evaluate(0, ExecutionFlag::LastOne));
   CHECK(!flags.evaluate(0, ExecutionFlag::LastZero));

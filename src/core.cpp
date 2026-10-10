@@ -7,7 +7,7 @@ Core::Core(std::uint32_t id, Profile profile, ProgramImage image, Trace &trace,
            std::size_t sync_capacity, bool identify)
     : id_(id), profile_(std::move(profile)),
       trace_(trace, identify ? std::optional{id} : std::nullopt), sync_(id, network, trace_),
-      registers_(profile_),
+      registers_({profile_.qubits, profile_.result_capacity, profile_.fast_feedback}),
       timing_control_(profile_, registers_, trace_, std::move(validate),
                       [this](std::uint32_t target) { sync_.validate(target); }),
       links_(profile_), fetch_port_(profile_.cpu), data_port_(profile_.cpu),

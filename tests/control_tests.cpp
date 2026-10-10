@@ -14,12 +14,12 @@ Profile profile() {
   p.event_capacity = 1;
   EventSpec a;
   a.port = 0;
-  a.get<GateSpec>().targets = {0};
-  a.get<GateSpec>().resources = {{0, true}};
+  a.get<GateSpec>().operands.targets = {0};
+  a.get<GateSpec>().operands.resources = {{0, true}};
   EventSpec b = a;
   b.port = 1;
-  b.get<GateSpec>().targets = {1};
-  b.get<GateSpec>().resources = {{1, true}};
+  b.get<GateSpec>().operands.targets = {1};
+  b.get<GateSpec>().operands.resources = {{1, true}};
   p.mappings = {{0, 1, {a}}, {1, 1, {b}}};
   p.validate();
   return p;
@@ -113,7 +113,7 @@ void empty_test() {
 void registers_test() {
   auto p = profile();
   p.result_capacity = 2;
-  MeasurementRegisters registers(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   CHECK(registers.read(0) == false);
   const auto first = registers.reserve(1, 0);
   const auto second = registers.reserve(1, 0);
@@ -149,7 +149,7 @@ void fast_test() {
   p.mappings[0].actions[0].get<GateSpec>().execution_flag = ExecutionFlag::LastOne;
   Trace trace;
   TcuCycleModel tcu(p, trace);
-  MeasurementRegisters registers(p);
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
   const auto reference = registers.reserve(1, 0);
   const auto ok = [](const TriggeredEvents &) {};
   auto conditional = group(p, 1, 0, {0});
@@ -187,7 +187,7 @@ void mapping_test() {
   p.validate();
   CHECK(p.fingerprint() != unconditional);
   auto two_qubit = p;
-  two_qubit.mappings[0].actions[0].get<GateSpec>().targets = {0, 1};
+  two_qubit.mappings[0].actions[0].get<GateSpec>().operands.targets = {0, 1};
   faults(ErrorCode::InvalidProfile, [&] { two_qubit.validate(); });
   auto invalid_flag = p;
   invalid_flag.mappings[0].actions[0].get<GateSpec>().execution_flag =

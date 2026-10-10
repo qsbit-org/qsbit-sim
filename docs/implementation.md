@@ -17,11 +17,18 @@ Solid arrows carry data or calls. Dashed arrows show scheduling and observation.
 
 | Library | Contents | Dependencies |
 | --- | --- | --- |
-| `qsbit_core` | ISA, memory, CPU models, Core, TCU, synchronization, feedback and devices. | C++20; no SystemC or Python link dependency. |
-| `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Core and SystemC. |
-| `qsbit_config` | Profile JSON parsing and serialization. | Core and the configured JSON library. |
-| `qsbit_app` | Run-file and CLI parsing, program loading and core configuration. | Core and profile JSON support; no SystemC or Python link dependency. |
+| `qsbit::contracts` | Controller instruction encodings, decoder registers and core operation names. | C++20 headers. |
+| `qsbit_model_types` | Time, profiles, protocol records and traces. | Contracts. |
+| `qsbit_controller` | ISA, memory, CPU pipeline, TCU, synchronization and feedback. | Model types. |
+| `qsbit_device` | Output scheduling, resource reservations and backend execution. | Model types. |
+| `qsbit_platform` | Core composition and decoder transport. | Controller. |
+| `qsbit_systemc` | `Simulator` clocks, timed wakeups, reset and device barrier. | Platform, device and SystemC. |
+| `qsbit_config` | Profile JSON parsing and serialization. | Model types and the configured JSON library. |
+| `qsbit_app` | Run-file and CLI parsing, program loading and core configuration. | Platform, device and profile JSON support. |
 | `qsbit_python` | Calls to optional Python backend adapters. | Python development headers and library, plus pybind11; built only when enabled. |
+
+The executable and `qsbit::contracts` headers are installed. The simulator's
+other headers describe internal C++ interfaces and are not installed.
 
 The [module reference](modules/README.md) maps logical responsibilities to their
 C++ owners and source files.

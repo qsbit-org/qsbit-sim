@@ -1,35 +1,28 @@
 #pragma once
 
 #include "qsbit/backend.hpp"
-#include "qsbit/timing_control.hpp"
+#include "qsbit/device/resources.hpp"
 #include "qsbit/trace.hpp"
+#include <functional>
 #include <map>
 #include <optional>
 
 namespace qsbit {
-// Simulator conflict checks for configured output intervals.
-class ResourceReservations {
-public:
-  void check(std::span<const ScheduledEvent> actions) const;
-  void reserve(std::span<const ScheduledEvent> actions);
-  void discard_before(Tick now);
-  void reset() { reservations_.clear(); }
-  [[nodiscard]] const std::vector<ScheduledEvent> &reservations() const { return reservations_; }
-
-private:
-  static void pair(const ScheduledEvent &a, const ScheduledEvent &b);
-  std::vector<ScheduledEvent> reservations_;
+struct DeviceProfile {
+  std::uint32_t qubits, seed;
+  std::map<std::string, TwoQubitGate> gates;
+  [[nodiscard]] const TwoQubitGate &gate(const std::string &name) const;
 };
+[[nodiscard]] DeviceProfile device_profile(const Profile &profile);
 // Schedules gate and pulse output, acquisition, and result delivery on the shared backend state.
 class ControlElectronics {
 public:
-  ControlElectronics(const Profile &profile, IQuantumBackend &backend, Trace &trace,
+  ControlElectronics(DeviceProfile profile, IQuantumBackend &backend, Trace &trace,
                      BackendExecutionConfig execution = {});
   [[nodiscard]] BackendExecution &backend() { return backend_; }
   void validate(const EventSpec &action) const;
   void preflight(const TriggeredEvents &batch) const;
   void accept(const TriggeredEvents &batch);
-  void process(Tick now, Epoch epoch, ControlLinks &links);
   using Deliver = std::function<void(const Completion &)>;
   void process(Tick now, Epoch epoch, const Deliver &deliver);
   void finalize(Tick now);
@@ -53,7 +46,7 @@ private:
   };
   [[nodiscard]] std::vector<ScheduledEvent> resolve(const TriggeredEvents &batch) const;
   [[nodiscard]] EventSpec gate_action(const std::string &name) const;
-  const Profile &profile_;
+  const DeviceProfile profile_;
   BackendExecution backend_;
   Trace &trace_;
   ResourceReservations reservations_;

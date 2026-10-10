@@ -62,7 +62,7 @@ void event_fields() {
   arm.duration = 9;
   ArmSpec spec;
   spec.operation = "arm";
-  spec.targets = {0};
+  spec.operands.targets = {0};
   arm.spec = spec;
   mapping.actions.push_back(arm);
   profile.validate();

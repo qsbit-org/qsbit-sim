@@ -21,8 +21,8 @@ const std::vector<std::uint32_t> &EventSpec::targets() const {
   static const std::vector<std::uint32_t> empty;
   return std::visit(
       [](const auto &value) -> const std::vector<std::uint32_t> & {
-        if constexpr (requires { value.targets; })
-          return value.targets;
+        if constexpr (requires { value.operands.targets; })
+          return value.operands.targets;
         else
           return empty;
       },
@@ -32,8 +32,8 @@ const std::vector<ResourceUse> &EventSpec::resources() const {
   static const std::vector<ResourceUse> empty;
   return std::visit(
       [](const auto &value) -> const std::vector<ResourceUse> & {
-        if constexpr (requires { value.resources; })
-          return value.resources;
+        if constexpr (requires { value.operands.resources; })
+          return value.operands.resources;
         else
           return empty;
       },

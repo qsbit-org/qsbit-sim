@@ -33,7 +33,7 @@ int main() {
          {0x400bU, 0x500bU, 0x700bU, 0x0200100bU, 0x0200300bU, 0x0800000bU, 0x0000008bU})
       faults(ErrorCode::IllegalInstruction, [&] { (void)rv32::decode(word); });
     auto p = default_profile();
-    MeasurementRegisters registers(p);
+    MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
     Trace trace;
     ControlLinks links(p);
     TimingControl control(p, registers, trace, [](const EventSpec &) {});

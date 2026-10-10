@@ -15,29 +15,36 @@ struct ResourceUse {
   bool exclusive = true;
   bool operator==(const ResourceUse &) const = default;
 };
-struct QuantumSpec {
-  std::string operation = "x";
+struct QuantumOperands {
   std::vector<std::uint32_t> targets;
   std::vector<ResourceUse> resources;
-  bool operator==(const QuantumSpec &) const = default;
+  bool operator==(const QuantumOperands &) const = default;
 };
-struct GateSpec : QuantumSpec {
+struct GateSpec {
+  std::string operation = "x";
+  QuantumOperands operands;
   double amplitude = 0.0;
   ExecutionFlag execution_flag = ExecutionFlag::Always;
   bool operator==(const GateSpec &) const = default;
 };
-struct PulseSpec : QuantumSpec {
+struct PulseSpec {
+  std::string operation = "x";
+  QuantumOperands operands;
   double amplitude = 0.0;
   std::string axis = "x";
   ExecutionFlag execution_flag = ExecutionFlag::Always;
   bool operator==(const PulseSpec &) const = default;
 };
-struct AcquireSpec : QuantumSpec {
+struct AcquireSpec {
+  std::string operation = "x";
+  QuantumOperands operands;
   Tick discriminator_delay = 20;
   bool separate_arm = false;
   bool operator==(const AcquireSpec &) const = default;
 };
-struct ArmSpec : QuantumSpec {
+struct ArmSpec {
+  std::string operation = "x";
+  QuantumOperands operands;
   bool operator==(const ArmSpec &) const = default;
 };
 struct GateOutputSpec {

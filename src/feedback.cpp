@@ -2,11 +2,11 @@
 #include <algorithm>
 
 namespace qsbit {
-MeasurementRegisters::MeasurementRegisters(const Profile &profile)
-    : profile_(profile), registers_(profile.qubits) {}
+MeasurementRegisters::MeasurementRegisters(FeedbackConfig config)
+    : config_(config), registers_(config.qubits) {}
 bool MeasurementRegisters::has_capacity() const {
-  return pending_.size() < profile_.result_capacity &&
-         (!profile_.fast_feedback || fast_pending_.size() < profile_.result_capacity);
+  return pending_.size() < config_.result_capacity &&
+         (!config_.fast_feedback || fast_pending_.size() < config_.result_capacity);
 }
 MeasurementReference MeasurementRegisters::reserve(Epoch epoch, std::uint32_t target) {
   require(target < registers_.size(), ErrorCode::InvalidOperand, "measurement target is invalid");
@@ -16,7 +16,7 @@ MeasurementReference MeasurementRegisters::reserve(Epoch epoch, std::uint32_t ta
   pending_.emplace(result.measurement, result);
   ++registers_[target].pending;
   next_measurement_ = following;
-  if (profile_.fast_feedback)
+  if (config_.fast_feedback)
     fast_pending_.emplace(result.measurement, result);
   return result;
 }

@@ -6,13 +6,17 @@
 #include <vector>
 
 namespace qsbit {
+struct FeedbackConfig {
+  std::uint32_t qubits, result_capacity;
+  bool fast_feedback;
+};
 class MeasurementRegisters {
 public:
   struct Register {
     std::uint32_t pending = 0;
     bool value = false;
   };
-  explicit MeasurementRegisters(const Profile &profile);
+  explicit MeasurementRegisters(FeedbackConfig config);
   [[nodiscard]] bool has_capacity() const;
   MeasurementReference reserve(Epoch epoch, std::uint32_t target);
   void deliver(const Completion &completion, Epoch epoch);
@@ -23,14 +27,14 @@ public:
   void reset();
 
 private:
-  const Profile &profile_;
+  const FeedbackConfig config_;
   std::vector<Register> registers_;
   std::map<Id, MeasurementReference> pending_, fast_pending_;
   Id next_measurement_ = 1;
 };
 class ExecutionFlags {
 public:
-  explicit ExecutionFlags(const Profile &profile) : registers_(profile.qubits) {}
+  explicit ExecutionFlags(std::uint32_t qubits) : registers_(qubits) {}
   [[nodiscard]] bool evaluate(std::uint32_t target, ExecutionFlag flag) const;
   void commit(const Completion &completion, Epoch epoch);
   void reset();

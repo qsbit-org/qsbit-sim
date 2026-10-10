@@ -41,11 +41,11 @@ int main() {
     BackendExecution execution(backend, {3});
     execution.reset(2, 1, 7);
     EventSpec x;
-    x.get<GateSpec>().targets = {0};
+    x.get<GateSpec>().operands.targets = {0};
     std::array gates{x};
     execution.evolve(0, 10, {});
     execution.apply(10, gates);
-    gates[0].get<GateSpec>().targets = {1};
+    gates[0].get<GateSpec>().operands.targets = {1};
     CHECK(backend.batches.empty());
     const std::array references{MeasurementReference{7, 1, 1}, MeasurementReference{7, 2, 0}};
     CHECK((execution.measure(10, references) == std::vector<bool>{true, false}));

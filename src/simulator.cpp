@@ -77,7 +77,8 @@ Simulator::Simulator(sc_core::sc_module_name name, std::vector<CoreConfig> confi
                      DecoderSystemConfig decoding)
     : sc_module(name), profile_(validated(configs, connections)),
       decoders_(std::move(decoding), trace_), backend_(validated(std::move(backend))),
-      network_(profile_.tcu, connections), device_(profile_, *backend_, trace_, execution),
+      network_(profile_.tcu, connections),
+      device_(device_profile(profile_), *backend_, trace_, execution),
       tcu_clock_("tcu_clock", time_at(profile_.tcu.period), 0.5, time_at(profile_.tcu.phase)),
       resets_(std::move(resets)), reverse_(reverse_registration) {
   require(std::is_sorted(resets_.begin(), resets_.end()) &&

@@ -54,7 +54,7 @@ int sc_main(int argc, char **argv) {
       backend.reset(2, 1);
       EventSpec pulse;
       pulse.spec = PulseSpec{};
-      pulse.get<PulseSpec>().targets = {0};
+      pulse.get<PulseSpec>().operands.targets = {0};
       faults(ErrorCode::UnsupportedCapability, [&] { backend.validate(pulse); });
       CHECK(std::norm(backend.state()[0]) == 1.0);
     } else {

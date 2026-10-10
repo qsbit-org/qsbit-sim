@@ -1,12 +1,13 @@
-#include "qsbit/cpu/rv32.hpp"
+#include "qsbit/cpu/pipeline.hpp"
+#include "qsbit/contracts/isa.hpp"
+#include "qsbit/cpu/vliw.hpp"
 #include <utility>
-
 namespace qsbit {
-CpuCycleModel::CpuCycleModel(Clock clock, std::uint32_t entry, Trace &trace)
-    : clock_(clock), trace_(trace), pipeline_trace_(trace) {
+InOrderPipeline::InOrderPipeline(Clock clock, std::uint32_t entry, Trace &trace, ControlIssue issue)
+    : issue_(issue), clock_(clock), trace_(trace), pipeline_trace_(trace) {
   reset(entry);
 }
-void CpuCycleModel::reset(std::uint32_t entry) {
+void InOrderPipeline::reset(std::uint32_t entry) {
   pipeline_trace_.reset();
   registers_.fill(0);
   pc_ = fetch_pc_ = entry;
@@ -18,8 +19,8 @@ void CpuCycleModel::reset(std::uint32_t entry) {
   generation_ = 0;
   halted_ = false;
 }
-void CpuCycleModel::retire(const Frame &frame, std::uint32_t value, std::uint32_t next_pc, Tick now,
-                           Epoch epoch) {
+void InOrderPipeline::retire(const Frame &frame, std::uint32_t value, std::uint32_t next_pc,
+                             Tick now, Epoch epoch) {
   if (frame.decoded->writes_rd && frame.decoded->rd != 0)
     registers_[frame.decoded->rd] = value;
   registers_[0] = 0;
@@ -34,7 +35,7 @@ void CpuCycleModel::retire(const Frame &frame, std::uint32_t value, std::uint32_
   event.registers.assign(registers_.begin(), registers_.end());
   trace_.emit(std::move(event));
 }
-void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
+void InOrderPipeline::step(Tick now, Epoch epoch, CpuPorts &ports) {
   require(clock_.edge(now), ErrorCode::Protocol, "CPU invoked off-edge");
   if (auto response = ports.fetch.responses.take(now)) {
     if (response->epoch == epoch) {
@@ -66,7 +67,12 @@ void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
     const auto &d = *frame.decoded;
     bool completed = false;
     std::uint32_t value = 0, next_pc = frame.pc + 4;
-    if (d.op == rv32::Op::Quantum) {
+    if (frame.bundle) {
+      while (frame.completed_lanes < frame.operations.size() &&
+             ports.control(frame.operations[frame.completed_lanes]))
+        ++frame.completed_lanes;
+      completed = frame.completed_lanes == frame.operations.size();
+    } else if (d.op == rv32::Op::Quantum) {
       auto reply = ports.control(adapt_quantum(d, frame.id, frame.lhs, frame.rhs));
       if (reply) {
         value = *reply;
@@ -136,10 +142,16 @@ void CpuCycleModel::step(Tick now, Epoch epoch, CpuPorts &ports) {
     decode_.reset();
     if (!frame.fault) {
       try {
-        frame.decoded = rv32::decode(frame.word);
-        const auto &d = *frame.decoded;
-        frame.lhs = registers_[d.rs1];
-        frame.rhs = registers_[d.rs2];
+        if (issue_ == ControlIssue::DualCodeword && (frame.word & 127U) == contract::BundleOpcode) {
+          frame.operations = decode_cw_bundle(frame.word, frame.id, registers_);
+          frame.bundle = true;
+          frame.decoded = rv32::Decoded{rv32::Op::Quantum, frame.word};
+        } else {
+          frame.decoded = rv32::decode(frame.word);
+          const auto &d = *frame.decoded;
+          frame.lhs = registers_[d.rs1];
+          frame.rhs = registers_[d.rs2];
+        }
       } catch (const Fault &fault) {
         frame.fault = fault.code();
       }

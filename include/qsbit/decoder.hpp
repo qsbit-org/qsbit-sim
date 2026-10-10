@@ -55,6 +55,10 @@ private:
     std::optional<Tick> arrival;
     bool started = false, completed = false;
   };
+  void advance_transmission(Tick now, Epoch epoch);
+  void advance_jobs(Tick now, Epoch epoch);
+  void admit_requests(Tick now, Epoch epoch);
+  void transmit_result(Tick now);
   const DecoderConfig &decoder(std::uint32_t id) const;
   void event(Tick now, Epoch epoch, const char *kind, Id id, std::uint32_t core,
              std::uint32_t decoder, std::uint32_t tag = 0);

@@ -1,6 +1,6 @@
 # C++ API reference
 
-The headers below define the simulator's public interfaces. See
+The headers below define internal C++ interfaces and are not installed. See
 [C++ interfaces](cpp-interfaces.md) for adapter requirements and
 [components](modules/README.md) for behavior and tests.
 
@@ -52,6 +52,11 @@ Three-stage CPU with scalar instructions and dual-codeword bundles. [Open header
 
 End-of-edge CPU pipeline snapshots. [Open header](../include/qsbit/cpu/trace.hpp).
 
+(pipeline_8hpp)=
+## cpu/pipeline.hpp
+
+Shared in-order pipeline state and transitions. [Open header](../include/qsbit/cpu/pipeline.hpp).
+
 (defaults_8hpp)=
 ## defaults.hpp
 
@@ -66,6 +71,11 @@ Decoder MMIO registers, bounded transport and timed processing. [Open header](..
 ## device.hpp
 
 Physical intervals, resource reservations and device execution. [Open header](../include/qsbit/device.hpp).
+
+(resources_8hpp)=
+## device/resources.hpp
+
+Output-interval and resource-conflict checks. [Open header](../include/qsbit/device/resources.hpp).
 
 (error_8hpp)=
 ## error.hpp

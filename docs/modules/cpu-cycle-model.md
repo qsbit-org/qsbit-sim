@@ -102,15 +102,17 @@ already retired instruction.
 
 ## Implementation and tests
 
-Implementations: [rv32.cpp](../../src/cpu/rv32.cpp) and
-[vliw.cpp](../../src/cpu/vliw.cpp). Declarations:
+The [shared pipeline](../../src/cpu/pipeline.cpp) implements fetch, execution,
+memory access, retirement and tracing. The
+[bundle decoder](../../src/cpu/vliw.cpp) captures both lanes' operands.
+Declarations:
 [rv32.hpp](../../include/qsbit/cpu/rv32.hpp) and
 [vliw.hpp](../../include/qsbit/cpu/vliw.hpp).
 
-**CTest:** `cpu.trace`, `cpu.vliw`, `systemc.vliw`, `systemc.use_cases`, `systemc.vliw_use_cases`, `adapter.normal`, `adapter.reset`.
+**CTest:** `cpu.trace`, `cpu.vliw`, `systemc.vliw`, `systemc.use_cases`, `adapter.normal`, `adapter.reset`.
 
 The scalar use cases exercise data hazards, branch flushes, feedback and
-reset on both implementations. Bundle tests check operand modes, reserved
+reset in the shared pipeline. Bundle tests check operand modes, reserved
 bits, partial acceptance, resource conflicts and event timing across clock
 phases and process registration orders. Adapter tests check construction
 and reset of a replacement CPU.

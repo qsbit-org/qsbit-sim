@@ -1,12 +1,14 @@
 #include "qsbit/decoder.hpp"
+#include "qsbit/contracts/decoder.hpp"
 #include <algorithm>
 #include <limits>
 #include <set>
 
 namespace qsbit {
+namespace registers = contract::decoder;
 DecoderSystem::DecoderSystem(DecoderSystemConfig config, Trace &trace)
     : config_(std::move(config)), trace_(trace) {
-  require(config_.base % 4 == 0 && config_.base <= UINT32_MAX - 31 &&
+  require(config_.base % 4 == 0 && config_.base <= UINT32_MAX - (registers::RegisterBytes - 1) &&
               config_.request_capacity > 0 && config_.result_capacity > 0 &&
               config_.bytes_per_tick > 0 && config_.link_latency > 0,
           ErrorCode::InvalidProfile, "invalid decoder transport configuration");
@@ -19,12 +21,12 @@ DecoderSystem::DecoderSystem(DecoderSystemConfig config, Trace &trace)
 }
 bool DecoderSystem::contains(std::uint32_t address) const {
   return !config_.decoders.empty() && address >= config_.base &&
-         std::uint64_t(address) < std::uint64_t(config_.base) + 32;
+         std::uint64_t(address) < std::uint64_t(config_.base) + registers::RegisterBytes;
 }
 void DecoderSystem::validate_memory(const ProgramImage &image) const {
   require(config_.decoders.empty() ||
               std::uint64_t(image.base()) + image.bytes().size() <= config_.base ||
-              std::uint64_t(config_.base) + 32 <= image.base(),
+              std::uint64_t(config_.base) + registers::RegisterBytes <= image.base(),
           ErrorCode::InvalidProfile, "decoder MMIO overlaps program RAM");
 }
 const DecoderConfig &DecoderSystem::decoder(std::uint32_t id) const {
@@ -52,27 +54,28 @@ std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const Mem
   const auto offset = request.address - config_.base;
   if (request.write) {
     switch (offset) {
-    case 0:
+    case registers::Select:
       (void)decoder(request.value);
       r.decoder = request.value;
       return 0;
-    case 4:
+    case registers::Count:
       r.count = request.value;
       return 0;
-    case 8:
+    case registers::DataLow:
       r.low = request.value;
       return 0;
-    case 12:
+    case registers::DataHigh:
       r.high = request.value;
       return 0;
-    case 16:
+    case registers::Tag:
       r.tag = request.value;
       return 0;
-    case 20: {
+    case registers::Command: {
       (void)decoder(r.decoder);
-      require(request.value == 1 || request.value == 2 || request.value == 3,
+      require(request.value == registers::Submit || request.value == registers::Reset ||
+                  request.value == registers::Consume,
               ErrorCode::InvalidOperand, "invalid decoder command");
-      if (request.value == 3) {
+      if (request.value == registers::Consume) {
         auto &s = sessions_[{core, r.decoder}];
         require(s.result.has_value() && !s.submitted && s.measurements.empty(), ErrorCode::Protocol,
                 "decoder result is not ready");
@@ -80,7 +83,7 @@ std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const Mem
         event(now, epoch, "DecoderResultConsumed", 0, core, r.decoder);
         return 0;
       }
-      const bool resetting = request.value == 2;
+      const bool resetting = request.value == registers::Reset;
       require(resetting || (r.count > 0 && r.count <= 64), ErrorCode::InvalidOperand,
               "decoder packet must contain 1 to 64 bits");
       if (resetting ? reset_request_.has_value() : requests_.size() >= config_.request_capacity)
@@ -111,20 +114,28 @@ std::optional<std::uint32_t> DecoderSystem::access(std::uint32_t core, const Mem
     }
   }
   const auto &d = decoder(r.decoder);
-  if (offset == 4)
+  if (offset == registers::Count)
     return d.outputs;
   const auto &s = sessions_[{core, r.decoder}];
-  if (offset == 20) {
+  if (offset == registers::Command) {
     const auto matches = [&](const auto &p) { return p.core == core && p.decoder == r.decoder; };
     const bool pending = (reset_request_ && matches(*reset_request_)) ||
                          std::any_of(requests_.begin(), requests_.end(), matches);
-    return (s.result ? 1U : 0U) | ((pending || s.submitted || !s.measurements.empty()) ? 2U : 0U);
+    return (s.result ? registers::Ready : 0U) |
+           ((pending || s.submitted || !s.measurements.empty()) ? registers::Busy : 0U);
   }
-  require((offset == 24 || offset == 28) && s.result.has_value(), ErrorCode::Protocol,
-          "decoder result read before completion");
-  return static_cast<std::uint32_t>(*s.result >> (offset == 24 ? 0 : 32));
+  require((offset == registers::ResultLow || offset == registers::ResultHigh) &&
+              s.result.has_value(),
+          ErrorCode::Protocol, "decoder result read before completion");
+  return static_cast<std::uint32_t>(*s.result >> (offset == registers::ResultLow ? 0 : 32));
 }
 void DecoderSystem::step(Tick now, Epoch epoch) {
+  advance_transmission(now, epoch);
+  advance_jobs(now, epoch);
+  admit_requests(now, epoch);
+  transmit_result(now);
+}
+void DecoderSystem::advance_transmission(Tick now, Epoch epoch) {
   const auto transmitted = [&](Request &p) {
     if (!p.transmitted && p.sent <= now) {
       event(now, epoch, "DecoderRequestSent", p.id, p.core, p.decoder, p.tag);
@@ -147,6 +158,8 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
       event(now, epoch, "DecoderReset", p.id, p.core, p.decoder, p.tag);
     }
   }
+}
+void DecoderSystem::advance_jobs(Tick now, Epoch epoch) {
   for (auto it = jobs_.begin(); it != jobs_.end();) {
     auto &j = *it;
     if (!j.started && j.start <= now) {
@@ -166,6 +179,8 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
     } else
       ++it;
   }
+}
+void DecoderSystem::admit_requests(Tick now, Epoch epoch) {
   while (!requests_.empty() && requests_.front().arrival <= now) {
     const auto &p = requests_.front();
     const auto &d = decoder(p.decoder);
@@ -200,6 +215,8 @@ void DecoderSystem::step(Tick now, Epoch epoch) {
     }
     requests_.pop_front();
   }
+}
+void DecoderSystem::transmit_result(Tick now) {
   if (rx_available_ <= now) {
     auto ready = jobs_.end();
     for (auto it = jobs_.begin(); it != jobs_.end(); ++it)

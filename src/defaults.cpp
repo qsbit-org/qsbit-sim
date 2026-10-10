@@ -8,21 +8,21 @@ Profile default_profile() {
     for (std::uint32_t code = 1; code <= 5; ++code) {
       EventSpec a;
       a.port = q;
-      const QuantumSpec common{"x", {q}, {{q, true}}};
+      const QuantumOperands common{{q}, {{q, true}}};
       if (code <= 3) {
         GateSpec gate;
-        static_cast<QuantumSpec &>(gate) = common;
+        gate.operands = common;
         gate.operation = code == 1 ? "x" : code == 2 ? "h" : "z";
         a.spec = gate;
       } else if (code == 4) {
         AcquireSpec acquisition;
-        static_cast<QuantumSpec &>(acquisition) = common;
+        acquisition.operands = common;
         acquisition.operation = "measure";
         a.spec = acquisition;
         a.duration = 40;
       } else {
         PulseSpec pulse;
-        static_cast<QuantumSpec &>(pulse) = common;
+        pulse.operands = common;
         pulse.operation = "drive_x";
         pulse.amplitude = std::numbers::pi / 20.0;
         a.spec = pulse;
@@ -42,8 +42,8 @@ Profile default_profile() {
     for (auto flag : {ExecutionFlag::LastOne, ExecutionFlag::LastZero, ExecutionFlag::Equal}) {
       EventSpec action;
       action.port = q;
-      action.get<GateSpec>().targets = {q};
-      action.get<GateSpec>().resources = {{q, true}};
+      action.get<GateSpec>().operands.targets = {q};
+      action.get<GateSpec>().operands.resources = {{q, true}};
       action.get<GateSpec>().execution_flag = flag;
       p.mappings.push_back({q, 6 + static_cast<std::uint32_t>(flag), {action}});
     }

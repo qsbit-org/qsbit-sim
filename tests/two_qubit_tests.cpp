@@ -42,8 +42,7 @@ void execution() {
     auto p = default_profile();
     RecordingBackend backend;
     Trace trace;
-    ControlElectronics device(p, backend, trace);
-    ControlLinks links(p);
+    ControlElectronics device(device_profile(p), backend, trace);
     for (Id occurrence = 1; occurrence <= 2; ++occurrence) {
       const Tick tick = occurrence * 100;
       auto first = output(p, 0, 6, tick, occurrence * 2);
@@ -51,12 +50,12 @@ void execution() {
       device.accept(reverse ? second : first);
       device.accept(reverse ? first : second);
       CHECK(backend.gates.size() == occurrence - 1);
-      device.process(tick, 1, links);
+      device.process(tick, 1, [](const Completion &) { CHECK(false); });
       (void)device.backend().state();
       CHECK(backend.gates.size() == occurrence);
       CHECK(backend.gates.back().operation() == "cx");
       CHECK((backend.gates.back().targets() == std::vector<std::uint32_t>{0, 1}));
-      device.process(tick + 20, 1, links);
+      device.process(tick + 20, 1, [](const Completion &) { CHECK(false); });
       CHECK(device.drained());
     }
     CHECK(std::count_if(trace.events().begin(), trace.events().end(),
@@ -68,10 +67,10 @@ void rejection_and_reset() {
   auto p = default_profile();
   RecordingBackend backend;
   Trace trace;
-  ControlElectronics device(p, backend, trace);
-  ControlLinks links(p);
+  ControlElectronics device(device_profile(p), backend, trace);
   device.accept(output(p, 0, 6, 100, 1));
-  faults(ErrorCode::GateInputMismatch, [&] { device.process(100, 1, links); });
+  faults(ErrorCode::GateInputMismatch,
+         [&] { device.process(100, 1, [](const Completion &) { CHECK(false); }); });
   CHECK(backend.mutations == 0 && backend.gates.empty());
   faults(ErrorCode::ResourceConflict, [&] { device.accept(output(p, 0, 6, 100, 2)); });
   faults(ErrorCode::GateInputMismatch, [&] { device.accept(output(p, 1, 10, 101, 3)); });
@@ -89,7 +88,8 @@ void rejection_and_reset() {
   second.epoch = second.events.front().epoch = 2;
   device.accept(second);
   const auto before = backend.mutations;
-  faults(ErrorCode::GateInputMismatch, [&] { device.process(200, 2, links); });
+  faults(ErrorCode::GateInputMismatch,
+         [&] { device.process(200, 2, [](const Completion &) { CHECK(false); }); });
   CHECK(backend.mutations == before && backend.gates.empty());
 }
 
@@ -100,15 +100,14 @@ void delay_alignment() {
       mapping.actions.front().delay = 20;
   RecordingBackend backend;
   Trace trace;
-  ControlElectronics device(p, backend, trace);
-  ControlLinks links(p);
+  ControlElectronics device(device_profile(p), backend, trace);
   device.accept(output(p, 0, 6, 100, 1));
   device.accept(output(p, 1, 10, 120, 2));
   CHECK(device.next_boundary() == 120);
-  device.process(120, 1, links);
+  device.process(120, 1, [](const Completion &) { CHECK(false); });
   (void)device.backend().state();
   CHECK(backend.gates.size() == 1);
-  device.process(140, 1, links);
+  device.process(140, 1, [](const Completion &) { CHECK(false); });
   CHECK(device.drained());
 }
 

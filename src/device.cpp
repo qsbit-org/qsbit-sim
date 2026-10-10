@@ -1,79 +1,32 @@
 #include "qsbit/device.hpp"
+#include "device/action_kind.hpp"
 #include <algorithm>
 #include <set>
 
 namespace qsbit {
-namespace {
-bool common_target(const EventSpec &a, const EventSpec &b) {
-  return std::any_of(a.targets().begin(), a.targets().end(), [&](auto q) {
-    return std::find(b.targets().begin(), b.targets().end(), q) != b.targets().end();
-  });
+DeviceProfile device_profile(const Profile &profile) {
+  DeviceProfile result{profile.qubits, profile.seed, {}};
+  for (const auto &gate : profile.two_qubit_gates)
+    require(result.gates.emplace(gate.name, gate).second, ErrorCode::InvalidProfile,
+            "duplicate two-qubit gate: " + gate.name);
+  return result;
 }
-bool is_arm(const EventSpec &a) { return a.kind() == ActionKind::DiscriminatorArm; }
-bool is_gate(const EventSpec &a) {
-  return a.kind() == ActionKind::IdealGate || a.kind() == ActionKind::GateOutput;
+const TwoQubitGate &DeviceProfile::gate(const std::string &name) const {
+  const auto found = gates.find(name);
+  require(found != gates.end(), ErrorCode::InvalidProfile, "unknown two-qubit gate: " + name);
+  return found->second;
 }
-} // namespace
-void ResourceReservations::pair(const ScheduledEvent &a, const ScheduledEvent &b) {
-  const auto &x = a.resolved;
-  const auto &y = b.resolved;
-  const bool overlap = a.start < b.end && b.start < a.end;
-  if (overlap) {
-    require(x.port != y.port, ErrorCode::ResourceConflict, "output port intervals overlap");
-    if (a.event.action.kind() == ActionKind::GateOutput &&
-        b.event.action.kind() == ActionKind::GateOutput &&
-        a.event.action.get<GateOutputSpec>().gate == b.event.action.get<GateOutputSpec>().gate) {
-      require(a.start == b.start && a.end == b.end, ErrorCode::GateInputMismatch,
-              "two-qubit gate output intervals differ");
-      return;
-    }
-    for (const auto &rx : x.resources())
-      for (const auto &ry : y.resources())
-        require(rx.id != ry.id || (!rx.exclusive && !ry.exclusive), ErrorCode::ResourceConflict,
-                "exclusive resource intervals overlap");
-    if (!is_arm(x) && !is_arm(y) && common_target(x, y))
-      require(x.kind() == ActionKind::Pulse && y.kind() == ActionKind::Pulse,
-              ErrorCode::ResourceConflict, "incompatible quantum actions overlap on one target");
-  }
-  if (common_target(x, y)) {
-    const bool measurement_gate =
-        (x.kind() == ActionKind::Acquire && is_gate(y) && a.end == b.start) ||
-        (y.kind() == ActionKind::Acquire && is_gate(x) && b.end == a.start);
-    require(!measurement_gate, ErrorCode::ResourceConflict,
-            "measurement sample and ideal gate share a target and tick");
-  }
-}
-void ResourceReservations::check(std::span<const ScheduledEvent> actions) const {
-  std::set<Id> ids;
-  for (std::size_t i = 0; i < actions.size(); ++i) {
-    const auto &action = actions[i];
-    require(ids.insert(action.event.id).second, ErrorCode::Protocol, "duplicate action in launch");
-    for (const auto &old : reservations_) {
-      require(old.event.id != action.event.id, ErrorCode::Protocol, "action was already reserved");
-      pair(action, old);
-    }
-    for (std::size_t j = 0; j < i; ++j)
-      pair(action, actions[j]);
-  }
-}
-void ResourceReservations::reserve(std::span<const ScheduledEvent> actions) {
-  check(actions);
-  reservations_.insert(reservations_.end(), actions.begin(), actions.end());
-}
-void ResourceReservations::discard_before(Tick now) {
-  std::erase_if(reservations_, [&](const ScheduledEvent &action) { return action.end < now; });
-}
-ControlElectronics::ControlElectronics(const Profile &profile, IQuantumBackend &backend,
+ControlElectronics::ControlElectronics(DeviceProfile profile, IQuantumBackend &backend,
                                        Trace &trace, BackendExecutionConfig execution)
-    : profile_(profile), backend_(backend, execution), trace_(trace) {
-  backend_.reset(profile.qubits, profile.seed, 1);
+    : profile_(std::move(profile)), backend_(backend, execution), trace_(trace) {
+  backend_.reset(profile_.qubits, profile_.seed, 1);
 }
 EventSpec ControlElectronics::gate_action(const std::string &name) const {
   const auto &gate = profile_.gate(name);
   EventSpec action;
   action.get<GateSpec>().operation = gate.operation;
-  action.get<GateSpec>().targets = gate.targets;
-  action.get<GateSpec>().resources = gate.resources;
+  action.get<GateSpec>().operands.targets = gate.targets;
+  action.get<GateSpec>().operands.resources = gate.resources;
   action.duration = gate.duration;
   return action;
 }
@@ -172,13 +125,6 @@ void ControlElectronics::accept(const TriggeredEvents &batch) {
     record.operation = action.resolved.operation();
     trace_.emit(std::move(record));
   }
-}
-void ControlElectronics::process(Tick now, Epoch epoch, ControlLinks &links) {
-  process(now, epoch, [&](const Completion &result) {
-    links.cpu_results.publish(now, epoch, result);
-    if (profile_.fast_feedback)
-      links.fast_results.publish(now, epoch, result);
-  });
 }
 void ControlElectronics::process(Tick now, Epoch epoch, const Deliver &deliver) {
   require(now >= last_tick_ && (!processed_tick_ || now > *processed_tick_), ErrorCode::Protocol,

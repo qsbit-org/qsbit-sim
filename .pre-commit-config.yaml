@@ -29,4 +29,4 @@ repos:
         name: Check C++ formatting
         entry: .venv/bin/clang-format --dry-run --Werror
         language: system
-        files: ^(include|src|tests)/.*\.(cpp|hpp)$
+        files: ^(contracts/include|include|src|tests)/.*\.(cpp|hpp)$

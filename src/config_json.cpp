@@ -217,14 +217,14 @@ void apply_profile(Profile &p, const Json &input) {
         integer(spec, "duration", action.duration);
         std::visit(
             [&](auto &value) {
-              if constexpr (requires { value.targets; }) {
+              if constexpr (requires { value.operands.targets; }) {
                 value.operation = spec.value("operation", std::string("x"));
                 require(spec.contains("targets") && spec["targets"].is_array(),
                         ErrorCode::InvalidProfile, "action targets are required");
                 for (const auto &entry : spec["targets"]) {
                   std::uint32_t target = 0;
                   integer(Json{{"target", entry}}, "target", target);
-                  value.targets.push_back(target);
+                  value.operands.targets.push_back(target);
                 }
                 if (spec.contains("resources")) {
                   require(spec["resources"].is_array(), ErrorCode::InvalidProfile,
@@ -235,7 +235,7 @@ void apply_profile(Profile &p, const Json &input) {
                     ResourceUse resource;
                     integer(entry, "id", resource.id);
                     resource.exclusive = entry.value("exclusive", true);
-                    value.resources.push_back(resource);
+                    value.operands.resources.push_back(resource);
                   }
                 }
               }
@@ -303,11 +303,11 @@ Json profile_json(const Profile &p) {
                 {"duration", action.duration}};
       std::visit(
           [&](const auto &value) {
-            if constexpr (requires { value.targets; }) {
+            if constexpr (requires { value.operands.targets; }) {
               spec["operation"] = value.operation;
-              spec["targets"] = value.targets;
+              spec["targets"] = value.operands.targets;
               spec["resources"] = Json::array();
-              for (const auto &resource : value.resources)
+              for (const auto &resource : value.operands.resources)
                 spec["resources"].push_back(
                     {{"id", resource.id}, {"exclusive", resource.exclusive}});
             }
