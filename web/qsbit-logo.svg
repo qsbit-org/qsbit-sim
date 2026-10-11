@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"
+     aria-hidden="true">
+  <style>
+    :root {
+      --line: #64748b;
+      --teal: #14b8a6;
+      --red: #ef4444;
+    }
+  </style>
+  <path d="M5 8L24 5L26 26L5 8L6 25L24 5"
+        fill="none" stroke="var(--line)" stroke-width="2"/>
+  <path d="M5 8L6 25M24 5L26 26"
+        stroke="var(--teal)" stroke-width="3"/>
+  <circle cx="5" cy="8" r="4" fill="var(--red)"/>
+  <circle cx="24" cy="5" r="4" fill="var(--red)"/>
+  <circle cx="26" cy="26" r="4" fill="var(--teal)"/>
+  <circle cx="6" cy="25" r="4" fill="var(--teal)"/>
+</svg>

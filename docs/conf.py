@@ -14,6 +14,8 @@ myst_heading_anchors = 6
 myst_enable_extensions = ["colon_fence"]
 html_theme = "pydata_sphinx_theme"
 html_title = "qsbit-sim"
+html_logo = "../web/qsbit-logo.svg"
+html_favicon = "../web/favicon.ico"
 html_static_path = ["../web", "_static"]
 templates_path = ["_templates"]
 html_css_files = [
@@ -27,6 +29,7 @@ html_js_files = [
     (name, {"defer": "defer"}) for name in ["trace-model.js", "trace-player.js", "architecture.js"]
 ]
 html_theme_options = {
+    "logo": {"text": "qsbit-sim"},
     "navbar_start": ["navbar-logo"],
     "navbar_center": [],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],

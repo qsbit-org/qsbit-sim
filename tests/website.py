@@ -88,9 +88,23 @@ def check_browser(site):
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(base + "/index.html")
+            brand = page.locator(".navbar-brand")
+            for theme in ("light", "dark"):
+                page.evaluate("theme => document.documentElement.dataset.theme = theme", theme)
+                logo = brand.locator("img:visible")
+                expect(logo).to_be_visible()
+                assert logo.evaluate("img => img.complete && img.naturalWidth > 0")
+                brand.screenshot(path=str(site.parent / f"logo-{theme}.png"))
+            favicon = page.locator('link[rel="icon"]').evaluate("el => el.href")
+            assert page.request.get(favicon).status == 200
+            page.evaluate("document.documentElement.dataset.theme = 'light'")
             expect(
                 page.get_by_role("navigation", name="Section navigation", exact=True)
             ).to_be_visible()
+            page.get_by_role("main").locator('a[href="quickstart.html"]').first.click()
+            page.wait_for_url("**/quickstart.html")
+            brand.click()
+            page.wait_for_url("**/index.html")
             page.get_by_role("main").locator('a[href="quickstart.html"]').first.click()
             page.wait_for_url("**/quickstart.html")
             page.get_by_role("main").locator('a[href="execution.html"]').first.click()
