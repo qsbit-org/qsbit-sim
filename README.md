@@ -38,11 +38,6 @@ export PATH="$HOME/.local/bin:$PATH"
 qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
-The program measures qubit 0 and branches on the result to select a gate on
-qubit 1. The mock backend supplies bit 1. The summary,
-`mock-results.json`, should contain `"success": true` and `"4096": 1` in
-`memory`.
-
 For quantum-state evolution, configure [Aer, Stim or QuTiP](docs/backends.md).
 
 ## Replay
