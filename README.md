@@ -75,7 +75,7 @@ If you use qsbit-sim in your work, please cite the software repository:
 - [eQASM: An Executable Quantum Instruction Set Architecture](https://arxiv.org/abs/1808.02449).
 - [Distributed-HISQ: A Distributed Quantum Control Architecture](https://arxiv.org/abs/2509.04798).
 
-## AI Acknowledgment
+## AI Acknowledgement
 
 This project is developed with assistance from AI coding tools, including code generation, refactoring, testing, and documentation. All changes are reviewed and validated by the maintainers, who remain responsible for the project's design, correctness, and quality.
 
