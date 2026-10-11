@@ -1,7 +1,7 @@
 # Port and codeword mapping
 
 The port and codeword mapping defines what a control instruction means for the
-configured device. For example, the default map uses codeword 1 on port 0 for an
+configured device. For example, the default map uses codeword 1 on source port 0 for an
 X gate on qubit 0, and codeword 4 for acquisition on that qubit.
 
 The mapping belongs to the simulation profile. Programs select entries by source port
@@ -13,24 +13,12 @@ and codeword; the selected events can address different core-local output ports.
 - **Output:** a `Mapping` containing one or more `EventSpec` values for codeword decoding.
 - **Owner:** the immutable `TimingConfig`, indexed by port and codeword.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Port and codeword"];
-  owner [label="TimingConfig::mapping"];
-  state [label="Mapping::port and codeword\nMapping::actions\nEventSpec"];
-  output [label="Mapping with EventSpec values"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="value records and configuration"];
-}
-```
-
 ## Event specifications
 
 Each `EventSpec` defines an ideal gate, pulse drive, acquisition,
 discriminator arm or one output of a paired gate. It specifies the output port,
 delay and duration. Pulses also have an axis and amplitude; acquisitions
-have discriminator timing. `execution_flag` selects the target qubit's flag
+have discriminator timing. `execution_flag` selects an execution condition
 for single-qubit gates and pulses.
 
 A paired output names a `TwoQubitGate` in `Profile::two_qubit_gates`. That
@@ -41,7 +29,7 @@ port 1 with codeword 10. See [two-port gate outputs](../interfaces.md#two-port-g
 The default map assigns codewords 7, 8 and 9 to X gates controlled by
 `last_one`, `last_zero` and `equal`, respectively, on each qubit's port.
 
-The event starts at `fire_tick + delay` and occupies its port and
+The event starts at `fire_tick + delay` and occupies its output port and
 resources over `[start, end)`. Duration must be positive. An ideal gate
 changes quantum state at the start of that interval.
 

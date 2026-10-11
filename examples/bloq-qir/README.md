@@ -1,7 +1,7 @@
 # Bloq surface-code memory through QIR
 
-Compile a Bloq distance-3 X-memory graph, export its VM program as Adaptive
-QIR 2.1, compile it with qsbit-compiler and execute it with qsbit-sim. The circuit
+Export a distance-3 Bloq X-memory program to Adaptive QIR 2.1, compile it to RV32I
+with qsbit-compiler, and execute it with qsbit-sim. The circuit
 uses 17 physical qubits, 33 measurement records, 24 detectors and one logical
 observable. PyMatching supplies the logical correction through decoder MMIO.
 
@@ -50,7 +50,7 @@ Bloq compiles `GalleryItem::XMemory` at distance 3 and lowers it to a VM program
 The exporter adds an explicit logical decoder binding. It submits all 33
 measurement records to decoder 0 and records the raw and corrected logical
 observables. QIR contains the gates, classical control and decoder calls;
-`target.json` supplies port/codeword mappings, durations, decoder transport and
+`target.json` supplies source-port and codeword mappings, durations, decoder transport and
 the PyMatching model.
 
 The physical circuit executes ideal gates. The exported reference uses

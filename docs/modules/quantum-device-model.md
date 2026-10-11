@@ -27,20 +27,14 @@ digraph module {
 
 `ControlElectronics` commits the preceding evolution interval to `BackendExecution`
 with all active drives. It then measures ending acquisitions and commits starting
-gates. All ports share one backend state.
-
-The mock backend supplies configured bits without quantum-state evolution.
-Aer applies ideal gates, optional thermal relaxation and measurements with state
-collapse. QuTiP integrates time-dependent oscillator Hamiltonians and dissipation. Stim applies
-Clifford gates and optional gate depolarization. See
-[backend setup](../backends.md) for installation and adapter methods.
+gates.
 
 `BackendExecution` collects operations across device boundaries. Measurement,
 state inspection and the configured batch limit execute pending work. Each backend
 receives the complete ordered batch through `execute()`.
 
-Backend calls are synchronous and do not advance simulation time. Output
-timing and result delivery remain controlled by the simulator.
+Backend calls are synchronous; their [host time](../simulation-model.md#time-clocks-and-precision)
+does not advance simulation time.
 Before successful completion, the simulator commits the remaining idle interval
 through the stop tick and executes the final batch.
 

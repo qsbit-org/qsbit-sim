@@ -1,7 +1,7 @@
 # Examples
 
 Run commands from the repository root. Follow the [build instructions](../README.md#build)
-to create `build-clang/qsbit-sim` and assemble the Bell-state and measurement-feedback examples.
+to install `qsbit-sim` and assemble the Bell-state and measurement-feedback examples.
 
 | Directory | Example | Backend |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ CMake places each ELF and
 its configuration in `<build-dir>/examples/<example>/`. For a control-only run:
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
+qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
 Each experiment README documents its additional dependencies and commands.

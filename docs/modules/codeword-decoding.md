@@ -1,6 +1,6 @@
 # Codeword decoding
 
-Codeword decoding expands one port and codeword command into the device events defined
+Codeword decoding expands one source-port and codeword command into the device events defined
 by the profile. A command can select several events on different core-local output ports,
 such as acquisition and a separate discriminator arm.
 

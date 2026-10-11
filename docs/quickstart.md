@@ -42,8 +42,8 @@ The run creates:
 | `build-clang/examples/measurement-feedback/mock-results.json` | Success status, final registers, inspected memory and the simulation profile. |
 | `build-clang/examples/measurement-feedback/mock-results.jsonl` | Timestamped instruction, control, device and feedback events. |
 
-Open the summary. `success` should be `true` and `memory["4096"]` should be `1`.
-The program stores its measured bit at address 4096.
+In the summary, `success` should be `true` and `memory["4096"]` should be `1`,
+the measured bit stored by the program.
 
 ## Follow the result
 

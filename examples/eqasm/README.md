@@ -1,6 +1,6 @@
 # eQASM gate sequence and VLIW issue rate
 
-Run the two-qubit gate sequence from
+Run the gate sequence on two qubits from
 [eQASM, Figure 3](https://arxiv.org/pdf/1808.02449v3), then compare scalar
 instructions with 32-bit dual-codeword bundles. Both programs use qsbit control
 instructions while reproducing the eQASM gate schedule.

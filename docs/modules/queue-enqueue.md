@@ -11,32 +11,17 @@ The TCU accepts its time point and all port events together. A full queue leaves
 - **Scheduling:** the TCU checks an arrived request on a TCU rising edge;
   the CPU receives its reply on a later CPU edge.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="enqueue request mailbox"];
-  owner [label="ControlLinks and TcuCycleModel"];
-  state [label="timing_events, replies, closure\nEnvelope\nTcuCycleModel::last_label_"];
-  output [label="Queue insertion and EnqueueReply"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
-}
-```
-
 ## Mailbox communication and acceptance
 
-A message arrives at the first receiver edge strictly after publication,
-plus any additional configured receiver periods. For TCU edges at 20 and
-40 ns and one-edge latency, a request published at 20 ns arrives at 40 ns.
+Mailbox arrival follows the [receiver-edge latency rule](../module-architecture.md#communication-latency-and-tcu-edge-order).
 
 The TCU checks the request's event IDs, profile fingerprint, label order,
 deadline and required capacity. When space is available, it inserts the
 time point and all its events together. `Core::tcu_edge()` removes the request
 from the mailbox and sends an `EnqueueReply` with its label.
 
-Capacity is checked before removing events triggered on that edge.
-Space freed on the edge becomes available on the next TCU edge. A request
-waiting for space retains its original deadline.
+Enqueue checks capacity at the start of the TCU edge, before any entries are
+removed. A request waiting for space retains its original deadline.
 
 Insertion normally must finish strictly before the due tick. While an empty
 queue is paused after `wait 0`, a point due at the frozen cycle may be inserted

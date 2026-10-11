@@ -7,23 +7,13 @@ and when a run completes.
 ## Timing and implementation objects
 
 A tick is one nanosecond of simulation time. CPU and TCU clocks may have
-different periods and phases. The current time point is the logical TCU cycle
-being prepared by the CPU. Its timing label identifies the corresponding events.
+different periods and phases. The current time point is the logical scheduling
+point being prepared by the CPU, expressed in TCU cycles. Its timing label
+identifies the corresponding events.
 
 `TimingControl` collects the events for a time point in bounded storage, then
 submits a `TimingEvents` request containing the time point and its events.
 The request stays unchanged until acknowledgment.
-
-| C++ owner or interface | Implementation responsibility |
-| --- | --- |
-| `ProgramImage` and `rv32` | Load programs and calculate instruction effects. |
-| `ICpuCycleModel` and `MemoryModel` | Advance the selected CPU and service timed memory requests. |
-| `TimingControl` and `MeasurementRegisters` | Prepare time points and maintain measurement result registers. |
-| `TcuCycleModel` | Own timing and event queues, timer and execution flags. |
-| `Core` and `SyncUnit` | Own one controller's components and its neighbor synchronization state. |
-| `ControlElectronics` | Schedule output, acquisition and discrimination; check resource conflicts. |
-| `IQuantumBackend` | Supply quantum-state evolution and measurement outcomes according to backend capabilities. |
-| `Simulator` | Schedule calls, reset and same-tick device processing, and determine completion. |
 
 Direct calls add no implied delay. Command, reply, memory and measurement
 paths use bounded mailboxes with explicit arrival ticks. The
@@ -31,8 +21,8 @@ paths use bounded mailboxes with explicit arrival ticks. The
 
 ## Reserve phase operations and progress
 
-The model starts at time point zero without a pending timing entry.
-`cw` prepares events there. A positive `wait` skips an untouched origin.
+The current time point initially starts at cycle zero. An initial positive
+`wait` advances it without enqueueing an unused cycle-zero entry.
 Each subsequent time point enters the timing queue, even if it has no events.
 
 | Instruction | Completion rule | Effect |
@@ -78,8 +68,9 @@ For CPU period 5 ns, TCU period 20 ns and one-edge communication latency:
 | 40 ns | TCU inserts the time point and events and publishes its reply, if capacity and deadline permit. |
 | 45 ns | CPU receives the reply. |
 
-The requested time point must be later than 40 ns. Its events may trigger before
-the CPU receives acknowledgment if the reply path is slower.
+Under strict deadlines, the requested time point's trigger tick must be later
+than 40 ns. Its events may trigger before the CPU receives acknowledgment if
+the reply path is slower.
 
 At each TCU rising edge:
 
@@ -99,9 +90,8 @@ At each TCU rising edge:
    and emit the corresponding trace records.
    Update execution flags from incoming results for use on later edges.
 
-At most one old point triggers and one new time point is enqueued per edge. A newly
-enqueued time point cannot trigger on its enqueue edge. These steps run within one
-TCU transition; they do not each consume a clock cycle.
+Each TCU edge can trigger at most one queued time point and enqueue at most one
+new point. A newly enqueued point cannot trigger on the same edge.
 
 ## Start, deadlines and empty queues
 
@@ -130,10 +120,8 @@ The next positive-interval point restores strict deadlines when it triggers,
 unless it also carries `wait 0`. The initial `wait 0` must itself arrive before
 its deadline; it cannot recover a missed time point.
 
-This behavior is modeled on [Qblox's `wait 0` underflow-guard mechanism](https://docs.qblox.com/en/main/products/architecture/sequencers/linq_based_feedback.html#data-receiving).
-Qblox suspends the RT queue underflow error until a nonzero-duration instruction
-executes. Its RT core checks for the next instruction after 4 ns; qsbit-sim uses
-the configured TCU clock period and the enqueue rules above.
+The `wait 0` behavior is inspired by [Qblox's queue-underflow guard](https://docs.qblox.com/en/main/products/architecture/sequencers/linq_based_feedback.html#data-receiving)
+and uses the TCU timing rules above.
 
 Synchronization and instruction supply can both pause a core. The timer resumes
 only when neither requires a pause. A paused edge counts once even if both
@@ -203,6 +191,8 @@ Success requires all of the following:
 - Every core's CPU and enabled fast-feedback deliveries, including credit
   acknowledgments, have completed.
 
+If a core closes its instruction stream while its timer is paused and all
+remaining work has drained, simulation can complete without resuming the timer.
 Measurement registers retain their bits after completion.
 Watchdog expiry reports a failed run.
 

@@ -178,7 +178,7 @@ Aer measurement batch n uses `(seed + n) mod 2^32`, starting at n = 0 after rese
 Changing the batch limit or inspecting state does not advance the measurement
 seed. Batching changes host execution cost, not simulated timestamps.
 
-Measure backend runtime from the repository root:
+Measure backend host time from the repository root:
 
 ```sh
 python tools/benchmark_aer.py --output build-clang/aer-benchmark.json
@@ -304,8 +304,7 @@ Evolution intervals use nanoseconds relative to zero. Transition calculation ret
 probabilities without sampling a measurement.
 
 Adapters retain state between calls and use the supplied seed for reproducibility.
-They do not call SystemC timing functions. A slow call increases host runtime
-without moving a simulated timestamp.
+They must not call SystemC timing functions.
 
 [custom_backend.py](../tests/fixtures/custom_backend.py) provides a mock adapter
 for testing loading and method calls.

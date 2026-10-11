@@ -9,18 +9,6 @@ count per qubit. `fmr` reads the bit when the count is zero.
 - **Output:** a result bit or an incomplete read.
 - **Owner:** `TimingControl` reserves measurements and delivers results before the CPU step.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Accepted measurement and result"];
-  owner [label="MeasurementRegisters"];
-  state [label="Per-qubit bit and pending count"];
-  output [label="FMR result"];
-  input -> owner; owner -> output; state -> owner [style=dashed];
-}
-```
-
 ## Reading a result
 
 Accepting a measurement increments the target register's pending count.

@@ -15,31 +15,23 @@ measurement-dependent branch. [Quickstart](quickstart.md) runs the same program 
 
 ## Explore an execution
 
-**Play** advances through state changes, skipping repeated stall records. **Next time** applies all records
-at the next timestamp. Drag the slider or select a milestone to seek; select an
-output interval to inspect its start. Use **Zoom** and **Range start** to inspect a shorter time range. **Expand view** fills the window.
+Use **Play** to follow execution and **Next time** to apply all records at the
+next timestamp. Select an output interval to inspect its start. **Next record**,
+under **Trace records**, advances one record, including within the same timestamp.
 
-Select **Machine state** to inspect the controller and choose a module for its detailed values.
-**Instructions** lists retired operations; **Measurements** shows result delivery.
-Highlighted modules changed at the selected time. The CPU shows the outstanding
-fetch request, fetch buffer, decode slot and execute slot. Each occupied slot
-shows its instruction ID and PC. Changed slots are highlighted; blocked execute
-instructions and discarded fetches are marked. Retirement appears beneath the
-slots with its timestamp.
+**Machine state** shows the controller and the selected module's details.
+**Instructions** lists retired instructions; **Measurements** shows sampling,
+readiness and delivery. In multicore traces, **Core** selects the controller;
+the output timeline includes all cores.
 
-The register display shows nonzero registers; the destination remains visible when
-written to zero. Timing Queue entries follow enqueue and trigger records.
-Port queues show events resolved from their configured codeword mappings. Control outputs show
-active operations and their configured durations.
+Highlighted modules changed at the selected time. CPU slots show end-of-edge
+occupancy recorded by `CpuPipelineUpdated`; the register display keeps nonzero
+values and destinations written to zero. Queue entries follow enqueue and
+trigger records; output durations come from the configured mappings.
 
-The CPU edge index is derived from its configured clock. The displayed TCU cycle
-is the latest cycle recorded at or before the selected timestamp.
-CPU slots show end-of-edge occupancy from `CpuPipelineUpdated`.
-In multicore traces,
-**Core** selects the controller; control outputs include all cores.
-
-Select **Trace records** to step through individual records,
-including records at the same timestamp. Playback speed does not change simulation time.
+The CPU edge index is derived from its configured clock. The TCU cycle is the
+latest recorded cycle at or before the selected timestamp. Playback speed does
+not change simulation time.
 
 ## Follow measurement feedback
 

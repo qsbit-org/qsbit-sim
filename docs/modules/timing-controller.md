@@ -11,41 +11,20 @@ corresponding port events.
 - **Output:** a validated `TriggeredEvents` and `TimingPointTriggered` record when a time point is due.
 - **Scheduling:** `TcuCycleModel::step()` runs on each TCU rising edge.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="TCU clock and timing head"];
-  owner [label="TcuCycleModel"];
-  state [label="start_\ncycle (local variable)\ntiming_.front().due"];
-  output [label="TcuOutput and TimingPointTriggered"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="state and derived values"];
-}
-```
-
 ## From logical cycle to global tick
 
-Without pauses, epoch start S and TCU period P place logical
-cycle n at `S + n * P`. Each paused edge adds P to subsequent trigger ticks.
-Before S, time points can enter the queues but cannot trigger.
-
-With S = 100 ns and P = 20 ns, cycle 4 occurs at 180 ns. A time point
-enqueued at 160 ns can trigger then; enqueue at 180 ns is too late.
-
-The TCU checks the head's event IDs, evaluates conditions and validates
-selected events before removing anything from the queues. New results
-are committed after condition evaluation and become usable on later edges.
+`step()` converts the physical tick to a logical cycle using the epoch start,
+TCU period and accumulated pause duration. The [timing reference](../module-architecture.md#start-deadlines-and-empty-queues)
+defines the conversion and deadline rules.
 
 `prepare_trigger()` and `prepare_admission()` validate work against the state
 at the start of the edge. `meets_deadline()` checks the admission deadline.
 `step()` validates incoming results and pause-duration arithmetic before
 committing queue changes, results and pause state.
 
-The timer continues through empty queues and CPU stalls unless an executed
-`wait 0` permits waiting for more work. In that case, the next empty-queue
-edge freezes the logical cycle; the edge after enqueue resumes it.
-A positive-interval point restores strict deadlines when it triggers unless
-it also carries `wait 0`.
+Admission and triggering update separate underflow policies. `pause_` combines
+instruction-supply and synchronization requests; `paused_ticks_` advances once
+per paused edge, even when both apply.
 
 ## Objects and state
 
@@ -67,10 +46,9 @@ it also carries `wait 0`.
 A queued point that misses its due edge or a time point enqueued too late raises
 `LateAdmission`. Time arithmetic is checked for overflow.
 
-Reset clears the TCU queues and execution flags. The new start is the first TCU edge at
-or after `reset_tick + profile.start`. SystemC time continues from the reset tick.
-The [synchronization unit](synchronization.md) pauses and resumes
-the timer. Reset clears its pending requests and the accumulated pause duration.
+Reset clears the TCU queues, execution flags, pending synchronization requests
+and accumulated pause duration.
+The new start follows the [session reset rule](../module-architecture.md#session-reset).
 
 ## Implementation and tests
 

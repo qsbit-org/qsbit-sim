@@ -32,14 +32,11 @@ decoder events use distinct C++ payload types. The serializer writes their JSONL
 fields, and the recorder rejects a kind that does not match its payload. See the
 [trace reference](../interfaces.md#jsonl-trace).
 
-The exit ECALL preserves `a0` as the program exit status and halts the CPU after its pending events have been enqueued and
-acknowledged. The simulation continues until the TCU receives closure,
-all queued and device work finishes, memory is idle, and all enabled
-result deliveries and acknowledgments complete. Multicore runs require every
-core and all synchronization connections to drain before stopping the shared device.
-Configured decoders must also finish all requests and complete their input windows.
+The exit ECALL preserves `a0` as the program exit status and halts the CPU after
+enqueue acknowledgment. `Simulator::barrier()` checks the
+[drain conditions](../module-architecture.md#closure-and-drain).
 
-When these conditions hold, the device evolves the backend state to the current
+Once all pending work has completed, the device evolves the backend state to the current
 tick before the simulator emits `SimulationCompleted`. Trace ticks are
 nondecreasing; several records can share one tick.
 

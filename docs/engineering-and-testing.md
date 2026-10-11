@@ -66,7 +66,7 @@ hooks on all tracked files and runs the complete configured CTest suites.
 | `backend.execution` | Batch limits, operation order, measurement boundaries, inspection, reset and failures. |
 | `device.two_qubit` | Paired gate inputs, single application, delay compensation, conflicts and reset. |
 | `sync.neighbor` | Neighbor countdowns, directional delays, early signals, capacity and reset. |
-| `decoder.*` | Bounded transport, response timing, correction accumulation and reset under backpressure; optional PyMatching configuration and correction masks. |
+| `decoder.transport` | Bounded queues, transfer timing, result routing, correction accumulation, 64-bit payloads, reset under backpressure and invalid accesses. |
 | `control.*` | Atomic enqueue, event-ID lists, queue bounds, deadlines, measurement registers and execution flags. |
 | `protocol.*` | Held operations, capacity faults, resources, readout timing, reset, overflow and execution flag updates. |
 | `systemc.*` | ELF execution, pipeline and feedback timing, reset, CLI behavior and process-registration order. |

@@ -25,9 +25,10 @@ digraph module {
 
 ## Conditions and event validation
 
-Each event selects an execution flag in its codeword mapping. The TCU checks
-the target qubit's flag before committing results received on the current edge.
-A zero flag suppresses the event and emits `ConditionCancelled`.
+A gate or pulse mapping selects an execution condition. `always` is
+unconditional; the other conditions read the target qubit's execution flags
+before the TCU commits results received on this edge. A false condition
+suppresses the event and emits `ConditionCancelled`.
 
 `ControlElectronics::preflight()` checks the selected events for resource
 conflicts, backend support, acquisition and arm pairing, and a gate

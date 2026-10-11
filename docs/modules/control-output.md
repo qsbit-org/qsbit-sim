@@ -42,15 +42,10 @@ tick, `process()` requires both configured outputs before any backend mutation.
 It commits one ideal gate and emits one `GateApplied` record. Each output retains
 its own `OperationStart` and `OperationEnd` records.
 
-At each device event tick, the model validates the scheduled work, commits
-the preceding evolution interval, samples ending acquisitions, removes ended events,
-commits starting gates and activates new intervals. It publishes ready results last.
-`BackendExecution` collects the committed operations and executes them when a
-measurement needs an outcome, on inspection, at the batch limit or before completion.
-
-Permitted overlapping pulses evolve together. For drives active over
-[10,30) and [20,40), evolution covers [10,20) with the first drive,
-[20,30) with both, and [30,40) with the second.
+The [device event order](../module-architecture.md#device-batches-and-feedback)
+defines when `process()` commits evolution, samples acquisitions, starts new
+operations and publishes results. `BackendExecution` controls when those
+committed operations execute on the backend.
 
 ## Objects and state
 

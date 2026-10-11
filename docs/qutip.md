@@ -5,9 +5,9 @@ configuration. The [pulse experiments](../examples/qutip/README.md) provide a
 complete model, qsbit control-program generation and result plots.
 
 ```sh
-build-python/qsbit-sim --backend qutip --help-backend
-build-python/qsbit-sim --backend qutip --generate-config > qutip.json
-build-python/qsbit-sim --backend qutip --backend-schema > qutip.schema.json
+uv run --frozen --extra qutip qsbit-sim --backend qutip --help-backend
+uv run --frozen --extra qutip qsbit-sim --backend qutip --generate-config > qutip.json
+uv run --frozen --extra qutip qsbit-sim --backend qutip --backend-schema > qutip.schema.json
 ```
 
 Fill in the required model and solver parameters before running the generated

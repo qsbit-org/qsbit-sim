@@ -9,27 +9,15 @@ The TCU checks the selected flag when an operation is triggered.
 - **Output:** the selected flag and a delivery acknowledgment.
 - **Owner:** `TcuCycleModel` commits results after checking due events.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Measurement result"];
-  owner [label="ExecutionFlags"];
-  state [label="Per-qubit execution flags"];
-  output [label="Go or no-go at event trigger"];
-  input -> owner; owner -> output; state -> owner [style=dashed];
-}
-```
-
 ## Flag updates
 
 | Flag | Value |
 | --- | --- |
-| `always` | One. |
 | `last_one` | Latest completed measurement bit. |
 | `last_zero` | Inverse of the latest completed measurement bit. |
 | `equal` | One when the latest two completed measurements agree. |
 
+`always` evaluates to true without reading measurement state.
 Reset clears the three conditional flags. The first result sets
 `last_one` and `last_zero`; `equal` remains zero until a second result arrives.
 
@@ -62,5 +50,5 @@ Source: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/
 
 **CTest:** `control.fast`, `protocol.flags`, `systemc.use_cases`.
 
-Tests cover all four flags, target isolation, reset, consecutive results
+Tests cover all four execution conditions, target isolation, reset, consecutive results
 and result arrival on the trigger edge.

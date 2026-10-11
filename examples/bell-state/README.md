@@ -8,11 +8,11 @@ CX requires two outputs: codeword 6 on port 0 and codeword 10 on port 1.
 The program issues both at the same time point. The device validates the pair
 and applies CX once; omitting either instruction fails the run.
 
-From the repository root, [build with the Aer backend](../../docs/backends.md)
+From the repository root, [build and install with the Aer backend](../../docs/backends.md)
 and run:
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/bell-state/run.json
+uv run --frozen --extra aer qsbit-sim --config build-clang/examples/bell-state/run.json
 ```
 
 [run.json](run.json) writes `results.json` and `results.jsonl` to

@@ -5,20 +5,22 @@
 [![License](https://img.shields.io/github/license/qsbit-org/qsbit-sim)](LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](docs/prerequisites.md)
 
-qsbit-sim is a C++20 and SystemC simulator for RV32I programs with
-quantum-control instructions. It models CPU cycles, timed control output,
-measurement and feedback. Use the built-in mock backend to test control
-behavior, or a numerical backend for quantum-state evolution.
+qsbit-sim models quantum-control hardware: CPU execution, timed outputs,
+measurement feedback and synchronization between controllers. It runs RV32I
+programs with qsbit control instructions, using C++20 and SystemC.
+
+[Documentation](https://qsbit-org.github.io/qsbit-sim/) ·
+[Examples](examples/README.md) ·
+[Execution player](https://qsbit-org.github.io/qsbit-sim/execution.html)
 
 > [!NOTE]
-> qsbit-sim is in early development and evolving rapidly. Its architecture and
-> APIs may change at any time, with no guarantee of backward compatibility.
-> Feedback and bug reports are welcome on [GitHub Issues](https://github.com/qsbit-org/qsbit-sim/issues).
+> qsbit-sim is in early development. Its architecture and APIs may change without
+> backward compatibility. [Feedback and bug reports](https://github.com/qsbit-org/qsbit-sim/issues) are welcome.
 
 ## Build
 
-Install the [prerequisites](docs/prerequisites.md) and prepare the Conan
-dependencies. Then run from the repository root:
+Install the [prerequisites](docs/prerequisites.md), prepare the Conan dependencies,
+then run from the repository root:
 
 ```sh
 cmake --preset clang-ninja
@@ -27,102 +29,26 @@ cmake --install build-clang --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-This installs `qsbit-sim` on your PATH and builds the example programs. Add the
-PATH setting to your shell configuration. Use `gcc-ninja`
-for GCC after preparing its dependencies. Python quantum packages are optional.
-See [build options](docs/building.md) for tests, Release builds and sanitizers.
-
-## Run an example
+## Run
 
 ```sh
 qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
-```
-
-The program measures qubit 0, reads the result and branches to select a gate
-on qubit 1. The mock backend supplies result 1. The run writes:
-
-- `build-clang/examples/measurement-feedback/mock-results.json`: final state, with `"success": true` and memory word `"4096": 1`.
-- `build-clang/examples/measurement-feedback/mock-results.jsonl`: timestamped execution events.
-
-Replay the trace in your browser:
-
-```sh
 python3 tools/replay_trace.py build-clang/examples/measurement-feedback/mock-results.jsonl
 ```
 
-Press Ctrl+C to stop the local server. The player also reads the matching
-summary file when available. [Quickstart](docs/quickstart.md) explains the
-program's timing and shows how to test the other branch.
+The program measures qubit 0 and branches on the result to select a gate on
+qubit 1. The mock backend supplies bit 1. The summary,
+`mock-results.json`, should contain `"success": true` and `"4096": 1` in
+`memory`. The second command opens the execution trace in a browser.
 
-## Quantum backends
+For quantum-state evolution, configure [Aer, Stim or QuTiP](docs/backends.md).
 
-To run the Bell example with Qiskit Aer:
+## Learn more
 
-```sh
-uv run --frozen --group build --extra aer cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
-cmake --build --preset clang-ninja --parallel
-cmake --install build-clang --prefix "$HOME/.local"
-uv run --frozen --extra aer qsbit-sim --config build-clang/examples/bell-state/run.json
-```
-
-The Python bridge requires the [Python development headers and libraries](docs/prerequisites.md#optional-python-backends)
-for the interpreter used to build it.
-An installed Python-enabled executable uses the active Python environment;
-[runtime selection](docs/backends.md#python-runtime) also supports environments
-outside the source checkout.
-The Bell measurements at addresses 4096 and 4100 should agree.
-See [backend setup](docs/backends.md) for installation and configuration, QuTiP pulse models
-and custom adapters, and [examples](examples/README.md) for complete programs.
-
-## Architecture
-
-Each core contains a CPU, timing control, a TCU and measurement result registers.
-The TCU triggers queued events; the shared device schedules their physical
-intervals and submits quantum operations through `BackendExecution`.
-
-Controller, device and decoder transitions are independent of SystemC and Python.
-`Simulator` supplies SystemC scheduling; numerical adapters use the optional
-Python bridge. See the [implementation map](docs/implementation.md) for library
-dependencies and component ownership.
-
-## Test
-
-Core tests require Python and GNU RISC-V binutils:
-
-```sh
-cmake --preset clang-ninja -DBUILD_TESTING=ON
-cmake --build --preset clang-ninja --parallel
-ctest --preset clang-ninja
-```
-
-[Testing](docs/engineering-and-testing.md) covers optional numerical tests,
-cross-project CI and checks to run before a pull request.
-
-## Documentation
-
-- [Quickstart](docs/quickstart.md)
-- [Configuration and trace reference](docs/interfaces.md)
-- [Controller architecture](docs/high-level-design.md) and [diagram](docs/architecture.md)
-- [Simulation timing](docs/module-architecture.md)
-- [Distributed simulation](docs/distributed-simulation.md) and [Distributed-HISQ example](examples/distributed-hisq/README.md)
-- [Decoder feedback](docs/decoding.md) and [QEC example](examples/qec/README.md)
-- [Component reference](docs/modules/README.md) and [C++ interfaces](docs/cpp-interfaces.md)
-- [CACTUS validation](CACTUS_VALIDATION.md)
-
-Read the [documentation website](https://qsbit-org.github.io/qsbit-sim/) or
-[build it locally](docs/website.md).
-
-## References
-
-The timing-control model draws on these architectures:
-
-- [QuMA](https://arxiv.org/abs/1708.07677): codeword output and queue-based timing control.
-- [eQASM](https://arxiv.org/abs/1808.02449): reserve and trigger phases, operation timing and feedback.
-- [Distributed-HISQ](https://arxiv.org/abs/2509.04798): RISC-V control extensions and booking-based neighbor synchronization.
-
-qsbit-sim uses [custom-0 control instructions and custom-1 bundles](docs/interfaces.md#quantum-instruction-encoding).
-It does not execute eQASM or HISQ binaries. Timing regression tests compare
-selected workloads against [CACTUS](https://github.com/gtaifu/CACTUS).
+- [Quickstart](docs/quickstart.md): run and inspect both feedback branches.
+- [Architecture](docs/high-level-design.md): control, timing and feedback.
+- [Configuration reference](docs/interfaces.md): instructions, profiles and outputs.
+- [Development](docs/engineering-and-testing.md): builds, tests and contribution checks.
 
 ## License
 

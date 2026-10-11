@@ -1,8 +1,7 @@
 # Distributed-HISQ neighbor synchronization
 
-Run two independent RV32I programs with qsbit timing and synchronization
-instructions modeled on Distributed-HISQ. Synchronization uses BISP, the
-booking-based synchronization protocol from Distributed-HISQ. The example
+Run two RV32I controller programs using BISP, the booking-based synchronization
+protocol from Distributed-HISQ. The example
 recreates the synchronized-output timing scenario in
 [Distributed-HISQ, Figures 12 and 13](https://arxiv.org/html/2509.04798v1#S6.SS3)
 and measures synchronization overhead as deterministic work covers the link delay.

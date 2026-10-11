@@ -9,13 +9,6 @@ uses these registers to obtain a logical observable flip bit and correct the
 recorded logical result. The [repetition-code loop](../examples/qec/README.md#correct-data-qubits-during-a-loop)
 uses the decoder's correction mask to apply X to data qubits before the next round.
 
-**CTest:** `decoder.transport` checks bounded queues, transfer timing, result
-routing, accumulated corrections, 64-bit payloads, reset under backpressure and
-invalid accesses.
-Optional `decoder.pymatching` checks matrix configuration and correction masks.
-Cross-project `integration.qec` executes compiled measurement and correction
-loops with decoder latency exceeding the original fixed timing budget.
-
 ## Configure a decoder
 
 Install the `qec` extra and build with `QSBIT_PYTHON_BACKENDS=ON`.
@@ -133,10 +126,8 @@ decoder progress at the same tick, so a result returned at that tick becomes
 readable on a later memory edge.
 
 Place `wait 0` before decoder polling to let the TCU pause when its queue
-empties. CPU polling, request transport and decoder processing continue in
-physical time. Submitted work resumes the TCU; the next positive-interval point
-restores strict deadlines when it triggers. Without `wait 0`, a late codeword
-still fails with `LateAdmission`.
+empties. CPU polling and decoder processing continue in physical time. See
+[pause and deadline rules](module-architecture.md#start-deadlines-and-empty-queues).
 
 ## Registers
 

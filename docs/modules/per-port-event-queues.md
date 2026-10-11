@@ -11,18 +11,6 @@ several ports.
 - **Owner:** `TcuCycleModel::events_`; these queues share the TCU edge with the timer
   and timing queue.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="TCU atomic event enqueue"];
-  owner [label="TcuCycleModel::events_"];
-  state [label="events_\nOperationEvent::label and id\nTimingConfig::event_capacity and firing_width"];
-  output [label="Matching-label event members"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
-}
-```
-
 ## Matching a label
 
 When a time point is due, the TCU collects the leading events with that
@@ -33,9 +21,8 @@ After condition evaluation and device validation, all events for the label
 leave their queues together. A false condition produces
 `ConditionCancelled` instead of sending that event to the device.
 
-`event_capacity` limits queued entries per port. `firing_width` limits
-events per port at one time point. Enqueue checks both limits using
-occupancy at the start of the edge.
+`event_capacity` limits queued entries per output port. `firing_width` limits
+events per output port at one time point. See [enqueue checks](queue-enqueue.md).
 
 ## Objects and state
 

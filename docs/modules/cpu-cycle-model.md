@@ -54,8 +54,8 @@ other control instructions follow the
 
 A taken branch discards younger instructions and changes the fetch
 generation to reject their pending replies. The exit ECALL also discards younger
-work and halts the CPU after publishing closure. The simulation continues
-until queued work and result deliveries finish.
+work and halts the CPU after publishing closure. Simulation completion follows the
+[drain conditions](../module-architecture.md#closure-and-drain).
 
 `CpuPipelineUpdated` records the outstanding fetch, fetch buffer, decode slot,
 execute slot and halt state at the end of an edge when they change. The

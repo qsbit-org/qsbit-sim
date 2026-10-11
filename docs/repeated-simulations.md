@@ -1,7 +1,10 @@
 # Run repeated quantum experiments
 
-Repeated simulations reuse a fixed quantum-operation sequence while preserving
-quantum state between measurements. Select a Python backend, install the `experiments` extra and enable
+Repeated simulations execute a measurement loop without resetting quantum state
+between iterations. Replay mode reuses a verified control schedule instead of
+executing the CPU and TCU for every iteration.
+
+Select a Python backend, install the `experiments` extra and enable
 `QSBIT_PYTHON_BACKENDS`. The [AllXY example](../examples/quma/README.md) includes
 a program, configuration and numerical checks.
 

@@ -8,7 +8,7 @@ From the repository root, [build the simulator](../../README.md#build)
 and run the [mock configuration](mock.json):
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
+qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
 ```
 
 The configured outcome is one. Results are written to `mock-results.json` and
@@ -18,7 +18,7 @@ other branch, add `--outcomes 0`.
 With the [Aer backend](../../docs/backends.md), use [run.json](run.json):
 
 ```sh
-build-clang/qsbit-sim --config build-clang/examples/measurement-feedback/run.json
+uv run --frozen --extra aer qsbit-sim --config build-clang/examples/measurement-feedback/run.json
 ```
 
 Aer returns one for this preparation, yielding `|11>`. Its outputs are

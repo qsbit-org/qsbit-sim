@@ -1,8 +1,7 @@
 # Timing queue
 
-The timing queue records when enqueued time points should trigger. Each entry contains
-an interval, label, underflow policy and list of expected event IDs. The TCU uses it alongside the
-per-port event queues to release all associated events at their planned cycle.
+The timing queue stores time points and their due cycles in
+`TcuCycleModel::timing_`.
 
 ## Connections
 
@@ -11,35 +10,15 @@ per-port event queues to release all associated events at their planned cycle.
   queue occupancy for enqueue checks.
 - **Owner:** `TcuCycleModel::timing_`, updated during the TCU edge transition.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="Atomic TimingPoint enqueue"];
-  owner [label="TcuCycleModel::timing_"];
-  state [label="Point::point\nPoint::due\nlast_due_"];
-  output [label="Head TimingPoint and cumulative due cycle"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state and configuration"];
-}
-```
-
 ## Keeping time across queue gaps
 
 Each enqueue adds its interval to `last_due_` and stores the resulting
 due cycle. The first interval is measured from logical cycle zero. Subsequent
 zero-interval entries consume one cycle.
 
-Intervals 4 and 3 therefore specify cycles 4 and 7. Even if the queue
-empties after cycle 4, the second interval still refers to cycle 7 and
-must be enqueued before that cycle.
-
-At the due edge, the TCU checks the entry's event IDs, conditions and
-resource requirements. If the transition passes validation, it removes
-the time point and its port events together.
-
-A time point with no events represents a wait. An empty queue leaves the
-timer running unless an executed `wait 0` permits it to pause. See
-[pause and deadline rules](../module-architecture.md#start-deadlines-and-empty-queues).
+A time point with no events represents a wait. Queue gaps do not reset
+`last_due_`. See [pause and deadline rules](../module-architecture.md#start-deadlines-and-empty-queues)
+for cumulative intervals and empty-queue behavior.
 
 ## Objects and state
 

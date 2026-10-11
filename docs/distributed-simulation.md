@@ -1,8 +1,8 @@
 # Distributed simulation
 
-Run multiple controller programs in one SystemC simulation. Each `Core` owns
-its CPU, memory, timing control, TCU, measurement registers and synchronization
-unit. `Simulator` owns the connections and a shared quantum device.
+qsbit-sim can simulate multiple controller cores, each with its own CPU, memory,
+TCU, measurement registers and synchronization unit. `Simulator` owns the
+connections and a shared quantum device.
 
 ## Configure cores
 

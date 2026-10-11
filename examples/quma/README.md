@@ -69,15 +69,9 @@ is marked `extrapolated`.
 
 ## Execution strategy
 
-The default configuration executes two three-round control runs, one with all
-measurement outcomes zero and one with all outcomes one. Static instruction checks
-exclude feedback and data-dependent timing. Event recordings verify the repeated
-backend calls and clock alignment.
-
-Aer then computes the probability of measuring one from each possible preceding
-measurement result. The sampler carries that result into the next trial, preserving
-the effect of incomplete passive initialization. Repeated transition calculations
-are cached. The full experiment does not repeat CPU and queue simulation per shot.
+By default, the experiment validates a three-round control schedule for both
+fixed measurement outcomes, then uses transition probabilities to sample
+repeated measurements without rerunning the control microarchitecture.
 
 Set `simulation.quantum_execution` to `direct` to evolve the backend for every
 measurement. Set `simulation.execution` to `full` and `quantum_execution` to

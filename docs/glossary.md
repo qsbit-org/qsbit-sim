@@ -26,8 +26,8 @@ countdown has expired and the neighbor's signal has arrived.
 
 ### Time point
 
-A scheduled TCU cycle for zero or more events. The CPU prepares the current
-time point independently of the running TCU timer.
+A point on the logical TCU timeline at which zero or more events are scheduled.
+The CPU prepares time points independently of the TCU timer.
 
 ### Timing queue
 
@@ -39,8 +39,8 @@ A FIFO of events for one output port, ordered by time point.
 
 ### Port and codeword
 
-The lookup key for configured operations. The instruction selects a source
-port and codeword; the mapping specifies output ports and qubit targets.
+A `cw` instruction selects a mapping by source port and codeword. The mapping
+specifies one or more output ports and their operations.
 
 ### Enqueue
 
@@ -61,17 +61,15 @@ A measurement interval. The backend samples at its end.
 
 ### Discrimination
 
-Conversion of a readout signal to a bit. The controller models discriminator
-timing; the selected backend supplies the bit and may model readout assignment
-internally.
+Conversion of a readout signal into a bit. qsbit-sim models its timing through
+`discriminator_delay`; the backend supplies the bit and may model readout physics.
 
 ### Discriminator arm
 
-An event that enables discrimination for a specific acquisition. With
-`separate_arm: true`, the mapping supplies an `DiscriminatorArmSpec` event paired with the
+An event that enables discrimination for a specific acquisition. When
+`separate_arm` is enabled, a `DiscriminatorArmSpec` event must match the
 acquisition's target and measurement reference. Otherwise the discriminator is
-armed at acquisition start. Result readiness is
-`max(acquisition_end, arm_start) + discriminator_delay`.
+armed at acquisition start. See [readout timing](modules/acquisition-and-discrimination.md#from-acquisition-to-result).
 
 ### Classical feedback
 
@@ -90,8 +88,9 @@ accepted measurements of that qubit complete.
 
 ### Execution flag
 
-A per-qubit bit selecting unconditional execution, a latest result of one,
-a latest result of zero, or equality of the latest two results.
+Per-qubit state used to evaluate measurement-dependent execution conditions:
+`last_one`, `last_zero` and `equal`. The `always` condition requires no measurement
+state.
 
 ## Simulation time and scheduling
 
@@ -109,8 +108,8 @@ Elapsed execution time on the computer running the simulator.
 
 ### Tick
 
-One nanosecond of simulation time. The C++ type `Tick` also stores some
-cycle counts; see [field units](cpp-interfaces.md#time-and-cycle-units).
+A one-nanosecond unit of simulation time. `Tick` represents physical time;
+`TcuCycle` represents logical TCU cycles. See [field units](cpp-interfaces.md#time-and-cycle-units).
 
 ### Clock period and phase
 
@@ -133,8 +132,8 @@ The mailbox stores it in `eligible`.
 
 ### Mailbox
 
-Bounded storage that retains each message with its epoch, publication tick
-and arrival tick until consumption.
+A bounded FIFO that retains messages until consumption. A message becomes
+readable at its configured receiver-edge arrival time.
 
 ### Elaboration
 
@@ -157,6 +156,11 @@ A scheduling round that does not advance simulation time.
 
 `Simulator::barrier()`, which processes device events after all clocked
 methods due at the same tick have finished.
+
+### Trigger tick and start tick
+
+The trigger tick is the simulation time when the TCU releases an event.
+The start tick is when its physical operation begins: `trigger_tick + delay`.
 
 ### Physical boundary
 

@@ -13,21 +13,9 @@ accumulates requested positive wait intervals independently of the running timer
 - **Scheduling:** `Simulator::cpu_edge()` receives replies before the CPU
   attempts its next control instruction.
 
-```{graphviz}
-digraph module {
-  rankdir=TB; bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#edf6f7", color="#43818a", fontname="sans-serif", fontsize=11];
-  input [label="ControlOperation"];
-  owner [label="TimingControl"];
-  state [label="time_point_, last_enqueued_time_\npending_events_, enqueue_request_"];
-  output [label="TimingEvents and instruction result"];
-  input -> owner; owner -> output; state -> owner [style=dashed, label="owned state"];
-}
-```
-
 ## Preparing and enqueueing events
 
-`cw` looks up the port and codeword, validates the resulting events and
+`cw` looks up the source port and codeword, validates the resulting events and
 stores them for the current time point. An acquisition increments the target
 measurement register's pending count and reserves result delivery capacity.
 Several codewords can contribute events to one time point.
@@ -41,19 +29,14 @@ zero-interval points by one logical cycle.
 `execute()` dispatches zero waits to `execute_zero_wait()` and positive waits
 to `advance_time()`. Both retain the pending request until acknowledgment.
 
-For example, two `cw` instructions at cycle 4 followed by `wait.i 3`
-enqueue both events for cycle 4. The current time point becomes 7 after
-acknowledgment. The TCU timer continues independently.
-
 FMR and the exit ECALL wait for enqueue acknowledgment. FMR then waits for
 the selected measurement register to become valid. The exit ECALL publishes
 an `EndOfStream` message.
 Only one enqueue request can be pending. A blocked instruction keeps the
 same ID and operands across retries.
 
-At startup, the untouched time point zero needs no queue entry. A positive
-`wait` creates a time point that must later be enqueued even if no events
-are added. See [instruction completion](../module-architecture.md#reserve-phase-operations-and-progress).
+Initial and empty time points follow the
+[instruction completion rules](../module-architecture.md#reserve-phase-operations-and-progress).
 
 ## Objects and state
 

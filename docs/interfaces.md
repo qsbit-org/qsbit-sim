@@ -30,8 +30,8 @@ and EBREAK raise distinct traps. FENCE is supported; FENCE.I, privileged instruc
 32-bit words containing two `cw` operations.
 
 ```sh
-build-clang/qsbit-sim --program program.elf --cpu-model rv32
-build-clang/qsbit-sim --program program.elf --cpu-model vliw
+qsbit-sim --program program.elf --cpu-model rv32
+qsbit-sim --program program.elf --cpu-model vliw
 ```
 
 In a run file, set `"cpu_model": "vliw"`. Assemble paired operations with
@@ -62,6 +62,9 @@ funct3 values 4, 5 and 7 are reserved. Invalid fixed fields raise
 `IllegalInstruction`. `sync` schedules a synchronization event with a connected
 neighbor; an unconnected target raises `UnsupportedSynchronization`.
 `send` and `recv` are unsupported.
+
+The `port` operand selects a source port in the [codeword map](#codeword-mappings);
+its events may use different output ports.
 
 ### Dual-codeword encoding
 
@@ -109,7 +112,7 @@ wait.i 1
 cw.bundle 0, 1, 5, 6, 3, 0
 ```
 
-Both bundles prepare codeword 1 on port 0 and codeword 2 on port 1.
+Both bundles prepare codeword 1 on source port 0 and codeword 2 on source port 1.
 The two operations in each bundle use the current time point.
 `wait` advances that time point in a separate instruction. A bundle writes
 no GPR and retires once, advancing the PC by four bytes.
@@ -124,12 +127,9 @@ acknowledgment, then advances the time point in TCU cycles.
 
 `wait.i 0` and `wait.r x0` enqueue the current time point with permission to
 wait for subsequent work. The instruction completes on enqueue acknowledgment.
-After that point triggers, an empty timing queue pauses the TCU logical timer.
-The CPU, measurement delivery, decoder and physical device continue running.
-New work resumes the timer on the TCU edge after enqueue; consecutive points
-with zero interval trigger at least one TCU cycle apart. A point with a positive
-interval restores strict deadlines when it triggers, unless it also contains
-`wait 0`. An exit ECALL closes the stream and releases an empty-queue wait.
+After that point triggers, an empty timing queue pauses the TCU logical timer;
+physical time continues. See [pause and deadline rules](module-architecture.md#start-deadlines-and-empty-queues)
+for admission, resumption and restoration of strict deadlines.
 
 `fmr` enqueues pending events and waits for all accepted measurements of the
 selected qubit to complete. It copies the latest result into rd without
@@ -138,7 +138,7 @@ changing the measurement register. Further `cw` instructions require a
 current point open for subsequent codewords.
 
 The exit ECALL enqueues pending events and halts the CPU after acknowledgment.
-The simulation completes when pending events and result deliveries finish.
+Simulation completion follows the [drain conditions](module-architecture.md#closure-and-drain).
 
 [quantum.inc](../examples/common/quantum.inc) provides GNU assembler macros.
 `sim_exit` expands to `li a0, 0; li a7, 93; ecall`.
@@ -274,7 +274,7 @@ An event selects `kind`, output `port`, `operation`, `targets` and `resources`.
 It also supplies `delay` and `duration`. Gates accept `amplitude`; pulses accept
 `amplitude` and `axis`; acquisitions accept `discriminator_delay` and `separate_arm`.
 Fields belonging to another event kind are rejected. For gates and pulses, `execution_flag` selects
-`always` (default), `last_one`, `last_zero` or `equal`. Conditional flags
+`always` (default), `last_one`, `last_zero` or `equal`. Measurement-dependent conditions
 require a single-qubit gate or pulse and enabled fast feedback. A resource has a numeric
 `id` and an `exclusive` boolean. Two overlapping events sharing that resource
 conflict if either reservation is exclusive. The same configured core-local

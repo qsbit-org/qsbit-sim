@@ -40,19 +40,16 @@ as a const value. Backend options remain opaque JSON; normalized backend options
 are stored separately for the run summary.
 `Core` derives `TransportConfig`, `TimingConfig` and `TcuConfig` from its validated
 profile. Each component owns its configuration; `TimingConfig` indexes codeword
-mappings by port and codeword. `ControlLinks` owns the bounded mailboxes and depends
+mappings by source port and codeword. `ControlLinks` owns the bounded mailboxes and depends
 on protocol records and transport settings, not on `TimingControl`.
 
 The [module reference](modules/README.md) maps logical responsibilities to their
 C++ owners and source files.
 
-`Simulator` registers three clock methods: CPU and memory on CPU rising edges,
-and TCU on TCU rising edges. A timed wakeup handles device and decoder boundaries,
-reset and watchdog. A zero-time barrier processes physical work only after every clocked
-method due at that tick has finished. Each `Core` has independent CPU and memory
-state. All cores submit outputs to one `ControlElectronics` instance and share
-one backend. Neighbor synchronization uses BISP, the booking-based synchronization
-protocol from Distributed-HISQ. See [distributed simulation](distributed-simulation.md).
+Each `Core` owns its CPU, memory, timing control, TCU, measurement registers
+and synchronization unit. All cores submit events to one `ControlElectronics`
+instance and share one backend. `Simulator` owns SystemC scheduling, described
+in [simulation time and execution](simulation-model.md).
 
 ## Default timing
 
@@ -81,82 +78,32 @@ The Bell-state and measurement-feedback example configurations set the TCU
 start to 200 ns. To inspect all defaults:
 
 ```sh
-build-clang/qsbit-sim --dump-default-profile out/default-profile.json
+qsbit-sim --dump-default-profile out/default-profile.json
 ```
 
-Each run summary records its full validated profile and an FNV-1a fingerprint.
-The fingerprint identifies the configuration.
+Each run summary includes the validated profile and its FNV-1a fingerprint.
 `TimingEvents.configuration` carries this string. A summary instead uses
 `configuration_hash` for the fingerprint and `configuration` for the full profile.
 The profile stays fixed throughout the run and all session resets.
 
-## CPU and memory
+## Controller and device components
 
-The default CPU is a single-issue, in-order pipeline with fetch, decode and
-execute stages; execution also commits results. The
-[CPU glossary](glossary.md#programs-and-cpu-execution) introduces the model.
-Each latch advances at most once per CPU edge.
-An older instruction retires before a younger instruction entering execute
-captures its operands.
+Both CPU models use `InOrderPipeline`; `ControlIssue` selects scalar or bundled
+codeword submission. [CPU execution](modules/cpu-cycle-model.md) describes stage
+progress, operand capture and speculative faults.
+[Memory](modules/memory-and-response-model.md) owns separate fetch and data
+transactions.
 
-A load or blocked extension holds execute. A taken branch discards younger
-instructions and invalidates pending fetch generations. Only the oldest
-instruction can publish a store or control operation. Speculative fetch faults
-become fatal only when their instruction is oldest.
+`TimingControl` stages mapped events and retains enqueue requests until
+acknowledgment. `TcuCycleModel` owns the timing queue, per-port event queues,
+timer and execution flags. See [reserve phase](modules/reserve-phase.md) and
+[TCU state](modules/timing-controller.md).
 
-Memory has separate fetch and data ports, each with one pending transaction.
-Request mailbox communication latency, service time and response mailbox
-communication latency are distinct delays.
-Stores occur once at completion. Reset cancels pending transactions and
-preserves committed bytes.
-
-## Timing control and TCU
-
-`cw` resolves a mapping and prepares events for the current time point.
-It completes on local acceptance. `wait`, `fmr` and the exit ECALL
-enqueue pending events; only one request can await a reply.
-`wait 0` marks its time point to permit waiting for subsequent queue entries.
-
-`event.hpp` defines device events; `profile.hpp` defines the full configuration. `control_protocol.hpp`
-defines the records exchanged with the TCU. Each timing point carries an
-`UnderflowPolicy`: `Inherit` retains the previous policy, `Strict` restores
-strict deadlines, and `PauseWhenEmpty` permits an empty queue to pause the timer.
-Timing control assigns an explicit policy to every positive-interval point.
-
-TCU enqueue inserts the time point and all event members together.
-It checks capacity before triggering removes any old entries. The timer selects
-due time points using cumulative intervals. After `wait 0` triggers, an empty
-queue pauses the logical timer until work arrives or the stream closes.
-A positive-interval point restores strict deadlines when it triggers unless
-it also carries `wait 0`.
-Conditional operations use their target qubit's execution flags from earlier TCU edges.
-
-The TCU validates the entire transition before committing triggering and enqueue.
-A false condition consumes its event with a cancellation record. It does not
-shift subsequent points.
-
-## Device events
-
-Mappings select `gate`, `gate_output`, `pulse`, `acquire` or `arm` events.
-Physical start is `fire_tick + delay`. All durations are positive, and resources
-are occupied over `[start, end)`.
-
-`Readouts` owns acquisition pairing, readiness and sampled results.
-Gate-output resolution checks configured endpoints before backend execution.
-
-Two matching `gate_output` events must start together. The shared device checks
-both inputs before committing the configured gate once.
-
-At each device event tick, `ControlElectronics` commits evolution over the preceding interval
-under the active drives, samples ending acquisitions, removes ended events,
-commits starting gates and activates new
-intervals. Ready results are published last. Overlapping permitted pulses are
-evolved jointly. A gate starting on the same target and tick as a measurement
-sample is unsupported.
-
-Readiness is `max(acquisition_end, arm_start) + discriminator_delay`.
-An implicit arm uses acquisition start. The discriminator delay may be zero;
-feedback still crosses to a strictly later receiver edge.
+`ControlElectronics` schedules physical intervals and submits backend operations.
+`ResourceReservations` checks conflicts, gate-output resolution pairs the
+configured endpoints, and `Readouts` owns acquisition pairing, readiness and
+sampled results. The [timing reference](module-architecture.md#device-batches-and-feedback)
+defines their processing order.
 
 ## Backend limits
 

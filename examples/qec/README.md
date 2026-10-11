@@ -32,17 +32,13 @@ uv run --frozen --extra qec examples/qec/run.py --output build-clang/qec \
 The runner finds `qsbitc` and `qsbit-sim` on PATH. Use `--compiler PATH` or
 `--sim PATH` to select another build.
 
-The circuit has 17 qubits. It initializes a logical
-Z memory, injects X on Stim qubit 1, measures three rounds of stabilizers, and
-measures the data qubits. The CPU packs measurement records into decoder
-requests. PyMatching returns the logical observable flip bit. The CPU XORs
-this bit with the raw logical measurement to obtain the corrected logical
-result and records both the flip bit and corrected result.
+This example runs a distance-3 Z-memory circuit on 17 qubits with an X error
+injected on Stim qubit 1. The controller collects syndrome measurements, requests
+a PyMatching correction through decoder MMIO, and applies the returned logical
+flip to the raw logical measurement.
 
-The runner computes detector parities with Stim's measurement converter and
-checks the decoder flip against a separate PyMatching call. It also checks
-the CPU's corrected logical result against the raw logical measurement XOR
-the predicted flip. Every shot must have corrected logical result 0.
+The runner independently verifies the decoder output and corrected logical
+result using Stim and PyMatching. Every shot must have corrected logical result 0.
 
 Stim generates the circuit and a detector error model with depolarization
 probability 0.001 and measurement-flip probability 0.001. Those probabilities

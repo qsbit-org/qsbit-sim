@@ -1,19 +1,22 @@
 # Architecture overview
 
 qsbit-sim executes RV32I programs with qsbit control instructions inspired by
-HISQ and eQASM. The CPU prepares events, the timing
-control unit (TCU) queues them, and the timing controller triggers them at
-the requested time points.
+HISQ and eQASM. The CPU prepares control events. The timing control unit (TCU)
+queues and triggers them at scheduled time points. qsbit-sim uses its own
+[instruction encodings](interfaces.md#quantum-instruction-encoding), not HISQ or
+eQASM binaries.
 
 ## Reserve phase and trigger phase
 
-During the **reserve phase**, `cw` selects a port and codeword at the current
+During the **reserve phase**, `cw` selects a source port and codeword at the current
 time point. `wait` advances that point by a specified number of TCU cycles.
 The timing queue stores time points, and each output port has an event queue.
 
 During the **trigger phase**, the timing controller releases the events for
 the due time point. The TCU timer runs independently of the CPU, so a CPU
-stall does not delay events already queued.
+stall does not delay events already queued. After `wait 0` triggers, an empty
+queue pauses the logical timer while physical time continues. See the
+[pause and deadline rules](module-architecture.md#start-deadlines-and-empty-queues).
 
 See [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677),
 [eQASM, Section 3.1](https://arxiv.org/abs/1808.02449) and
@@ -21,7 +24,7 @@ See [QuMA, Section 5.2](https://arxiv.org/abs/1708.07677),
 
 ## Codeword-triggered control
 
-Each port and codeword selects configured operations with output ports,
+Each source-port and codeword pair selects configured operations with output ports,
 qubit targets, durations and delays. A codeword can trigger an ideal gate,
 a pulse, an acquisition, a discriminator arm or a paired two-qubit gate output
 (`gate_output`).
@@ -39,10 +42,11 @@ decrements the count. `fmr` waits for the count to reach zero, then copies
 the bit to a CPU register. Repeated reads return the same bit until another
 measurement completes.
 
-Execution flags control single-qubit operations at the trigger edge.
-The codeword mapping selects one of four flags:
+Each mapped single-qubit gate or pulse can specify one of four execution
+conditions. The TCU evaluates measurement-dependent conditions using execution
+flags committed before the trigger edge:
 
-| Flag | Execute when |
+| Condition | Execute when |
 | --- | --- |
 | `always` | Unconditionally. |
 | `last_one` | The latest completed measurement returned one. |
@@ -53,16 +57,9 @@ The flags use results received by the TCU. They update independently of
 CPU register reads and pending measurements. See
 [eQASM, Sections 3.5 and 3.6](https://arxiv.org/html/1808.02449#S3.S5).
 
-## Simulation implementation
+## Multiple controllers
 
-`TimingControl` prepares events. `TcuCycleModel` owns the timing queue,
-per-port event queues, timer and execution flags. `ControlElectronics`
-schedules outputs, acquisition and result delivery. `Core` owns each controller's
-CPU, memory, timing control and synchronization unit. `Simulator` runs the cores
-with SystemC and processes their operations against one shared quantum device.
-
-The [instruction reference](interfaces.md#quantum-instruction-encoding)
-defines the simulator's machine-code format. Neighbor synchronization uses
+Controller cores share one quantum device. Neighbor synchronization uses
 BISP, the booking-based synchronization protocol from Distributed-HISQ.
 Regional synchronization and inter-controller `send` and `recv` messaging are unsupported. See
 [distributed simulation](distributed-simulation.md).
