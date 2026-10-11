@@ -225,7 +225,8 @@
       ],
       "allows": [],
       "external": [
-        "json.hpp"
+        "json.hpp",
+        "mach-o/dyld.h"
       ]
     }
   }

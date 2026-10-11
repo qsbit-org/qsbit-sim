@@ -92,7 +92,7 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
     info = json.loads(command("--installation-info").stdout)
     assert info["schema"] == info["player_api"] == 1 and info["installed"]
     assert info["python_enabled"] == args.python
-    assert Path(info["web_root"]).is_relative_to(root)
+    assert Path(info["web_root"]) == (root / "web").resolve()
     assert (Path(info["web_root"]) / "trace-player.js").read_bytes() == (
         args.source / "web/trace-player.js"
     ).read_bytes()

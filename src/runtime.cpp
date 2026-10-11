@@ -5,11 +5,36 @@
 #include <json.hpp>
 #include <stdexcept>
 #include <string>
+#ifdef __APPLE__
+#include <cstdint>
+#include <mach-o/dyld.h>
+#include <vector>
+#endif
 
 namespace qsbit {
+namespace {
+std::filesystem::path executable_path() {
+#if defined(__linux__)
+  return std::filesystem::canonical("/proc/self/exe");
+#elif defined(__APPLE__)
+  std::uint32_t size = 0;
+  // dyld reports the required buffer size, including the terminating null.
+  (void)_NSGetExecutablePath(nullptr, &size);
+  if (size == 0)
+    throw std::runtime_error("Cannot determine the simulator executable path.");
+  std::vector<char> buffer(size);
+  if (_NSGetExecutablePath(buffer.data(), &size) != 0)
+    throw std::runtime_error("Cannot determine the simulator executable path.");
+  return std::filesystem::canonical(buffer.data());
+#else
+#error "Executable path discovery requires a supported platform implementation."
+#endif
+}
+} // namespace
+
 RuntimeLayout runtime_layout() {
   RuntimeLayout layout;
-  const auto executable = std::filesystem::canonical("/proc/self/exe");
+  const auto executable = executable_path();
   layout.installed = executable.filename() == "qsbit-sim-native";
   if (layout.installed) {
     const auto root = executable.parent_path();

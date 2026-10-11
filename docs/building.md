@@ -104,6 +104,8 @@ starting a simulation or importing numerical backends. Schema 1 contains `versio
 SystemC's banner may appear on stderr. Build-tree commands report their configured
 source resources with `installed: false`. Installed commands discover resources
 relative to the native executable and reject missing Python runtime files.
+Executable discovery uses Linux procfs or macOS dyld and resolves symbolic links
+before locating resources; it does not depend on the launch directory.
 
 **CTest:** `cli.install` verifies discovery, installed player bytes, execution from
 an unrelated directory through a symlink and a prefix containing spaces, and
