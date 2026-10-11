@@ -1,4 +1,4 @@
-# qsbit-sim
+# QSBIT simulator
 
 [![CI](https://github.com/qsbit-org/qsbit-sim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/qsbit-org/qsbit-sim/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://qsbit-org.github.io/qsbit-sim/)
