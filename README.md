@@ -9,6 +9,9 @@ qsbit-sim models quantum-control hardware: CPU execution, timed outputs,
 measurement feedback and synchronization between controllers. It runs RV32I
 programs with qsbit control instructions, using C++20 and SystemC.
 
+The project is inspired by [CACTUS](https://github.com/gtaifu/CACTUS), a
+quantum-control architecture simulator.
+
 [Documentation](https://qsbit-org.github.io/qsbit-sim/) ·
 [Examples](examples/README.md) ·
 [Execution player](https://qsbit-org.github.io/qsbit-sim/execution.html)
@@ -49,6 +52,26 @@ For quantum-state evolution, configure [Aer, Stim or QuTiP](docs/backends.md).
 - [Architecture](docs/high-level-design.md): control, timing and feedback.
 - [Configuration reference](docs/interfaces.md): instructions, profiles and outputs.
 - [Development](docs/engineering-and-testing.md): builds, tests and contribution checks.
+
+## Citation
+
+If you use qsbit-sim in your work, please cite the software repository:
+
+```bibtex
+@misc{qsbit2026sim,
+  author       = {{qsbit-sim contributors}},
+  title        = {{qsbit-sim}: A quantum-control hardware simulator},
+  year         = {2026},
+  howpublished = {GitHub repository},
+  url          = {https://github.com/qsbit-org/qsbit-sim}
+}
+```
+
+## References
+
+- QuMA: [An Experimental Microarchitecture for a Superconducting Quantum Processor](https://arxiv.org/abs/1708.07677).
+- eQASM: [An Executable Quantum Instruction Set Architecture](https://arxiv.org/abs/1808.02449).
+- [Distributed-HISQ: A Distributed Quantum Control Architecture](https://arxiv.org/abs/2509.04798).
 
 ## License
 
