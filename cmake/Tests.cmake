@@ -75,6 +75,7 @@ endif()
 add_test(NAME cli.install COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/install.py"
   --build "${CMAKE_CURRENT_BINARY_DIR}" --bindir "${CMAKE_INSTALL_BINDIR}"
+  --source "${CMAKE_CURRENT_SOURCE_DIR}" --libdir "${CMAKE_INSTALL_LIBDIR}"
   --program "${EXAMPLE_IMAGE_bell}" ${INSTALL_TEST_OPTIONS})
 set_tests_properties(cli.install PROPERTIES TIMEOUT 60 LABELS "fast;integration")
 if(QSBIT_TEST_QEC)

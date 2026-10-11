@@ -191,6 +191,12 @@ Acquisition pairing, readiness calculation and sampled-result lifetime.
 Decoder register storage and typed MMIO commands.
 [Open header](../include/qsbit/decoder/mmio.hpp).
 
+(runtime_8hpp)=
+## runtime.hpp
+
+Executable-relative installation discovery and paired runtime paths.
+[Open header](../include/qsbit/runtime.hpp).
+
 ## Namespace reference
 
 ```{doxygennamespace} qsbit

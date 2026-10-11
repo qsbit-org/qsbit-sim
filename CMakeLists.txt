@@ -85,6 +85,38 @@ if(QSBIT_PYTHON_BACKENDS)
   target_link_libraries(qsbit_python PUBLIC qsbit_platform qsbit_device PRIVATE pybind11::embed)
 endif()
 
+# Runtime discovery is independent of the simulation and Python interpreters.
+execute_process(COMMAND git -C "${PROJECT_SOURCE_DIR}" describe --always --dirty
+  OUTPUT_VARIABLE QSBIT_RUNTIME_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT QSBIT_RUNTIME_REVISION)
+  set(QSBIT_RUNTIME_REVISION "unknown")
+endif()
+set(QSBIT_RUNTIME_PYTHON 0)
+set(QSBIT_RUNTIME_PYTHON_JSON false)
+if(QSBIT_PYTHON_BACKENDS)
+  set(QSBIT_RUNTIME_PYTHON 1)
+  set(QSBIT_RUNTIME_PYTHON_JSON true)
+endif()
+add_library(qsbit_runtime STATIC src/runtime.cpp)
+target_include_directories(qsbit_runtime PUBLIC include PRIVATE third_party/nlohmann_json)
+target_link_libraries(qsbit_runtime PRIVATE qsbit_warnings)
+target_compile_definitions(qsbit_runtime PRIVATE
+  QSBIT_RUNTIME_VERSION="${PROJECT_VERSION}" QSBIT_RUNTIME_REVISION="${QSBIT_RUNTIME_REVISION}"
+  QSBIT_RUNTIME_PYTHON=${QSBIT_RUNTIME_PYTHON}
+  QSBIT_BUILD_WEB="${PROJECT_SOURCE_DIR}/web"
+  QSBIT_BUILD_BACKEND="${PROJECT_SOURCE_DIR}/python/qsbit_backend"
+  QSBIT_BUILD_PYTHON="${Python3_EXECUTABLE}")
+if(QSBIT_PYTHON_BACKENDS)
+  target_link_libraries(qsbit_python PRIVATE qsbit_runtime)
+endif()
+file(RELATIVE_PATH QSBIT_RUNTIME_FROM_BIN "/${CMAKE_INSTALL_BINDIR}" "/${CMAKE_INSTALL_LIBDIR}/qsbit-sim")
+configure_file(cmake/qsbit-sim.in qsbit-sim-launcher @ONLY)
+configure_file(cmake/InstallRuntime.cmake.in InstallRuntime.cmake @ONLY)
+install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallRuntime.cmake")
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/qsbit-sim-launcher"
+  DESTINATION ${CMAKE_INSTALL_BINDIR} RENAME qsbit-sim)
+install(DIRECTORY web/ DESTINATION ${CMAKE_INSTALL_LIBDIR}/qsbit-sim/web)
+
 add_library(qsbit_config STATIC src/config_json.cpp)
 target_include_directories(qsbit_config SYSTEM PUBLIC third_party/nlohmann_json)
 target_link_libraries(qsbit_config PUBLIC qsbit_model_types)
@@ -93,8 +125,9 @@ target_link_libraries(qsbit_app PUBLIC qsbit_config qsbit_platform qsbit_device)
 add_executable(qsbit_sim src/main.cpp src/app/output.cpp)
 set_target_properties(qsbit_sim PROPERTIES OUTPUT_NAME qsbit-sim)
 set_target_properties(qsbit_sim PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS qsbit_sim RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_link_libraries(qsbit_sim PRIVATE qsbit_systemc qsbit_app)
+install(TARGETS qsbit_sim RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/qsbit-sim)
+install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/qsbit-sim/qsbit-sim\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/qsbit-sim/qsbit-sim-native\")")
+target_link_libraries(qsbit_sim PRIVATE qsbit_systemc qsbit_app qsbit_runtime)
 if(QSBIT_PYTHON_BACKENDS)
   target_link_libraries(qsbit_sim PRIVATE qsbit_python)
   target_compile_definitions(qsbit_sim PRIVATE QSBIT_HAS_PYTHON=1)

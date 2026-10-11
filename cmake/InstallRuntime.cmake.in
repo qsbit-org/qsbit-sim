@@ -1,0 +1,41 @@
+# Validate the pre-provisioned environment before replacing installed binaries.
+set(runtime_root "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@CMAKE_INSTALL_LIBDIR@/qsbit-sim")
+set(backend_relative "")
+if(@QSBIT_RUNTIME_PYTHON@)
+  if(DEFINED ENV{DESTDIR} AND NOT "$ENV{DESTDIR}" STREQUAL "")
+    message(FATAL_ERROR "Python runtime installations must be provisioned at their final prefix, without DESTDIR.")
+  endif()
+  set(python "${runtime_root}/venv/bin/python")
+  if(NOT EXISTS "${python}")
+    message(FATAL_ERROR "Prepare ${python} and install this checkout's backend package before cmake --install. See docs/building.md.")
+  endif()
+  execute_process(COMMAND "${python}" -I -c
+    "import sys, sysconfig; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor)); print(sysconfig.get_path('purelib')); print(sys.prefix)"
+    OUTPUT_VARIABLE runtime_paths OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
+  string(REPLACE "\n" ";" runtime_paths "${runtime_paths}")
+  list(GET runtime_paths 0 runtime_version)
+  list(GET runtime_paths 1 site_packages)
+  list(GET runtime_paths 2 runtime_prefix)
+  if(NOT runtime_version STREQUAL "@Python3_VERSION_MAJOR@.@Python3_VERSION_MINOR@" OR
+     NOT runtime_prefix STREQUAL "${runtime_root}/venv")
+    message(FATAL_ERROR "Runtime Python must be the dedicated venv with the same major/minor version as the linked Python library.")
+  endif()
+  # An editable package or stale wheel must not silently couple the installation to a checkout.
+  file(GLOB_RECURSE backend_files RELATIVE "@PROJECT_SOURCE_DIR@/python/qsbit_backend" "@PROJECT_SOURCE_DIR@/python/qsbit_backend/*.py")
+  foreach(name IN LISTS backend_files)
+    set(installed "${site_packages}/qsbit_backend/${name}")
+    if(NOT EXISTS "${installed}")
+      message(FATAL_ERROR "Missing ${installed}; install this checkout non-editably into the dedicated venv.")
+    endif()
+    file(SHA256 "@PROJECT_SOURCE_DIR@/python/qsbit_backend/${name}" expected)
+    file(SHA256 "${installed}" actual)
+    if(NOT actual STREQUAL expected)
+      message(FATAL_ERROR "Stale backend ${name}; reinstall this checkout into the dedicated venv before installing the native simulator.")
+    endif()
+  endforeach()
+  file(RELATIVE_PATH backend_relative "${runtime_root}" "${site_packages}/qsbit_backend")
+endif()
+file(MAKE_DIRECTORY "${runtime_root}")
+file(WRITE "${runtime_root}/runtime.json"
+  "{\"schema\":1,\"version\":\"@PROJECT_VERSION@\",\"revision\":\"@QSBIT_RUNTIME_REVISION@\",\"python_enabled\":@QSBIT_RUNTIME_PYTHON_JSON@,\"backend_relative\":\"${backend_relative}\"}\n")

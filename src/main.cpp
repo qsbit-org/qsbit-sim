@@ -1,5 +1,6 @@
 #include "app/config.hpp"
 #include "app/output.hpp"
+#include "qsbit/runtime.hpp"
 #include "qsbit/simulator.hpp"
 #ifdef QSBIT_HAS_PYTHON
 #include "qsbit/python_backend.hpp"
@@ -11,6 +12,10 @@ using namespace qsbit;
 using namespace qsbit::app;
 int sc_main(int argc, char **argv) {
   try {
+    if (argc == 2 && std::string(argv[1]) == "--installation-info") {
+      std::cout << installation_info() << '\n';
+      return 0;
+    }
     sc_core::sc_set_time_resolution(1, sc_core::SC_NS);
     const std::vector<std::string> arguments(argv + 1, argv + argc);
     const auto run = parse_run_config(arguments);

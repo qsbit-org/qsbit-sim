@@ -186,7 +186,8 @@
         "device",
         "model",
         "time",
-        "measurement"
+        "measurement",
+        "runtime"
       ],
       "external": [
         "pybind11/*",
@@ -209,11 +210,22 @@
         "model",
         "time",
         "measurement",
-        "python"
+        "python",
+        "runtime"
       ],
       "external": [
         "systemc",
         "nlohmann/*"
+      ]
+    },
+    "runtime": {
+      "files": [
+        "include/qsbit/runtime.hpp",
+        "src/runtime.cpp"
+      ],
+      "allows": [],
+      "external": [
+        "json.hpp"
       ]
     }
   }

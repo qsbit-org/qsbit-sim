@@ -16,7 +16,8 @@
 
 namespace qsbit::app {
 std::string_view usage() {
-  return "qsbit-sim --config FILE | --program FILE [options]\n"
+  return "qsbit-sim --installation-info (runtime and player locations as JSON)\n"
+         "qsbit-sim --config FILE | --program FILE [options]\n"
          "  --config FILE (JSON run configuration; paths relative to config file)\n"
          "  --raw-base ADDRESS --backend NAME|MODULE:CLASS\n"
          "  --list-backends --help-backend --backend-schema --generate-config\n"

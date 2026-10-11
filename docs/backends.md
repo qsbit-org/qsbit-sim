@@ -47,9 +47,7 @@ With the environment active, build the bridge and run the Bell example:
 cmake --preset clang-ninja -B build-python \
   -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build build-python --parallel
-cmake --install build-python --prefix "$HOME/.local"
-export PATH="$HOME/.local/bin:$PATH"
-qsbit-sim --config build-python/examples/bell-state/run.json
+build-python/qsbit-sim --config build-python/examples/bell-state/run.json
 ```
 
 The simulated Bell measurements should agree: either 00 or 11. The summary and
@@ -59,33 +57,28 @@ and [QuTiP pulse examples](../examples/qutip/README.md) for other experiments.
 
 ## Python runtime
 
-The Python support package is installed by `uv sync` or `pip install .`.
-The executable imports it from the runtime environment, without adding the
-source checkout to Python's module search path.
+Installed simulators use their dedicated `lib/qsbit-sim/venv` environment and the
+backend package installed there from the matching checkout. Follow
+[the installed runtime workflow](building.md#install-with-a-python-backend) to
+provision optional packages and install the native executable and player together.
+No venv activation is needed to run the installed command. Outer `QSBIT_PYTHON`,
+`VIRTUAL_ENV`, `PYTHONHOME`, `PYTHONPATH`, and user-site settings are ignored.
+The linked Python library and base Python installation must remain available.
 
-Interpreter selection uses `QSBIT_PYTHON` when set, then the active environment's
-`VIRTUAL_ENV/bin/python`, then `pythonX.Y` on PATH, where X.Y is the Python
-version used to build the bridge. Runtime environments must use that same
-Python major and minor version. The linked Python library must remain available.
-
-From this repository, `uv run` selects the project environment:
-
-```sh
-uv run --frozen --extra aer qsbit-sim --config build-python/examples/bell-state/run.json
-```
-
-To use a separate environment, install the support package and backend there
-without editable mode, then select its interpreter:
+For development, a build-tree executable selects `QSBIT_PYTHON`, then
+`VIRTUAL_ENV/bin/python`, then the interpreter selected at CMake configure time.
+It loads the built-in backend package from that build's source checkout, preventing
+an older package elsewhere from overriding its adapter code. The environment
+must have its dependencies and match the linked Python major/minor version:
 
 ```sh
-uv pip install --python /path/to/environment/bin/python '.[aer]'
-export QSBIT_PYTHON=/path/to/environment/bin/python
-qsbit-sim --config /path/to/experiment/run.json
+uv run --frozen --extra aer build-python/qsbit-sim --config build-python/examples/bell-state/run.json
 ```
 
-The package installation command runs from the source checkout. Subsequent runs
-need neither that checkout nor its build environment. `--python-path` adds a
-directory for custom adapters; it does not select an interpreter.
+`--python-path` adds a directory for custom adapter modules, not an interpreter.
+Built-in `qsbit_backend` imports always take precedence over custom module paths;
+the bridge verifies the imported package location. Install custom adapters into
+the dedicated runtime environment when using an installed simulator.
 
 ## Discover and configure backends
 
@@ -209,7 +202,7 @@ matrix and transfers that state at each circuit execution.
 
 ## Select a custom Python adapter
 
-Install your adapter in the active environment or supply a local module path
+Install your adapter in the selected simulator environment or supply a local module path
 in the run configuration:
 
 ```json

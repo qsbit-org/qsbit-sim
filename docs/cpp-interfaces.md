@@ -325,3 +325,22 @@ private:
 };
 ```
 <!-- /source -->
+
+## Runtime installation
+
+`runtime_layout()` resolves the installation owned by the running executable.
+`installation_info()` serializes the CLI discovery response without starting Python.
+See [installation discovery](building.md#installation-discovery).
+
+<!-- source: {"path": "include/qsbit/runtime.hpp", "start": "struct RuntimeLayout {", "end": "} // namespace qsbit"} -->
+```cpp
+struct RuntimeLayout {
+  bool installed = false;
+  bool python_enabled = false;
+  std::filesystem::path web_root, python, backend;
+  std::string version, revision;
+};
+RuntimeLayout runtime_layout();
+std::string installation_info();
+```
+<!-- /source -->

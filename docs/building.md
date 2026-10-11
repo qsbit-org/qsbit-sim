@@ -41,15 +41,75 @@ export PATH="$HOME/.local/bin:$PATH"
 qsbit-sim --help
 ```
 
-Add the PATH setting to your shell configuration. `--prefix` selects the
-installation directory; CMake's `CMAKE_INSTALL_BINDIR` controls its binary
-subdirectory. Example programs and generated output remain in the build directory.
-The executable can run from any working directory. Run-file paths remain
-relative to the configuration file.
+Add the PATH setting to your shell configuration. The default C++-only build needs
+no Python environment at runtime. `--prefix` selects the installation directory;
+`CMAKE_INSTALL_BINDIR` and `CMAKE_INSTALL_LIBDIR` control its binary and library
+subdirectories. The launcher in `bin/` executes `lib/qsbit-sim/qsbit-sim-native`;
+matching player assets are installed in `lib/qsbit-sim/web/`. The launcher uses
+`exec`, preserving arguments, exit status, and signals. It resolves symlinks and
+works from any current directory. Run-file paths remain relative to their config.
 
-Python-enabled builds also require an installed Python support package and
-the selected backend's dependencies. See [Python runtime selection](backends.md#python-runtime).
-The linked Python runtime and other shared libraries must remain installed.
+### Install with a Python backend
+
+Run these commands from the simulator source checkout after provisioning the
+[build prerequisites](prerequisites.md). Choose the final prefix before creating
+the runtime venv. This example explicitly enables Stim; select the desired extras
+from [pyproject.toml](../pyproject.toml) when exporting dependencies.
+
+```sh
+qsbit_prefix="$HOME/.local"
+mkdir -p build
+uv export --frozen --extra stim --no-dev --no-emit-project \
+  --format requirements-txt > build/runtime-requirements.txt
+uv venv --python .venv/bin/python "$qsbit_prefix/lib/qsbit-sim/venv"
+uv pip sync --python "$qsbit_prefix/lib/qsbit-sim/venv/bin/python" build/runtime-requirements.txt
+uv pip install --python "$qsbit_prefix/lib/qsbit-sim/venv/bin/python" --no-deps .
+cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON \
+  -DPython3_EXECUTABLE="$qsbit_prefix/lib/qsbit-sim/venv/bin/python"
+cmake --build --preset clang-ninja --parallel
+cmake --install build-clang --prefix "$qsbit_prefix"
+export PATH="$qsbit_prefix/bin:$PATH"
+qsbit-sim --installation-info
+qsbit-sim --list-backends
+```
+
+Use the configured library subdirectory instead of `lib` if overriding
+`CMAKE_INSTALL_LIBDIR`. Package provisioning is explicit and may access the
+network; normal CMake builds and simulator launches never install dependencies.
+The install step rejects a missing environment, mismatched Python major/minor
+version, editable backend, or backend source files differing from this checkout.
+It checks before replacing the native executable. The native bridge loads the
+dedicated venv and verifies the imported backend location. Outer Python variables,
+user site packages, and the current directory cannot select another backend.
+
+The prefix is fixed: do not move its venv after installation or use `DESTDIR` for
+a Python-enabled runtime. Keep the base Python installation, linked Python library,
+and other native shared libraries (including SystemC) available. Source and build
+trees are not runtime resources. This is not a self-contained CPython distribution.
+
+For upgrades, stop applications and simulations using the prefix, export the new
+checkout's locked dependencies with all desired extras, sync the dedicated venv,
+install the new checkout non-editably, then rebuild and reinstall. Restart Studio
+or other consumers to refresh their discovery metadata. `uv pip sync` removes
+packages not in the selected export, so retain all required extras. For a Python
+major/minor change, recreate the venv and reconfigure/rebuild against it. Installation
+is not an atomic hot upgrade; recover interrupted updates by completing these steps.
+
+### Installation discovery
+
+`qsbit-sim --installation-info` writes a single JSON object to stdout without
+starting a simulation or importing numerical backends. Schema 1 contains `version`,
+`revision`, `installed`, `player_api` (currently 1), absolute `web_root`,
+`python_enabled`, and absolute `python`/`backend` paths (null without the bridge).
+SystemC's banner may appear on stderr. Build-tree commands report their configured
+source resources with `installed: false`. Installed commands discover resources
+relative to the native executable and reject missing Python runtime files.
+
+**CTest:** `cli.install` verifies discovery, installed player bytes, execution from
+an unrelated directory through a symlink and a prefix containing spaces, and
+launcher argument, exit-status, PID and termination-signal preservation. With the
+bridge enabled it rejects stale backend installation, checks polluted-environment
+isolation for both launcher and native entry point, and checks missing runtime files.
 
 ## Enable tests
 
