@@ -69,8 +69,8 @@ If you use qsbit-sim in your work, please cite the software repository:
 
 ## References
 
-- QuMA: [An Experimental Microarchitecture for a Superconducting Quantum Processor](https://arxiv.org/abs/1708.07677).
-- eQASM: [An Executable Quantum Instruction Set Architecture](https://arxiv.org/abs/1808.02449).
+- [An Experimental Microarchitecture for a Superconducting Quantum Processor](https://arxiv.org/abs/1708.07677).
+- [eQASM: An Executable Quantum Instruction Set Architecture](https://arxiv.org/abs/1808.02449).
 - [Distributed-HISQ: A Distributed Quantum Control Architecture](https://arxiv.org/abs/2509.04798).
 
 ## License
