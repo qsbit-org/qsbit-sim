@@ -36,15 +36,22 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ```sh
 qsbit-sim --config build-clang/examples/measurement-feedback/mock.json
-python3 tools/replay_trace.py build-clang/examples/measurement-feedback/mock-results.jsonl
 ```
 
 The program measures qubit 0 and branches on the result to select a gate on
 qubit 1. The mock backend supplies bit 1. The summary,
 `mock-results.json`, should contain `"success": true` and `"4096": 1` in
-`memory`. The second command opens the execution trace in a browser.
+`memory`.
 
 For quantum-state evolution, configure [Aer, Stim or QuTiP](docs/backends.md).
+
+## Replay
+
+Open the execution trace in a browser:
+
+```sh
+python3 tools/replay_trace.py build-clang/examples/measurement-feedback/mock-results.jsonl
+```
 
 ## Learn more
 
