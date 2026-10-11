@@ -1,24 +1,58 @@
 #include "qsbit/feedback.hpp"
 #include <algorithm>
+#include <limits>
 
 namespace qsbit {
 MeasurementRegisters::MeasurementRegisters(FeedbackConfig config)
     : config_(config), registers_(config.qubits) {}
-bool MeasurementRegisters::has_capacity() const {
-  return pending_.size() < config_.result_capacity &&
-         (!config_.fast_feedback || fast_pending_.size() < config_.result_capacity);
+bool MeasurementRegisters::has_capacity(std::size_t count) const {
+  return count <= config_.result_capacity - pending_.size() &&
+         (!config_.fast_feedback || count <= config_.result_capacity - fast_pending_.size());
+}
+std::vector<MeasurementReference>
+MeasurementRegisters::prepare_reservation(Epoch epoch,
+                                          std::span<const std::uint32_t> targets) const {
+  require(has_capacity(targets.size()), ErrorCode::Capacity,
+          "measurement delivery capacity exhausted");
+  (void)checked_add(next_measurement_, targets.size());
+  std::vector<MeasurementReference> references;
+  for (auto target : targets) {
+    require(target < registers_.size(), ErrorCode::InvalidOperand, "measurement target is invalid");
+    const auto count = std::count(targets.begin(), targets.end(), target);
+    require(static_cast<std::uint64_t>(count) <=
+                std::numeric_limits<std::uint32_t>::max() - registers_[target].pending,
+            ErrorCode::TimeOverflow, "pending measurement count overflow");
+    references.push_back({epoch, checked_add(next_measurement_, references.size()), target});
+  }
+  return references;
+}
+void MeasurementRegisters::commit_reservation(std::span<const MeasurementReference> references) {
+  if (references.empty())
+    return;
+  std::vector<std::uint32_t> targets;
+  for (const auto &reference : references)
+    targets.push_back(reference.target);
+  const auto expected = prepare_reservation(references.front().epoch, targets);
+  require(std::equal(expected.begin(), expected.end(), references.begin()), ErrorCode::Protocol,
+          "stale measurement reservation");
+  // Build the entire reservation before changing any owned state.
+  auto pending = pending_;
+  auto fast_pending = fast_pending_;
+  for (const auto &reference : references) {
+    pending.emplace(reference.measurement, reference);
+    if (config_.fast_feedback)
+      fast_pending.emplace(reference.measurement, reference);
+  }
+  pending_.swap(pending);
+  fast_pending_.swap(fast_pending);
+  for (auto target : targets)
+    ++registers_[target].pending;
+  next_measurement_ = checked_add(next_measurement_, references.size());
 }
 MeasurementReference MeasurementRegisters::reserve(Epoch epoch, std::uint32_t target) {
-  require(target < registers_.size(), ErrorCode::InvalidOperand, "measurement target is invalid");
-  require(has_capacity(), ErrorCode::Capacity, "measurement delivery capacity exhausted");
-  const auto following = checked_add(next_measurement_, 1);
-  MeasurementReference result{epoch, next_measurement_, target};
-  pending_.emplace(result.measurement, result);
-  ++registers_[target].pending;
-  next_measurement_ = following;
-  if (config_.fast_feedback)
-    fast_pending_.emplace(result.measurement, result);
-  return result;
+  const auto references = prepare_reservation(epoch, std::span{&target, 1});
+  commit_reservation(references);
+  return references.front();
 }
 void MeasurementRegisters::deliver(const Completion &completion, Epoch epoch) {
   if (completion.reference.epoch != epoch)

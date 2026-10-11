@@ -79,3 +79,19 @@ and [gates.cpp](../../src/device/gates.cpp).
 The tests check overlapping resource intervals, unsupported sampling collisions
 and cancellation of active device work during reset. Paired-gate tests check
 single application, delay compensation, missing inputs, conflicts and reset.
+
+## Native reset assumption
+
+An ideal `gate` action with `operation: "reset"` applies the local reset channel at
+its start tick and reserves its port, target and resources for `duration` ticks,
+using the same timing convention as other ideal operations. This models control
+electronics with a predefined reset sequence: any internal measurement and feedback
+require no CPU instructions. Internal pulses, collapse outcomes and feedback latency
+are not individually modeled. Reset emits no measurement reference or completion,
+and does not change measurement registers, execution flags, or the simulation epoch.
+
+Stim and Aer support this ideal channel; Mock provides control-only execution.
+QuTiP rejects ideal reset as it rejects other unsupported ideal gates. A reset on
+part of an entangled state must preserve the other targets' reduced state; it is
+not a backend-wide reinitialization. The optional `python.backend_semantics` CTest
+checks native reset on excited, superposed and entangled inputs.

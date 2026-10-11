@@ -58,6 +58,8 @@ Shots use seeds 1 through `shots`.
 injected error using Stim's qubit numbering. `--decoder-latency` sets processing
 latency in nanoseconds. Its default is 1000; the target also sets a 100 ns
 one-way link delay, one byte per nanosecond, and four request and result slots.
+The CPU runs at 500 MHz (2 ns period) and the TCU at 250 MHz (4 ns period).
+The compiler must support `cpu_period_ns` and `tcu_period_ns` target fields.
 All generated settings are saved in `target.json`.
 
 The compiler inserts `wait 0` before measurement reads and decoder calls.
@@ -99,3 +101,26 @@ and applies X to that qubit before continuing.
 
 See [decoder feedback](../../docs/decoding.md) for register semantics, bounded
 queues, custom algorithms and timing parameters.
+
+## Batched measurement and native reset
+
+The compiler groups consecutive measurements or resets into fixed codeword mappings.
+Measurement calls for one layer precede result reads and recording; MR preserves
+those measurement records, then resets the layer without measuring it again.
+The default three-round experiment produces 33 architectural measurements and
+41 single-target reset actions. Groups are split to respect staging and delivery
+capacity; grouping does not increase hardware capacity or CPU fetch bandwidth.
+
+This example assumes that control electronics provides native reset, including
+any internal feedback without CPU participation. Its configured 80 ns duration is
+a modeling assumption (40 ns acquisition, 20 ns discrimination and 20 ns correction),
+not a measured hardware latency. The ideal reset channel is applied at the start;
+resources remain occupied for the full duration. Internal outcomes are not recorded.
+
+To compare against the same native-reset model without grouping, append
+`--no-batch-operations` to the run command and use a different `--output` directory.
+Both modes retain the configured clocks, gate durations and `block_cycles`.
+
+Disabling grouping increases instruction demand and may produce `LateAdmission`
+with the same timing configuration. This comparison mode does not relax deadlines
+or automatically add scheduling slack.

@@ -5,6 +5,8 @@ from qiskit import ClassicalRegister, QuantumCircuit
 from qiskit_aer import AerSimulator
 
 _ARITY = {
+    # Ideal local reset is a channel, not the backend-wide reset lifecycle method.
+    "reset": 1,
     "id": 1,
     "x": 1,
     "y": 1,

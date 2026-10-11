@@ -36,7 +36,7 @@ Reading a register does not release delivery capacity.
 
 ## Reset and errors
 
-Reset clears register values, pending counts and delivery records.
+Session reset clears register values, pending counts and delivery records.
 Old-epoch results are discarded. Duplicate results, mismatched references
 and out-of-order results for the same qubit raise faults.
 An out-of-range register index raises `InvalidOperand`.
@@ -45,7 +45,12 @@ An out-of-range register index raises `InvalidOperand`.
 
 Source: [feedback.cpp](../../src/feedback.cpp) and [feedback.hpp](../../include/qsbit/feedback.hpp).
 
-**CTest:** `control.registers`, `protocol.readout`, `systemc.use_cases`.
+**CTest:** `control.registers`, `protocol.readout`, `protocol.batch_atomic`, `systemc.use_cases`.
 
 Tests cover pending counts, repeated reads, consecutive measurements, reset,
 invalid register indices and independent delivery acknowledgments.
+
+Group reservation first prepares references without changing the registers, then
+commits all references together. Both enabled delivery paths must have room for
+the entire group. A failed group consumes no IDs or pending counts. The atomic
+batch test checks this with CPU delivery completed but fast acknowledgment pending.

@@ -57,6 +57,38 @@ def measurement(targets, tick=0):
 
 @unittest.skipUnless(args.aer, "Aer not enabled")
 class Aer(unittest.TestCase):
+    def test_native_reset_channel(self):
+        for method in ("statevector", "density_matrix"):
+            backend = AerBackend({"method": method})
+            backend.reset(3, 73)
+            # Reset |1>, |+>, and both halves of a Bell pair without returning results.
+            self.assertEqual(
+                backend.execute(
+                    1,
+                    [
+                        apply(
+                            [
+                                gate("x", (0,)),
+                                gate("h", (1,)),
+                                gate("reset", (0,)),
+                                gate("reset", (1,)),
+                            ]
+                        )
+                    ],
+                ),
+                [],
+            )
+            self.assertEqual(backend.execute(1, [measurement([0, 1])]), [False, False])
+            backend.execute(1, [apply([gate("h", (0,)), gate("cx", (0, 2)), gate("reset", (0,))])])
+            if method == "density_matrix":
+                expected = np.zeros((8, 8), dtype=complex)
+                expected[0, 0] = expected[4, 4] = 0.5
+                np.testing.assert_allclose(backend.density_matrix(), expected, atol=1e-12)
+            self.assertEqual(
+                backend.execute(1, [apply([gate("reset", (2,))]), measurement([0, 2])]),
+                [False, False],
+            )
+
     def test_gates_match_independent_statevector(self):
         gates = [
             gate("h"),
@@ -197,6 +229,27 @@ class Aer(unittest.TestCase):
 
 @unittest.skipUnless(args.stim, "Stim not enabled")
 class Stim(unittest.TestCase):
+    def test_native_reset_without_recording(self):
+        backend, _ = registry.create("stim", {})
+        backend.reset(3, 73)
+        self.assertEqual(
+            backend.execute(
+                1,
+                [
+                    apply(
+                        [gate("x", (0,)), gate("h", (1,)), gate("reset", (0,)), gate("reset", (1,))]
+                    )
+                ],
+            ),
+            [],
+        )
+        self.assertEqual(backend.execute(1, [measurement([0, 1])]), [False, False])
+        backend.execute(1, [apply([gate("h", (0,)), gate("cx", (0, 2)), gate("reset", (0,))])])
+        self.assertEqual(backend.execute(1, [measurement([0])]), [False])
+        self.assertEqual(
+            backend.execute(1, [apply([gate("reset", (2,))]), measurement([2])]), [False]
+        )
+
     def test_measurements_release_history_without_changing_sampling(self):
         import stim
 

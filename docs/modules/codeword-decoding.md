@@ -58,14 +58,25 @@ Unknown mappings, inconsistent identities, invalid acquisition and arm pairs and
 event counts above the configured limits raise faults. Timing control checks
 staging and per-port limits before accepting `cw`.
 
-Reset discards pending events while preserving the profile mappings.
+Session reset discards pending events while preserving the profile mappings.
 One codeword expands into events at one time point.
 
 ## Implementation and tests
 
 Source: [control_protocol.cpp](../../src/control_protocol.cpp) and [control_protocol.hpp](../../include/qsbit/control_protocol.hpp).
 
-**CTest:** `control.mapping`, `protocol.capacity`.
+**CTest:** `control.mapping`, `protocol.capacity`, `protocol.batch_atomic`, `protocol.batch_readout`.
 
 The tests reject invalid mappings and manifests, and time points that exceed
 staging or result capacity.
+
+## Fixed measurement groups
+
+A mapping may contain multiple acquisitions on distinct targets. Each acquisition
+has its own measurement reference; an explicit discriminator arm is paired by
+its target, independent of action order. Each acquisition still addresses one qubit.
+Timing control prepares all references and expanded events before committing the
+codeword. Invalid actions, insufficient capacity, or ID overflow leave no partial
+reservation. Capacity is counted per action and per measurement, not per codeword.
+The batch tests check independent completion times, reference pairing and atomic
+failure when one delivery path has insufficient space.

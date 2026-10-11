@@ -9,9 +9,9 @@ model additional readout physics internally.
 | Backend | Use | Installation |
 | --- | --- | --- |
 | `mock` | Return configured measurement bits; omitted measurement IDs return zero. No quantum state. | Included in the C++ build. |
-| `aer` | Apply ideal gates, optional thermal relaxation and measurements with collapse. | Python bridge and `aer` extra. |
+| `aer` | Apply ideal gates, native reset, optional thermal relaxation and measurements with collapse. | Python bridge and `aer` extra. |
 | `qutip` | Evolve driven oscillator models with couplings, dissipation and measurement. | Python bridge and `qutip` extra. |
-| `stim` | Apply Clifford gates, optional gate depolarization and measurements with collapse. | Python bridge and `stim` extra. |
+| `stim` | Apply Clifford gates, native reset, optional gate depolarization and measurements with collapse. | Python bridge and `stim` extra. |
 | Registered name | Load an installed adapter through its package entry point. | Python bridge and that adapter's dependencies. |
 | `module:Class` | Load your own Python adapter. | Python bridge and that adapter's dependencies. |
 
@@ -149,6 +149,17 @@ within an absolute tolerance of 1e-12 radians.
 
 QuTiP configures oscillator levels, Hamiltonian parameters, waveforms, relaxation,
 dephasing and readout under `backend_options`. See [QuTiP pulse models](qutip.md).
+
+## Native reset
+
+An ideal `gate` with `operation: "reset"` resets one target to zero without an
+architectural measurement result. Multiple such actions can share a codeword.
+This assumes predefined control-electronics feedback with no CPU involvement.
+The channel acts at the start tick and reserves resources for the configured
+duration; it does not reset the simulator epoch or measurement registers.
+Stim and Aer support this operation. QuTiP's pulse adapter does not.
+The optional `python.backend_semantics` test checks local reset numerically,
+including entangled inputs.
 
 ## Backend execution
 

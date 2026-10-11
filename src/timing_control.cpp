@@ -111,13 +111,13 @@ std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &ope
           "cw requires wait after a submitted time point");
   const auto &map = profile_.mapping(operation.get<CodewordCommand>().port,
                                      operation.get<CodewordCommand>().codeword);
-  std::optional<std::uint32_t> measurement_target;
+  std::vector<std::uint32_t> measurement_targets;
   for (const auto &action : map.actions) {
     validate_(action);
     require(action.execution_flag() == ExecutionFlag::Always || profile_.fast_feedback,
             ErrorCode::UnsupportedCapability, "fast feedback is disabled");
     if (action.kind() == ActionKind::Acquire)
-      measurement_target = action.targets().front();
+      measurement_targets.push_back(action.targets().front());
   }
   const auto count = checked_add(pending_events_.size(), map.actions.size());
   require(count <= profile_.staging_capacity, ErrorCode::Capacity,
@@ -131,16 +131,14 @@ std::optional<std::uint32_t> TimingControl::codeword(const ControlOperation &ope
             ErrorCode::Capacity, "cw exceeds per-port event capacity");
   }
   const auto next_event = checked_add(next_event_, map.actions.size());
-  std::optional<MeasurementReference> reference;
-  if (measurement_target) {
-    require(measurement_registers_.has_capacity(), ErrorCode::Capacity,
-            "measurement delivery capacity exhausted");
-    reference = measurement_registers_.reserve(epoch, *measurement_target);
-  }
+  const auto references = measurement_registers_.prepare_reservation(epoch, measurement_targets);
   auto events = decode_codeword(profile_, operation.get<CodewordCommand>().port,
                                 operation.get<CodewordCommand>().codeword, epoch,
-                                operation.instruction, next_event_, reference);
-  pending_events_.insert(pending_events_.end(), events.begin(), events.end());
+                                operation.instruction, next_event_, references);
+  auto pending = pending_events_;
+  pending.insert(pending.end(), events.begin(), events.end());
+  measurement_registers_.commit_reservation(references);
+  pending_events_.swap(pending);
   pending_point_ = true;
   next_event_ = next_event;
   TraceEvent record{now, epoch, "CodewordQueued", operation.instruction, 0, time_point_.value};

@@ -76,10 +76,10 @@ def experiment(rounds, error_qubit):
                 if name in {"MR", "M"}:
                     operations.append(("measure", [q], measurements))
                     measurements += 1
-                    if name == "MR":
-                        operations.append(("reset", [q], None))
                 else:
                     operations.append(("reset" if name == "R" else "h", [q], None))
+        if name == "MR":
+            operations.extend(("reset", [q], None) for q in values)
         reference.append(op)
     detectors = np.zeros((len(detector_rows), measurements), dtype=np.uint8)
     for row, indices in enumerate(detector_rows):
@@ -99,14 +99,16 @@ def generate(directory, rounds, error_qubit, latency):
     pairs = sorted({tuple(q) for name, q, _ in operations if name == "cx"})
     mappings = []
     for q in range(qubits):
-        for code, name in enumerate(("x", "h", "z", "measure"), 1):
+        for code, name in enumerate(("x", "h", "z", "measure", "reset"), 1):
             mappings.append(
                 {
                     "operation": name,
                     "qubits": [q],
                     "port": q,
                     "codeword": code,
-                    "duration_ns": 40 if name == "measure" else 20,
+                    # Native electronics reset includes internal feedback, with no CPU
+                    # participation. Its 80 ns duration is an experiment assumption.
+                    "duration_ns": 80 if name == "reset" else 40 if name == "measure" else 20,
                 }
             )
     for i, pair in enumerate(pairs, 10):
@@ -141,10 +143,12 @@ def generate(directory, rounds, error_qubit, latency):
     target = {
         "schema": 1,
         "name": "qec-surface-3",
+        "cpu_period_ns": 2,
+        "tcu_period_ns": 4,
         "qubits": qubits,
         "ports": qubits,
         "start_ns": 10000,
-        "block_cycles": 1000,
+        "block_cycles": 100,
         "mappings": mappings,
         "decoding": decoding,
     }
@@ -187,11 +191,12 @@ def generate(directory, rounds, error_qubit, latency):
         )
         chunk.clear()
 
-    for name, qs, result in operations:
-        if name == "measure":
+    pending_measurements = []
+
+    def record_measurements():
+        for result in pending_measurements:
             lines.extend(
                 [
-                    f"call void @__quantum__qis__mz__body({pointer(qs[0])}, {pointer(result)})",
                     f"%m{result} = call i1 @__quantum__rt__read_result({pointer(result)})",
                     f"call void @__quantum__rt__result_record_output({pointer(result)}, ptr null)",
                 ]
@@ -199,10 +204,20 @@ def generate(directory, rounds, error_qubit, latency):
             chunk.append(result)
             if len(chunk) == 8:
                 enqueue()
+        pending_measurements.clear()
+
+    for name, qs, result in operations:
+        if name == "measure":
+            lines.append(
+                f"call void @__quantum__qis__mz__body({pointer(qs[0])}, {pointer(result)})"
+            )
+            pending_measurements.append(result)
         else:
+            record_measurements()
             lines.append(
                 f"call void @__quantum__qis__{name}__body({', '.join(pointer(q) for q in qs)})"
             )
+    record_measurements()
     enqueue()
     lines.extend(
         [
@@ -239,6 +254,11 @@ def main():
     parser.add_argument("--shots", type=int, default=8)
     parser.add_argument("--error-qubit", type=int, default=1)
     parser.add_argument("--decoder-latency", type=int, default=1000)
+    parser.add_argument(
+        "--no-batch-operations",
+        action="store_true",
+        help="disable compiler measurement/reset grouping for comparison",
+    )
     args = parser.parse_args()
     for command in (args.compiler, args.sim):
         if shutil.which(command) is None:
@@ -254,6 +274,7 @@ def main():
         [
             args.compiler,
             str(directory / "memory.ll"),
+            *(["--no-batch-operations"] if args.no_batch_operations else []),
             "--target",
             str(directory / "target.json"),
             "-o",
@@ -298,6 +319,12 @@ def main():
         if expected:
             raise AssertionError("known single-qubit error was not corrected")
         events = [json.loads(line) for line in (directory / run["trace"]).read_text().splitlines()]
+        starts = [event for event in events if event["kind"] == "OperationStart"]
+        expected_resets = sum(len(op.targets_copy()) for op in reference if op.name in {"R", "MR"})
+        if sum(event["operation"] == "measure" for event in starts) != count:
+            raise AssertionError("native reset must not add architectural measurements")
+        if sum(event["operation"] == "reset" for event in starts) != expected_resets:
+            raise AssertionError("incorrect native reset action count")
         selected = {
             event["kind"]: event["tick"]
             for event in events

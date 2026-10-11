@@ -3,6 +3,7 @@
 #include "qsbit/measurement.hpp"
 #include <map>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace qsbit {
@@ -17,7 +18,10 @@ public:
     bool value = false;
   };
   explicit MeasurementRegisters(FeedbackConfig config);
-  [[nodiscard]] bool has_capacity() const;
+  [[nodiscard]] bool has_capacity(std::size_t count = 1) const;
+  [[nodiscard]] std::vector<MeasurementReference>
+  prepare_reservation(Epoch epoch, std::span<const std::uint32_t> targets) const;
+  void commit_reservation(std::span<const MeasurementReference> references);
   MeasurementReference reserve(Epoch epoch, std::uint32_t target);
   void deliver(const Completion &completion, Epoch epoch);
   void acknowledge_fast(const MeasurementReference &reference, Epoch epoch);

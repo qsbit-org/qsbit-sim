@@ -10,6 +10,8 @@ from .registry import options as validate_options
 
 class StimBackend:
     _gates = {
+        # Native reset hides electronics feedback and emits no architectural result.
+        "reset": "R",
         "id": "I",
         "x": "X",
         "y": "Y",

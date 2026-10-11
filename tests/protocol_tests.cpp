@@ -6,6 +6,8 @@
 #include "qsbit/timing_config.hpp"
 #include "qsbit/timing_control.hpp"
 #include "test.hpp"
+#include <algorithm>
+#include <array>
 #include <functional>
 #include <limits>
 #include <map>
@@ -13,7 +15,9 @@
 using namespace qsbit;
 TriggeredEvents launch(const Profile &p, std::uint32_t port, std::uint32_t code, Tick now,
                        Id id = 1, std::optional<MeasurementReference> reference = {}) {
-  auto events = decode_codeword(timing_config(p), port, code, 1, id, id, reference);
+  auto events = decode_codeword(timing_config(p), port, code, 1, id, id,
+                                reference ? std::span{&*reference, 1}
+                                          : std::span<const MeasurementReference>{});
   for (auto &event : events)
     event.label = id;
   return {1, id, now, std::move(events)};
@@ -221,9 +225,122 @@ void flags_test() {
   CHECK(flags.evaluate(0, ExecutionFlag::Always));
   CHECK(!flags.evaluate(0, ExecutionFlag::LastOne));
 }
+void batch_readout_test() {
+  auto p = default_profile();
+  p.result_capacity = 2;
+  auto first = p.mapping(0, 4).actions.front();
+  auto second = p.mapping(1, 4).actions.front();
+  second.duration = 60;
+  first.get<AcquireSpec>().separate_arm = true;
+  EventSpec arm = first;
+  arm.spec = DiscriminatorArmSpec{"measure", first.get<AcquireSpec>().operands};
+  arm.port = 2;
+  arm.duration = 1;
+  arm.get<DiscriminatorArmSpec>().operands.resources = {{20, true}};
+  p.mappings.push_back({0, 50, {arm, second, first}});
+  p.validate();
+  auto invalid = p;
+  invalid.mappings.back().actions.push_back(first);
+  faults(ErrorCode::InvalidProfile, [&] { invalid.validate(); });
+  invalid = p;
+  invalid.mappings.back().actions.erase(invalid.mappings.back().actions.begin());
+  faults(ErrorCode::InvalidProfile, [&] { invalid.validate(); });
+
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
+  const std::array<std::uint32_t, 2> targets{1, 0};
+  const auto refs = registers.prepare_reservation(1, targets);
+  CHECK(refs[0].measurement == 1 && refs[1].measurement == 2 && !registers.deliveries_pending());
+  auto events = decode_codeword(timing_config(p), 0, 50, 1, 1, 1, refs);
+  for (auto &event : events)
+    event.label = 1;
+  CHECK(events[0].reference == refs[1] && events[1].reference == refs[0]);
+  auto bad = refs;
+  bad[0].target = 0;
+  faults(ErrorCode::InvalidMeasurement,
+         [&] { (void)decode_codeword(timing_config(p), 0, 50, 1, 1, 1, bad); });
+  faults(ErrorCode::TimeOverflow, [&] {
+    (void)decode_codeword(timing_config(p), 0, 50, 1, 1, std::numeric_limits<Id>::max(), refs);
+  });
+  CHECK(!registers.deliveries_pending());
+  registers.commit_reservation(refs);
+  CHECK(!registers.has_capacity() && !registers.read(0) && !registers.read(1));
+  faults(ErrorCode::Capacity, [&] { (void)registers.prepare_reservation(1, targets); });
+  MockBackend backend({{1, false}, {2, true}});
+  Trace trace;
+  ControlElectronics device(device_profile(p), backend, trace);
+  device.accept({1, 1, 100, events});
+  std::vector<Tick> ready;
+  while (const auto tick = device.next_boundary())
+    device.process(*tick, 1, [&](const Completion &completion) {
+      ready.push_back(*tick);
+      registers.deliver(completion, 1);
+    });
+  CHECK(ready == std::vector<Tick>({160, 180}));
+  CHECK(registers.read(0) == true && registers.read(1) == false);
+  CHECK(!registers.has_capacity()); // Fast acknowledgments independently retain credits.
+  for (const auto &ref : refs)
+    registers.acknowledge_fast(ref, 1);
+  CHECK(registers.has_capacity(2));
+  std::vector<Tick> starts;
+  for (const auto &event : trace.events())
+    if (event.kind == "OperationStart" && event.operation == "measure")
+      starts.push_back(event.tick);
+  CHECK(starts.size() >= 2 &&
+        std::all_of(starts.begin(), starts.end(), [](auto t) { return t == 100; }));
+  registers.reset();
+  registers.deliver({refs.front(), true}, 2);
+  CHECK(registers.read(1) == false);
+}
+void batch_atomic_test() {
+  auto p = default_profile();
+  p.result_capacity = 2;
+  p.mappings.push_back({0, 50, {p.mapping(0, 4).actions.front(), p.mapping(1, 4).actions.front()}});
+  p.validate();
+  MeasurementRegisters registers({p.qubits, p.result_capacity, p.fast_feedback});
+  // Staging rejection and backend rejection must also leave the entire group unreserved.
+  {
+    auto limited = p;
+    limited.staging_capacity = 1;
+    MeasurementRegisters empty({p.qubits, p.result_capacity, p.fast_feedback});
+    Trace rejected;
+    ControlLinks wires(transport_config(limited));
+    TimingControl staging(timing_config(limited), empty, rejected, [](const EventSpec &) {});
+    faults(ErrorCode::Capacity,
+           [&] { (void)staging.execute({1, CodewordCommand{0, 50}}, 0, 1, wires); });
+    CHECK(!empty.deliveries_pending() && rejected.events().empty());
+    TimingControl unsupported(timing_config(p), empty, rejected, [](const EventSpec &action) {
+      require(action.targets().front() == 0, ErrorCode::UnsupportedCapability,
+              "unsupported target");
+    });
+    faults(ErrorCode::UnsupportedCapability,
+           [&] { (void)unsupported.execute({1, CodewordCommand{0, 50}}, 0, 1, wires); });
+    CHECK(!empty.deliveries_pending() && rejected.events().empty());
+    CHECK(empty.reserve(1, 0).measurement == 1);
+  }
+  const auto occupied = registers.reserve(1, 0);
+  Trace trace;
+  ControlLinks links(transport_config(p));
+  TimingControl control(timing_config(p), registers, trace, [](const EventSpec &) {});
+  const ControlOperation command{1, CodewordCommand{0, 50}};
+  faults(ErrorCode::Capacity, [&] { (void)control.execute(command, 0, 1, links); });
+  CHECK(registers.registers()[0].pending == 1 && registers.registers()[1].pending == 0);
+  CHECK(trace.events().empty());
+  registers.deliver({occupied, false}, 1);
+  faults(ErrorCode::Capacity, [&] { (void)control.execute(command, 5, 1, links); });
+  registers.acknowledge_fast(occupied, 1);
+  CHECK(control.execute(command, 10, 1, links) == 0);
+  CHECK(registers.registers()[0].pending == 1 && registers.registers()[1].pending == 1);
+  CHECK(!control.execute({2, WaitCommand{1}}, 15, 1, links));
+  const auto request = links.timing_events.take(100);
+  CHECK(request && request->value.events.size() == 2);
+  CHECK(request->value.events[0].reference->measurement == 2);
+  CHECK(request->value.events[1].reference->measurement == 3);
+}
 int main(int argc, char **argv) {
   try {
     const std::map<std::string, std::function<void()>> tests{
+        {"batch_readout", batch_readout_test},
+        {"batch_atomic", batch_atomic_test},
         {"timing", timing_test},
         {"capacity", capacity_test},
         {"resources", resources_test},

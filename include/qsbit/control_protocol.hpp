@@ -5,6 +5,7 @@
 #include "qsbit/time.hpp"
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -54,7 +55,7 @@ struct ScheduledEvent {
 [[nodiscard]] std::vector<OperationEvent>
 decode_codeword(const TimingConfig &profile, std::uint32_t port, std::uint32_t codeword,
                 Epoch epoch, Id instruction, Id first_event,
-                std::optional<MeasurementReference> reference = {});
+                std::span<const MeasurementReference> references = {});
 void validate_timing_events(const TimingEvents &events, const TimingConfig &profile);
 
 } // namespace qsbit

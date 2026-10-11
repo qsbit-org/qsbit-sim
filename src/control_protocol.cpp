@@ -16,12 +16,29 @@ namespace qsbit {
 std::vector<OperationEvent> decode_codeword(const TimingConfig &profile, std::uint32_t port,
                                             std::uint32_t codeword, Epoch epoch, Id instruction,
                                             Id first_event,
-                                            std::optional<MeasurementReference> reference) {
+                                            std::span<const MeasurementReference> references) {
   const auto &map = profile.mapping(port, codeword);
+  std::set<std::uint32_t> reference_targets;
+  std::set<Id> reference_ids;
+  std::size_t acquisitions = 0;
+  for (const auto &action : map.actions)
+    acquisitions += action.kind() == ActionKind::Acquire;
+  require(references.size() == acquisitions, ErrorCode::InvalidMeasurement,
+          "measurement reference count differs from acquisition count");
+  for (const auto &reference : references)
+    require(reference.epoch == epoch && reference.measurement != 0 &&
+                reference_targets.insert(reference.target).second &&
+                reference_ids.insert(reference.measurement).second,
+            ErrorCode::InvalidMeasurement, "invalid or duplicate measurement reference");
   std::vector<OperationEvent> events;
   for (const auto &action : map.actions) {
     const bool readout =
         action.kind() == ActionKind::Acquire || action.kind() == ActionKind::DiscriminatorArm;
+    std::optional<MeasurementReference> reference;
+    if (readout)
+      for (const auto &candidate : references)
+        if (action.targets().size() == 1 && candidate.target == action.targets().front())
+          reference = candidate;
     require(!readout || reference.has_value(), ErrorCode::InvalidMeasurement,
             "readout has no reserved reference");
     require(action.execution_flag() == ExecutionFlag::Always || profile.fast_feedback,

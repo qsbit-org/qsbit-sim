@@ -94,8 +94,8 @@ void Profile::validate() const {
     require(map.port < ports && keys.insert({map.port, map.codeword}).second,
             ErrorCode::InvalidProfile, "duplicate or invalid port mapping");
     require(!map.actions.empty(), ErrorCode::InvalidProfile, "empty action mapping");
-    unsigned acquisitions = 0, arms = 0;
-    bool separate = false;
+    std::map<std::uint32_t, bool> acquisitions;
+    std::map<std::uint32_t, unsigned> arms;
     for (const auto &a : map.actions) {
       require(a.port < ports && (a.kind() == ActionKind::GateOutput || !a.targets().empty()) &&
                   a.duration > 0,
@@ -120,13 +120,18 @@ void Profile::validate() const {
         require(resources.insert(r.id).second, ErrorCode::InvalidProfile,
                 "duplicate action resource");
       if (a.kind() == ActionKind::Acquire) {
-        ++acquisitions;
-        separate = a.get<AcquireSpec>().separate_arm;
         require(a.targets().size() == 1, ErrorCode::InvalidProfile,
                 "acquisition requires one target");
+        require(acquisitions.emplace(a.targets().front(), a.get<AcquireSpec>().separate_arm).second,
+                ErrorCode::InvalidProfile, "duplicate acquisition target");
       }
-      if (a.kind() == ActionKind::DiscriminatorArm)
-        ++arms;
+      if (a.kind() == ActionKind::DiscriminatorArm) {
+        require(a.targets().size() == 1, ErrorCode::InvalidProfile, "arm requires one target");
+        ++arms[a.targets().front()];
+      }
+      if (a.kind() == ActionKind::IdealGate && a.operation() == "reset")
+        require(a.targets().size() == 1 && a.execution_flag() == ExecutionFlag::Always,
+                ErrorCode::InvalidProfile, "reset requires one unconditional target");
       std::visit(
           [](const auto &value) {
             if constexpr (requires { value.amplitude; })
@@ -140,18 +145,12 @@ void Profile::validate() const {
                      a.get<PulseSpec>().axis == "z"),
                 ErrorCode::InvalidProfile, "unsupported pulse descriptor");
     }
-    require(acquisitions <= 1 && arms == (separate ? 1U : 0U), ErrorCode::InvalidProfile,
-            "acquisition and discriminator arm must be paired");
-    if (separate) {
-      const auto acquisition =
-          std::find_if(map.actions.begin(), map.actions.end(),
-                       [](const EventSpec &a) { return a.kind() == ActionKind::Acquire; });
-      const auto arm = std::find_if(map.actions.begin(), map.actions.end(), [](const EventSpec &a) {
-        return a.kind() == ActionKind::DiscriminatorArm;
-      });
-      require(acquisition->targets() == arm->targets(), ErrorCode::InvalidProfile,
-              "acquisition and discriminator arm must address the same target");
-    }
+    for (const auto &[target, separate] : acquisitions)
+      require(arms[target] == (separate ? 1U : 0U), ErrorCode::InvalidProfile,
+              "acquisition and discriminator arm must be paired per target");
+    for (const auto &[target, count] : arms)
+      require(count == 0 || acquisitions.contains(target), ErrorCode::InvalidProfile,
+              "orphan discriminator arm");
   }
 }
 const TwoQubitGate &Profile::gate(const std::string &gate_name) const {
