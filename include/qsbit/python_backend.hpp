@@ -11,6 +11,7 @@ class PythonSession {
 public:
   explicit PythonSession(const std::string &module_directory);
   ~PythonSession();
+  [[nodiscard]] std::string backend_directory() const;
   PythonSession(const PythonSession &) = delete;
   PythonSession &operator=(const PythonSession &) = delete;
 

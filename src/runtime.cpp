@@ -48,32 +48,43 @@ RuntimeLayout runtime_layout() {
     layout.revision = metadata.at("revision");
     layout.python_enabled = metadata.at("python_enabled");
     layout.web_root = root / "web";
-    if (layout.python_enabled) {
-      layout.python = root / "venv/bin/python";
-      layout.backend = root / metadata.at("backend_relative").get<std::string>();
-    }
   } else {
     layout.version = QSBIT_RUNTIME_VERSION;
     layout.revision = QSBIT_RUNTIME_REVISION;
     layout.web_root = QSBIT_BUILD_WEB;
     layout.python_enabled = QSBIT_RUNTIME_PYTHON;
-    if (layout.python_enabled) {
-      layout.python = QSBIT_BUILD_PYTHON;
-      if (const auto *selected = std::getenv("QSBIT_PYTHON"); selected && *selected)
-        layout.python = selected;
-      else if (const auto *environment = std::getenv("VIRTUAL_ENV"); environment && *environment)
-        layout.python = std::filesystem::path(environment) / "bin/python";
-      layout.backend = QSBIT_BUILD_BACKEND;
-    }
   }
-  if (layout.python_enabled && (!std::filesystem::is_regular_file(layout.python) ||
-                                !std::filesystem::is_regular_file(layout.backend / "__init__.py")))
-    throw std::runtime_error(
-        "Missing simulator Python environment or backend; reinstall the paired runtime.");
+  if (layout.python_enabled) {
+    if (const auto *selected = std::getenv("QSBIT_PYTHON"); selected && *selected)
+      layout.python = std::filesystem::absolute(selected);
+    else if (const auto *environment = std::getenv("VIRTUAL_ENV"); environment && *environment)
+      layout.python = std::filesystem::absolute(std::filesystem::path(environment) / "bin/python");
+    else if (!layout.installed)
+      layout.python = QSBIT_BUILD_PYTHON;
+    else if (const auto *search = std::getenv("PATH")) {
+      const std::string paths(search);
+      std::size_t start = 0;
+      do {
+        const auto end = paths.find(':', start);
+        const auto directory = paths.substr(start, end - start);
+        const auto candidate =
+            std::filesystem::path(directory.empty() ? "." : directory) / QSBIT_PYTHON_COMMAND;
+        if (std::filesystem::is_regular_file(candidate)) {
+          layout.python = std::filesystem::absolute(candidate);
+          break;
+        }
+        if (end == std::string::npos)
+          break;
+        start = end + 1;
+      } while (start <= paths.size());
+    }
+    if (!std::filesystem::is_regular_file(layout.python))
+      throw std::runtime_error("Python interpreter is missing. Activate a compatible venv with "
+                               "qsbit-sim-backends installed, or set QSBIT_PYTHON.");
+  }
   return layout;
 }
-std::string installation_info() {
-  const auto layout = runtime_layout();
+std::string installation_info(const RuntimeLayout &layout) {
   nlohmann::json info{{"schema", 1},
                       {"version", layout.version},
                       {"revision", layout.revision},

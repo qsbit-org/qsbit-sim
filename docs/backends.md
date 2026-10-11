@@ -57,28 +57,28 @@ and [QuTiP pulse examples](../examples/qutip/README.md) for other experiments.
 
 ## Python runtime
 
-Installed simulators use their dedicated `lib/qsbit-sim/venv` environment and the
-backend package installed there from the matching checkout. Follow
-[the installed runtime workflow](building.md#install-with-a-python-backend) to
-provision optional packages and install the native executable and player together.
-No venv activation is needed to run the installed command. Outer `QSBIT_PYTHON`,
-`VIRTUAL_ENV`, `PYTHONHOME`, `PYTHONPATH`, and user-site settings are ignored.
-The linked Python library and base Python installation must remain available.
-
-For development, a build-tree executable selects `QSBIT_PYTHON`, then
-`VIRTUAL_ENV/bin/python`, then the interpreter selected at CMake configure time.
-It loads the built-in backend package from that build's source checkout, preventing
-an older package elsewhere from overriding its adapter code. The environment
-must have its dependencies and match the linked Python major/minor version:
+Both installed and build-tree simulators use the caller's Python environment.
+Activate an environment containing `qsbit-sim-backends` and the required optional
+dependencies, or let `uv run` select the project's `.venv`:
 
 ```sh
-uv run --frozen --extra aer build-python/qsbit-sim --config build-python/examples/bell-state/run.json
+uv run --frozen --extra aer qsbit-sim --config build-python/examples/bell-state/run.json
 ```
 
-`--python-path` adds a directory for custom adapter modules, not an interpreter.
-Built-in `qsbit_backend` imports always take precedence over custom module paths;
-the bridge verifies the imported package location. Install custom adapters into
-the dedicated runtime environment when using an installed simulator.
+Selection uses explicit `QSBIT_PYTHON`, then `VIRTUAL_ENV/bin/python`. Otherwise a
+build-tree command uses its configured interpreter, and an installed command finds
+`pythonX.Y` on PATH matching the build-time Python version. Python major/minor must
+match the linked bridge, and its linked library must remain available.
+
+The native installation contains no venv or backend Python package. Imports come
+from the selected environment, including editable packages installed by `uv sync`.
+Update that package alongside native simulator updates. `--installation-info`
+checks the base package and reports its actual location so consumers such as Studio
+can reject missing environments at startup.
+
+Python user-site, current-directory and `PYTHONPATH` imports are disabled.
+`--python-path` explicitly adds a module directory for custom adapters. See
+[installed runtime usage](building.md#install-with-a-python-backend).
 
 ## Discover and configure backends
 

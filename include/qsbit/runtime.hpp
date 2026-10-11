@@ -10,5 +10,5 @@ struct RuntimeLayout {
   std::string version, revision;
 };
 RuntimeLayout runtime_layout();
-std::string installation_info();
+std::string installation_info(const RuntimeLayout &layout);
 } // namespace qsbit

@@ -83,10 +83,7 @@ struct PythonSession::Impl {
     const auto runtime = runtime_layout();
     const auto executable = runtime.python.string();
     PyConfig config;
-    if (runtime.installed)
-      PyConfig_InitIsolatedConfig(&config);
-    else
-      PyConfig_InitPythonConfig(&config);
+    PyConfig_InitIsolatedConfig(&config);
     const auto status = PyConfig_SetBytesString(&config, &config.program_name, executable.c_str());
     if (PyStatus_Exception(status)) {
       PyConfig_Clear(&config);
@@ -96,15 +93,22 @@ struct PythonSession::Impl {
   }
 };
 PythonSession::PythonSession(const std::string &directory) : impl_(std::make_unique<Impl>()) {
-  const auto runtime = runtime_layout();
-  auto paths = py::module_::import("sys").attr("path");
   if (!directory.empty())
-    paths.attr("insert")(0, directory);
-  // Built-in adapters always come from this simulator, ahead of custom plugin paths.
-  paths.attr("insert")(0, runtime.backend.parent_path().string());
-  const auto loaded = py::module_::import("qsbit_backend").attr("__file__").cast<std::string>();
-  require(std::filesystem::equivalent(std::filesystem::path(loaded).parent_path(), runtime.backend),
-          ErrorCode::BackendFailure, "Loaded qsbit_backend does not match the simulator runtime.");
+    py::module_::import("sys").attr("path").attr("insert")(0, directory);
+  try {
+    (void)py::module_::import("qsbit_backend");
+  } catch (const py::error_already_set &e) {
+    throw Fault(ErrorCode::BackendFailure,
+                "Cannot import qsbit_backend from the selected Python environment. Install "
+                "qsbit-sim-backends with the required extras in that environment: " +
+                    std::string(e.what()));
+  }
+}
+std::string PythonSession::backend_directory() const {
+  return std::filesystem::path(
+             py::module_::import("qsbit_backend").attr("__file__").cast<std::string>())
+      .parent_path()
+      .string();
 }
 PythonSession::~PythonSession() = default;
 struct PythonBackend::Impl {

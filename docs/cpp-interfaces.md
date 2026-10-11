@@ -329,7 +329,8 @@ private:
 ## Runtime installation
 
 `runtime_layout()` resolves the installation owned by the running executable.
-`installation_info()` serializes the CLI discovery response without starting Python.
+`installation_info(layout)` serializes a resolved layout. Python-enabled CLI discovery
+initializes the selected environment to record the imported backend location.
 See [installation discovery](building.md#installation-discovery).
 
 <!-- source: {"path": "include/qsbit/runtime.hpp", "start": "struct RuntimeLayout {", "end": "} // namespace qsbit"} -->
@@ -341,6 +342,29 @@ struct RuntimeLayout {
   std::string version, revision;
 };
 RuntimeLayout runtime_layout();
-std::string installation_info();
+std::string installation_info(const RuntimeLayout &layout);
+```
+<!-- /source -->
+
+## Selected Python session
+
+`PythonSession` initializes the caller-selected interpreter and imports the backend
+package from that environment. `backend_directory()` reports the loaded package
+location for discovery; it does not select or install a package.
+
+<!-- source: {"path": "include/qsbit/python_backend.hpp", "start": "class PythonSession {", "end": "struct PythonBackendConfig {"} -->
+```cpp
+class PythonSession {
+public:
+  explicit PythonSession(const std::string &module_directory);
+  ~PythonSession();
+  [[nodiscard]] std::string backend_directory() const;
+  PythonSession(const PythonSession &) = delete;
+  PythonSession &operator=(const PythonSession &) = delete;
+
+private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
 ```
 <!-- /source -->

@@ -51,67 +51,69 @@ works from any current directory. Run-file paths remain relative to their config
 
 ### Install with a Python backend
 
-Run these commands from the simulator source checkout after provisioning the
-[build prerequisites](prerequisites.md). Choose the final prefix before creating
-the runtime venv. This example explicitly enables Stim; select the desired extras
-from [pyproject.toml](../pyproject.toml) when exporting dependencies.
+Prepare the [Python prerequisites](prerequisites.md#optional-python-backends) in
+an ordinary environment, then build and install from the repository root:
 
 ```sh
-qsbit_prefix="$HOME/.local"
-mkdir -p build
-uv export --frozen --extra stim --no-dev --no-emit-project \
-  --format requirements-txt > build/runtime-requirements.txt
-uv venv --python .venv/bin/python "$qsbit_prefix/lib/qsbit-sim/venv"
-uv pip sync --python "$qsbit_prefix/lib/qsbit-sim/venv/bin/python" build/runtime-requirements.txt
-uv pip install --python "$qsbit_prefix/lib/qsbit-sim/venv/bin/python" --no-deps .
-cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON \
-  -DPython3_EXECUTABLE="$qsbit_prefix/lib/qsbit-sim/venv/bin/python"
+uv sync --frozen --group build --extra stim
+uv run --frozen --extra stim cmake --preset clang-ninja -DQSBIT_PYTHON_BACKENDS=ON
 cmake --build --preset clang-ninja --parallel
-cmake --install build-clang --prefix "$qsbit_prefix"
-export PATH="$qsbit_prefix/bin:$PATH"
-qsbit-sim --installation-info
+cmake --install build-clang --prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+uv run --frozen --extra stim qsbit-sim --list-backends
+```
+
+Select the required extras from [pyproject.toml](../pyproject.toml). `uv sync`
+installs the backend package and its dependencies in the project's `.venv`.
+`uv run` selects that environment for both build-tree and installed simulators.
+With an activated compatible environment, invoke the simulator directly:
+
+```sh
+source .venv/bin/activate
 qsbit-sim --list-backends
 ```
 
-Use the configured library subdirectory instead of `lib` if overriding
-`CMAKE_INSTALL_LIBDIR`. Package provisioning is explicit and may access the
-network; normal CMake builds and simulator launches never install dependencies.
-The install step rejects a missing environment, mismatched Python major/minor
-version, editable backend, or backend source files differing from this checkout.
-It checks before replacing the native executable. The native bridge loads the
-dedicated venv and verifies the imported backend location. Outer Python variables,
-user site packages, and the current directory cannot select another backend.
+CMake installs only the native executable, launcher, web assets, metadata, and
+C++ contracts. It does not create a Python environment, copy backend Python code,
+or install packages. Installation also works with `DESTDIR`. Users manage Python
+packages in their own environment. For another environment, run
+`python -m pip install '.[stim]'` from this checkout with that environment activated.
 
-The prefix is fixed: do not move its venv after installation or use `DESTDIR` for
-a Python-enabled runtime. Keep the base Python installation, linked Python library,
-and other native shared libraries (including SystemC) available. Source and build
-trees are not runtime resources. This is not a self-contained CPython distribution.
+Build-tree and installed commands select `QSBIT_PYTHON` when explicitly set,
+then `VIRTUAL_ENV/bin/python`. Without either, build-tree commands use their
+configured interpreter; installed commands search PATH for `pythonX.Y`, matching
+the bridge's build-time Python major/minor version. Interpreter symlinks retain
+the environment path. Keep the linked Python library and native dependencies
+available. The selected environment must use the matching Python major/minor and
+contain `qsbit-sim-backends` and the selected backend's dependencies.
 
-For upgrades, stop applications and simulations using the prefix, export the new
-checkout's locked dependencies with all desired extras, sync the dedicated venv,
-install the new checkout non-editably, then rebuild and reinstall. Restart Studio
-or other consumers to refresh their discovery metadata. `uv pip sync` removes
-packages not in the selected export, so retain all required extras. For a Python
-major/minor change, recreate the venv and reconfigure/rebuild against it. Installation
-is not an atomic hot upgrade; recover interrupted updates by completing these steps.
+The backend is imported from that environment. There is no simulator-owned copy
+or hidden source injection. Python user-site, current-directory and `PYTHONPATH`
+imports are disabled; explicit `--python-path` remains available for custom adapters.
+Missing interpreters or packages produce configuration errors. The native mock
+backend and `--help` do not require a Python environment.
+
+For updates, stop active consumers, update the backend package/dependencies in
+the chosen environment, rebuild and reinstall native code, then restart consumers.
+Keep the external backend package compatible with the native simulator. Studio
+inherits its launch environment and validates it through simulator discovery;
+activate the correct environment before starting Studio.
 
 ### Installation discovery
 
-`qsbit-sim --installation-info` writes a single JSON object to stdout without
-starting a simulation or importing numerical backends. Schema 1 contains `version`,
-`revision`, `installed`, `player_api` (currently 1), absolute `web_root`,
+`qsbit-sim --installation-info` writes a JSON object to stdout. Schema 1 contains
+`version`, `revision`, `installed`, `player_api` (currently 1), absolute `web_root`,
 `python_enabled`, and absolute `python`/`backend` paths (null without the bridge).
-SystemC's banner may appear on stderr. Build-tree commands report their configured
-source resources with `installed: false`. Installed commands discover resources
-relative to the native executable and reject missing Python runtime files.
-Executable discovery uses Linux procfs or macOS dyld and resolves symbolic links
-before locating resources; it does not depend on the launch directory.
+With the bridge enabled it initializes the selected Python interpreter and imports
+only the base `qsbit_backend` package to report its actual location, failing clearly
+if that package is missing. It does not run a simulation or import numerical
+backends. SystemC's banner may appear on stderr. Build-tree commands report their
+source web directory; installed commands locate web assets beside the native binary.
 
-**CTest:** `cli.install` verifies discovery, installed player bytes, execution from
-an unrelated directory through a symlink and a prefix containing spaces, and
-launcher argument, exit-status, PID and termination-signal preservation. With the
-bridge enabled it rejects stale backend installation, checks polluted-environment
-isolation for both launcher and native entry point, and checks missing runtime files.
+**CTest:** `cli.install` checks installation without Python provisioning, external
+environment selection through activation, explicit override and PATH, actual backend
+location, missing-package diagnostics, mock execution without Python, player bytes,
+symlink/prefix-with-spaces support, and launcher argument, status, PID and signals.
 
 ## Enable tests
 

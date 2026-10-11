@@ -13,7 +13,12 @@ using namespace qsbit::app;
 int sc_main(int argc, char **argv) {
   try {
     if (argc == 2 && std::string(argv[1]) == "--installation-info") {
-      std::cout << installation_info() << '\n';
+      auto layout = runtime_layout();
+#ifdef QSBIT_HAS_PYTHON
+      PythonSession session("");
+      layout.backend = session.backend_directory();
+#endif
+      std::cout << installation_info(layout) << '\n';
       return 0;
     }
     sc_core::sc_set_time_resolution(1, sc_core::SC_NS);

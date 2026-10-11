@@ -1,4 +1,4 @@
-"""Exercise a fixed-prefix installation with isolated, offline Python fixtures."""
+"""Exercise native installation and caller-selected external Python environments."""
 
 import argparse
 import importlib.metadata
@@ -28,8 +28,8 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
     if args.python:
         # Install dependency files already provisioned for the build, without network access.
         # The full integration workflow installs the locked wheel normally with uv/pip.
-        venv.EnvBuilder(with_pip=False).create(root / "venv")
-        interpreter = root / "venv/bin/python"
+        venv.EnvBuilder(with_pip=False).create(directory / "external environment")
+        interpreter = directory / "external environment/bin/python"
         site = Path(
             subprocess.check_output(
                 [interpreter, "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
@@ -64,16 +64,23 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
             backend,
             ignore=shutil.ignore_patterns("__pycache__"),
         )
-        # Installation must reject the exact stale-adapter failure seen in Studio.
-        stim = backend / "stim.py"
-        original = stim.read_bytes()
-        stim.write_text("# stale adapter\n")
-        failed = subprocess.run(
-            ["cmake", "--install", args.build, "--prefix", prefix], capture_output=True, text=True
-        )
-        assert failed.returncode != 0 and "Stale backend" in failed.stderr, failed.stderr
-        stim.write_bytes(original)
-    subprocess.run(["cmake", "--install", args.build, "--prefix", prefix], check=True)
+    install_environment = dict(
+        os.environ, QSBIT_PYTHON="/missing/python", VIRTUAL_ENV="/missing/venv"
+    )
+    subprocess.run(
+        ["cmake", "--install", args.build, "--prefix", prefix], env=install_environment, check=True
+    )
+    assert not (root / "venv").exists()
+    assert not list(root.rglob("qsbit_backend"))
+    staged = directory / "staging"
+    subprocess.run(
+        ["cmake", "--install", args.build, "--prefix", "/opt/qsbit"],
+        env=dict(install_environment, DESTDIR=str(staged)),
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    assert (staged / "opt/qsbit" / args.bindir / "qsbit-sim").is_file()
+    assert not list(staged.rglob("qsbit_backend"))
     simulator = prefix / args.bindir / "qsbit-sim"
     # A symlink and unrelated cwd must not change installation discovery.
     alias = directory / "sim-alias"
@@ -81,6 +88,12 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
     environment = dict(os.environ)
     for key in ("QSBIT_PYTHON", "VIRTUAL_ENV", "PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE"):
         environment.pop(key, None)
+
+    mock_environment = dict(
+        environment, QSBIT_PYTHON="/missing/python", VIRTUAL_ENV="/missing/venv"
+    )
+    if args.python:
+        environment["VIRTUAL_ENV"] = str(interpreter.parent.parent)
 
     def command(*arguments, env=environment, success=True):
         result = subprocess.run(
@@ -96,7 +109,15 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
     assert (Path(info["web_root"]) / "trace-player.js").read_bytes() == (
         args.source / "web/trace-player.js"
     ).read_bytes()
-    command("--program", str(args.program), "--backend", "mock", "--summary", "summary.json")
+    command(
+        "--program",
+        str(args.program),
+        "--backend",
+        "mock",
+        "--summary",
+        "summary.json",
+        env=mock_environment,
+    )
     assert json.loads((directory / "summary.json").read_text())["success"]
     # A controlled native entry point verifies the launcher's process contract.
     native = root / "qsbit-sim-native"
@@ -131,14 +152,24 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
         (poison / "__init__.py").write_text("raise RuntimeError('wrong backend loaded')\n")
         polluted = dict(
             environment,
-            QSBIT_PYTHON="/missing/python",
-            VIRTUAL_ENV="/missing/venv",
             PYTHONHOME="/missing/home",
             PYTHONPATH=str(directory),
             PYTHONUSERBASE=str(directory),
         )
         command("--list-backends", env=polluted)
-        # Also exercise the native binary: isolation cannot depend only on a shell wrapper.
+        selected = dict(polluted, QSBIT_PYTHON=str(interpreter), VIRTUAL_ENV="/missing/venv")
+        assert json.loads(command("--installation-info", env=selected).stdout)["python"] == str(
+            interpreter
+        )
+        # PATH lookup preserves a venv interpreter's path even without activation.
+        path_only = dict(
+            environment, PATH=str(interpreter.parent) + os.pathsep + environment["PATH"]
+        )
+        path_only.pop("VIRTUAL_ENV")
+        assert (
+            Path(json.loads(command("--installation-info", env=path_only).stdout)["python"]).parent
+            == interpreter.parent
+        )
         result = subprocess.run(
             [root / "qsbit-sim-native", "--list-backends"],
             cwd=directory,
@@ -149,8 +180,10 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
         assert result.returncode == 0, result.stderr
         saved = backend.with_name("backend-hidden")
         backend.rename(saved)
-        command("--installation-info", success=False)
+        missing = command("--installation-info", success=False)
+        assert "Cannot import qsbit_backend" in missing.stderr
+        command("--program", str(args.program), "--backend", "mock", env=mock_environment)
         saved.rename(backend)
         interpreter.unlink()
         command("--list-backends", success=False)
-    print("Installed runtime discovery, resource pairing and Python isolation passed.")
+    print("Native-only installation, external Python selection and environment errors passed.")

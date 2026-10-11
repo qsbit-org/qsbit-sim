@@ -2,5 +2,4 @@
 set -eu
 entry=$(readlink -f -- "$0")
 root=$(CDPATH= cd -- "$(dirname -- "$entry")/@QSBIT_RUNTIME_FROM_BIN@" && pwd)
-unset QSBIT_PYTHON VIRTUAL_ENV PYTHONHOME PYTHONPATH PYTHONUSERBASE PYTHONSTARTUP
 exec "$root/qsbit-sim-native" "$@"

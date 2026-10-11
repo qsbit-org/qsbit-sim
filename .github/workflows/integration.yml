@@ -67,11 +67,6 @@ jobs:
           cmake --preset clang-ninja -DBUILD_TESTING=OFF -DQSBIT_BUILD_EXAMPLES=OFF \
             -DQSBIT_PYTHON_BACKENDS=ON -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
           cmake --build --preset clang-ninja --parallel 2
-          uv export --frozen --extra aer --extra qec --no-dev --no-emit-project \
-            --format requirements-txt > build-clang/runtime-requirements.txt
-          uv venv --python "$PWD/.venv/bin/python" "$RUNNER_TEMP/qsbit/lib/qsbit-sim/venv"
-          uv pip sync --python "$RUNNER_TEMP/qsbit/lib/qsbit-sim/venv/bin/python" build-clang/runtime-requirements.txt
-          uv pip install --python "$RUNNER_TEMP/qsbit/lib/qsbit-sim/venv/bin/python" --no-deps .
           cmake --install build-clang --prefix "$RUNNER_TEMP/qsbit"
           echo "$RUNNER_TEMP/qsbit/bin" >> "$GITHUB_PATH"
       - name: Build compiler and register integration tests
