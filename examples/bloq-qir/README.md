@@ -55,6 +55,10 @@ the PyMatching model.
 
 The physical circuit executes ideal gates. The exported reference uses
 uniform depolarization probability 0.001 to construct the matching weights.
+Reset uses a native electronics operation with an assumed 80 ns resource
+occupancy and produces no CPU measurement result. Its ideal state change occurs
+at the operation start; the duration is an experiment assumption, not a measured
+hardware latency.
 This example validates ideal memory execution and the decoder interface.
 For explicitly injected errors, use the [surface-code QEC example](../qec/README.md).
 

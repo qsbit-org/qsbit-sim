@@ -33,12 +33,10 @@ def mappings_for(text, qubits):
         operands = tuple(identifiers[:2] if name == "cx" else identifiers[:1])
         if any(qubit >= qubits for qubit in operands):
             raise ValueError("exported operation exceeds the declared qubit count")
-        operation = {"mz": "measure", "reset": "measure"}.get(name, name)
+        operation = {"mz": "measure"}.get(name, name)
         if variant == "adj":
             operation += "dg"
         operations.add((operation, operands))
-        if name == "reset":
-            operations.add(("x", operands))
     if not operations:
         raise ValueError("exported QIR contains no quantum operations")
     return [
@@ -47,7 +45,8 @@ def mappings_for(text, qubits):
             "qubits": list(operands),
             "port": operands[0],
             "codeword": codeword,
-            "duration_ns": 40 if operation == "measure" else 20,
+            # Native reset occupies the resource for an assumed 80 ns.
+            "duration_ns": 80 if operation == "reset" else 40 if operation == "measure" else 20,
         }
         for codeword, (operation, operands) in enumerate(sorted(operations), 1)
     ]
