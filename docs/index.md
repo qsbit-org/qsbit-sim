@@ -57,7 +57,6 @@ decoding
 simulation-model
 high-level-design
 architecture
-decisions/0001-initial-implementation
 ```
 
 ```{toctree}

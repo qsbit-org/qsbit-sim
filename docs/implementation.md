@@ -133,6 +133,3 @@ raise `IllegalInstruction`.
 Session reset clears all cores, the synchronization network, the decoder system
 and quantum state while preserving the profiles.
 A controller-only reset that preserves qubit state is not implemented.
-
-See [ADR 0001](decisions/0001-initial-implementation.md) for the implementation
-choices.
