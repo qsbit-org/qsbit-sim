@@ -5,9 +5,8 @@
 [![License](https://img.shields.io/github/license/qsbit-org/qsbit-sim)](LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](docs/prerequisites.md)
 
-qsbit-sim models quantum-control hardware: CPU execution, timed outputs,
-measurement feedback and synchronization between controllers. It runs RV32I
-programs with qsbit control instructions, using C++20 and SystemC.
+In fault-tolerant quantum computing, delays in classical control and decoding can stall quantum execution. qsbit-sim provides cycle-level simulation of quantum control systems to help evaluate architectural trade-offs and identify timing bottlenecks before hardware implementation.
+
 
 The project is inspired by [CACTUS](https://github.com/gtaifu/CACTUS), a
 quantum-control architecture simulator.
