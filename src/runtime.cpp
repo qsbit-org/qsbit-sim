@@ -93,10 +93,12 @@ std::string installation_info(const RuntimeLayout &layout) {
                       {"web_root", layout.web_root.string()},
                       {"python_enabled", layout.python_enabled},
                       {"python", nullptr},
-                      {"backend", nullptr}};
+                      {"backend", nullptr},
+                      {"backend_api", nullptr}};
   if (layout.python_enabled) {
     info["python"] = layout.python.string();
     info["backend"] = layout.backend.string();
+    info["backend_api"] = PythonBackendApiVersion;
   }
   return info.dump();
 }

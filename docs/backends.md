@@ -72,7 +72,8 @@ match the linked bridge, and its linked library must remain available.
 
 The native installation contains no venv or backend Python package. Imports come
 from the selected environment, including editable packages installed by `uv sync`.
-Update that package alongside native simulator updates. `--installation-info`
+Update that package alongside native simulator updates. The simulator rejects a
+Python package whose backend API version differs from the native bridge. `--installation-info`
 checks the base package and reports its actual location so consumers such as Studio
 can reject missing environments at startup.
 

@@ -97,6 +97,12 @@ PythonSession::PythonSession(const std::string &directory) : impl_(std::make_uni
     py::module_::import("sys").attr("path").attr("insert")(0, directory);
   try {
     (void)py::module_::import("qsbit_backend");
+    const auto version =
+        py::module_::import("qsbit_backend.protocol").attr("API_VERSION").cast<unsigned>();
+    require(version == PythonBackendApiVersion, ErrorCode::BackendFailure,
+            "Python backend API mismatch: native expects " +
+                std::to_string(PythonBackendApiVersion) + ", package provides " +
+                std::to_string(version));
   } catch (const py::error_already_set &e) {
     throw Fault(ErrorCode::BackendFailure,
                 "Cannot import qsbit_backend from the selected Python environment. Install "

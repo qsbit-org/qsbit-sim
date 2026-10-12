@@ -146,6 +146,15 @@ with tempfile.TemporaryDirectory(prefix="qsbit-install-") as temporary:
         saved_native.rename(native)
     if args.python:
         assert Path(info["backend"]) == backend
+        assert info["backend_api"] == 4
+        protocol = backend / "protocol.py"
+        original = protocol.read_text()
+        try:
+            protocol.write_text("API_VERSION = 99999\n")
+            incompatible = command("--installation-info", success=False)
+            assert "Python backend API mismatch" in incompatible.stderr
+        finally:
+            protocol.write_text(original)
         assert Path(info["python"]) == interpreter
         poison = directory / "qsbit_backend"
         poison.mkdir()

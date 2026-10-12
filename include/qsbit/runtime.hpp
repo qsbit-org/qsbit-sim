@@ -3,6 +3,7 @@
 #include <string>
 
 namespace qsbit {
+inline constexpr unsigned PythonBackendApiVersion = 4;
 struct RuntimeLayout {
   bool installed = false;
   bool python_enabled = false;
